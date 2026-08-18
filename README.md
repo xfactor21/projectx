@@ -26,7 +26,10 @@ The current app is a functional local-first project manager, not a static mockup
 - Archive view
 - Activity snapshot
 - Persistent browser storage via `localStorage`
-- JSON backup export
+- JSON backup export/import
+- Real public GitHub repository discovery and metadata sync
+- Secure Vercel deployment adapter via server-side API route
+- Repository media covers and live metadata
 - Multiple visual modes:
   - Grid
   - Storefront
@@ -58,21 +61,23 @@ npm run build
 npm run lint
 ```
 
+## Integration environment
+
+The GitHub public-repository integration requires no secret. Vercel deployment status is proxied server-side so tokens never enter the browser bundle.
+
+For Vercel live deployment sync, configure:
+
+```text
+VERCEL_API_TOKEN=...
+VERCEL_TEAM_ID=...   # optional when the token only needs one scope
+```
+
 ## Architecture status
 
-The current version is deliberately **local-first**. Project data is stored in the browser so the UX and data model can stabilize without blocking on backend infrastructure.
-
-The next production layer is real account/cloud synchronization plus authenticated integrations for GitHub and deployment providers. Those integrations should be implemented as real services; project.X should not display fake sync states or simulated repository/deployment data.
-
-## Planned production integrations
-
-1. Supabase authentication + project sync
-2. GitHub repository discovery and metadata sync
-3. Vercel deployment/status integration
-4. Project screenshots and media
-5. Rich activity history
-6. Optional xOS module adapter after the standalone product is stable
+project.X remains local-first while live integrations are being layered in. Project records persist in the browser, GitHub metadata can be discovered and refreshed from the public API, and the Vercel adapter becomes active when its server-side environment token is configured.
 
 ## Repository
 
 `xfactor21/projectx`
+
+<!-- phase3-ci-verify -->
