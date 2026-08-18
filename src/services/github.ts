@@ -1,0 +1,78 @@
+export type GitHubRepo = {
+  id: number
+  name: string
+  full_name: string
+  html_url: string
+  homepage: string | null
+  description: string | null
+  language: string | null
+  topics: string[]
+  stargazers_count: number
+  forks_count: number
+  open_issues_count: number
+  archived: boolean
+  fork: boolean
+  default_branch: string
+  pushed_at: string
+  updated_at: string
+}
+
+const githubHeaders = {
+  Accept: 'application/vnd.github+json',
+  'X-GitHub-Api-Version': '2022-11-28',
+}
+
+export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
+  const cleanOwner = owner.trim()
+  if (!cleanOwner) throw new Error('GitHub owner is required.')
+
+  const response = await fetch(
+    `https://api.github.com/users/${encodeURIComponent(cleanOwner)}/repos?per_page=100&sort=updated&type=owner`,
+    { headers: githubHeaders },
+  )
+
+  if (!response.ok) {
+    const rateRemaining = response.headers.get('x-ratelimit-remaining')
+    if (response.status === 403 && rateRemaining === '0') {
+      throw new Error('GitHub public API rate limit reached. Try again later.')
+    }
+    if (response.status === 404) throw new Error(`GitHub user “${cleanOwner}” was not found.`)
+    throw new Error(`GitHub sync failed (${response.status}).`)
+  }
+
+  const repos = await response.json() as GitHubRepo[]
+  return repos.filter((repo) => !repo.fork)
+}
+
+export function repoNameFromUrl(repoUrl: string) {
+  try {
+    const url = new URL(repoUrl)
+    if (url.hostname !== 'github.com') return null
+    const parts = url.pathname.split('/').filter(Boolean)
+    if (parts.length < 2) return null
+    return `${parts[0]}/${parts[1].replace(/\.git$/i, '')}`
+  } catch {
+    return null
+  }
+}
+
+export async function fetchRepoByFullName(fullName: string): Promise<GitHubRepo> {
+  const response = await fetch(`https://api.github.com/repos/${fullName}`, { headers: githubHeaders })
+  if (!response.ok) throw new Error(`Unable to load ${fullName} from GitHub.`)
+  return response.json() as Promise<GitHubRepo>
+}
+
+export function relativeDate(isoDate: string) {
+  const timestamp = new Date(isoDate).getTime()
+  if (!Number.isFinite(timestamp)) return 'Unknown'
+  const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000))
+  if (minutes < 2) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.round(days / 30)
+  if (months < 12) return `${months}mo ago`
+  return `${Math.round(months / 12)}y ago`
+}
