@@ -4,10 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>projectx</title>
+    <meta name="theme-color" content="#07080b" />
+    <title>project.X</title>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      try {
+        const schemaKey = 'projectx.schema.v2'
+        if (!localStorage.getItem(schemaKey)) {
+          localStorage.removeItem('projectx.projects.v1')
+          localStorage.removeItem('projectx.view.v1')
+          localStorage.setItem(schemaKey, '1')
+        }
+      } catch (error) {
+        console.warn('project.X storage reset skipped', error)
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
