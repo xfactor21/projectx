@@ -76,3 +76,5 @@ The next production layer is real account/cloud synchronization plus authenticat
 ## Repository
 
 `xfactor21/projectx`
+
+<!-- CI debug branch: verifies build without changing application code. -->
