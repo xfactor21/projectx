@@ -6,49 +6,32 @@ project.X is intentionally being built **outside xOS first**. Once the manager i
 
 ## Current build
 
-The current app is a functional local-first project manager, not a static mockup.
+project.X is now a functional local-first project manager with a real live-data integration layer.
 
 ### Working now
 
-- Create projects
-- Edit projects
-- Delete projects
-- Archive and restore projects
-- Favorite projects
-- Search by project name, description, subtitle, or tech stack
-- Filter by status
-- Track build progress
-- Store repository and live deployment URLs
-- Launch repository/deployment links
-- Store project notes
+- Create, edit, delete, archive, restore, and favorite projects
+- Search and filter projects
+- Track status, stack, notes, and progress
 - Project detail drawer
-- Favorites view
-- Archive view
-- Activity snapshot
-- Persistent browser storage via `localStorage`
-- JSON backup export
-- Multiple visual modes:
-  - Grid
-  - Storefront
-  - Vending
-  - Comic
-  - 3D
+- Persistent browser storage
+- JSON backup export **and import**
+- Grid, Storefront, Vending, Comic, and 3D presentation modes
+- Real public GitHub repository discovery/import
+- GitHub metadata refresh: language, stars, forks, open issues, branch, last push
+- Automatic GitHub Open Graph media covers
+- Repository and live deployment actions
+- Secure server-side Vercel deployment adapter
+- Automatic Vercel-to-project deployment matching when connected
+- Visible runtime recovery screen instead of silent blank-page failures
 - Responsive desktop/mobile layout
-- Automated GitHub Actions build + lint verification
-
-## Visual direction
-
-- Dark/graphite foundation
-- Hot pink + cyan primary accents
-- Violet secondary accent
-- Subtle X motifs
-- Futuristic developer-tool aesthetic without turning into a novelty UI
+- GitHub Actions build + lint verification
 
 ## Run locally
 
 ```bash
 npm install
-npm run dev
+npm run dev -- --port 5175 --host 127.0.0.1
 ```
 
 Build verification:
@@ -58,20 +41,32 @@ npm run build
 npm run lint
 ```
 
+## Phase 3 integrations
+
+### GitHub
+
+Public GitHub sync works without secrets. Set the GitHub owner in the app and choose **Sync GitHub**. Repositories are imported or matched to existing project records and refreshed with live metadata.
+
+### Vercel
+
+Vercel sync is intentionally proxied through `/api/vercel-projects` so a Vercel token is never shipped to the browser.
+
+Configure these server-side environment values in the Vercel project:
+
+```text
+VERCEL_API_TOKEN=...
+VERCEL_TEAM_ID=...
+```
+
+`VERCEL_TEAM_ID` is optional when the token only needs one scope. See `.env.example`.
+
+## Deployment
+
+The repository includes `vercel.json` with the Vite build/output settings and SPA fallback routing required for project.X.
+
 ## Architecture status
 
-The current version is deliberately **local-first**. Project data is stored in the browser so the UX and data model can stabilize without blocking on backend infrastructure.
-
-The next production layer is real account/cloud synchronization plus authenticated integrations for GitHub and deployment providers. Those integrations should be implemented as real services; project.X should not display fake sync states or simulated repository/deployment data.
-
-## Planned production integrations
-
-1. Supabase authentication + project sync
-2. GitHub repository discovery and metadata sync
-3. Vercel deployment/status integration
-4. Project screenshots and media
-5. Rich activity history
-6. Optional xOS module adapter after the standalone product is stable
+The app remains local-first while account/cloud synchronization is prepared as the next layer. GitHub is already live. Vercel becomes live as soon as its server-side environment token is configured.
 
 ## Repository
 
