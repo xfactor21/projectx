@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import './App.css'
 
 type ProjectStatus = 'Live' | 'Building' | 'Concept' | 'Paused'
@@ -416,41 +417,58 @@ function App() {
           </div>
         </section>
 
-        {activeNav !== 'Activity' && (
+        <section className="controls-row">
+          <div className="filter-group" aria-label="Project status filters">
+            {statuses.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={status === item ? 'filter-chip active' : 'filter-chip'}
+                onClick={() => setStatus(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          <div className="view-switcher" aria-label="View modes">
+            {viewModes.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={viewMode === mode ? 'view-button active' : 'view-button'}
+                onClick={() => setViewMode(mode)}
+                title={`${mode} view`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {activeNav === 'Activity' ? (
+          <section className="activity-panel">
+            <div className="section-heading">
+              <div><p className="eyebrow">WORKSPACE PULSE</p><h3>Current build activity</h3></div>
+              <span className="result-count">LOCAL SNAPSHOT</span>
+            </div>
+            <div className="activity-list">
+              {activity.map((item, index) => (
+                <button key={item.id} type="button" onClick={() => setSelectedId(item.id)}>
+                  <span className="activity-number">{String(index + 1).padStart(2, '0')}</span>
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                  <b>↗</b>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
           <>
-            <section className="controls-row">
-              <div className="filter-group" aria-label="Project status filters">
-                {statuses.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={status === item ? 'filter-chip active' : 'filter-chip'}
-                    onClick={() => setStatus(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-
-              <div className="view-switcher" aria-label="View modes">
-                {viewModes.map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    className={viewMode === mode ? 'view-button active' : 'view-button'}
-                    onClick={() => setViewMode(mode)}
-                    title={`${mode} view`}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            </section>
-
             <section className="section-heading">
               <div>
                 <p className="eyebrow">CURRENT VIEW / {viewMode.toUpperCase()}</p>
-                <h3>{activeNav === 'Projects' ? 'Project gallery' : activeNav}</h3>
+                <h3>{activeNav === 'Archive' ? 'Archived projects' : activeNav === 'Favorites' ? 'Favorite projects' : 'Project gallery'}</h3>
               </div>
               <span className="result-count">{visibleProjects.length.toString().padStart(2, '0')} PROJECTS</span>
             </section>
@@ -458,19 +476,10 @@ function App() {
             <section className={`project-grid view-${viewMode.toLowerCase()}`}>
               {visibleProjects.map((project, index) => (
                 <article className={`project-card accent-${project.accent}`} key={project.id}>
-                  <button className="card-hit-area" type="button" aria-label={`Open ${project.name} details`} onClick={() => setSelectedId(project.id)} />
-                  <div className="card-visual">
+                  <div className="card-visual" onClick={() => setSelectedId(project.id)} role="button" tabIndex={0}>
                     <div className="visual-grid" />
-                    <span className="project-index">{(index + 1).toString().padStart(2, '0')}</span>
+                    <span className="project-index">{String(index + 1).padStart(2, '0')}</span>
                     <span className={`status-pill status-${project.status.toLowerCase()}`}>{project.status}</span>
-                    <button
-                      className={project.favorite ? 'favorite-button active' : 'favorite-button'}
-                      type="button"
-                      aria-label={`${project.favorite ? 'Unfavorite' : 'Favorite'} ${project.name}`}
-                      onClick={(event) => { event.stopPropagation(); toggleFavorite(project.id) }}
-                    >
-                      {project.favorite ? '★' : '☆'}
-                    </button>
                     <div className="monogram">{initials(project.name)}</div>
                     <div className="visual-x">X</div>
                   </div>
@@ -481,161 +490,114 @@ function App() {
                         <p>{project.kicker}</p>
                         <h4>{project.name}</h4>
                       </div>
-                      <button className="icon-button" type="button" aria-label={`Edit ${project.name}`} onClick={() => openEdit(project)}>✎</button>
+                      <div className="title-actions">
+                        <button className={project.favorite ? 'icon-button favorite' : 'icon-button'} type="button" onClick={() => toggleFavorite(project.id)} aria-label="Toggle favorite">★</button>
+                        <button className="icon-button" type="button" onClick={() => setSelectedId(project.id)} aria-label={`Open ${project.name}`}>↗</button>
+                      </div>
                     </div>
 
-                    <p className="project-description">{project.description || 'No description yet.'}</p>
-
-                    <div className="stack-row">
-                      {project.stack.length ? project.stack.map((tech) => <span key={tech}>{tech}</span>) : <span>Unspecified stack</span>}
-                    </div>
-
+                    <p className="project-description">{project.description}</p>
+                    <div className="stack-row">{project.stack.map((tech) => <span key={tech}>{tech}</span>)}</div>
                     <div className="progress-block">
                       <div className="progress-meta"><span>Build progress</span><strong>{project.progress}%</strong></div>
                       <div className="progress-track"><span style={{ width: `${project.progress}%` }} /></div>
                     </div>
-
                     <div className="card-footer">
                       <span>Updated {project.updated}</span>
                       <div>
                         <button type="button" disabled={!project.repoUrl} onClick={() => safeOpen(project.repoUrl)}>Repo</button>
                         <button type="button" disabled={!project.liveUrl} onClick={() => safeOpen(project.liveUrl)}>Launch</button>
+                        <button type="button" onClick={() => openEdit(project)}>Edit</button>
                       </div>
                     </div>
                   </div>
                 </article>
               ))}
 
+              {visibleProjects.length === 0 && (
+                <div className="empty-state"><span>∅</span><strong>No projects found</strong><p>Change the filters or add something new.</p></div>
+              )}
+
               {activeNav !== 'Archive' && (
                 <button className="new-project-card" type="button" onClick={openNewProject}>
-                  <span className="new-project-plus">+</span>
-                  <strong>New project</strong>
-                  <span>Connect a repo, URL, or start fresh</span>
+                  <span className="new-project-plus">+</span><strong>New project</strong><span>Connect a repo, URL, or start fresh</span>
                 </button>
               )}
             </section>
-
-            {!visibleProjects.length && (
-              <div className="empty-state">
-                <span>Ø</span>
-                <strong>No projects here.</strong>
-                <p>Change the filters or add something new.</p>
-                <button type="button" onClick={openNewProject}>Add project</button>
-              </div>
-            )}
           </>
         )}
 
-        {activeNav === 'Activity' && (
-          <section className="activity-panel">
-            <div className="section-heading">
-              <div><p className="eyebrow">WORKSPACE SIGNAL</p><h3>Activity snapshot</h3></div>
-              <span className="result-count">LOCAL DATA</span>
-            </div>
-            <div className="activity-list">
-              {activity.map((item, index) => (
-                <button key={item.id} type="button" onClick={() => setSelectedId(item.id)}>
-                  <span className="activity-index">{(index + 1).toString().padStart(2, '0')}</span>
-                  <span><strong>{item.title}</strong><small>{item.detail}</small></span>
-                  <span>→</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
         <footer className="workspace-footer">
-          <span>project.X // standalone build</span>
-          <span>Local-first now · cloud sync layer next</span>
+          <span>project.X // local-first standalone build</span>
+          <span>Cloud and xOS integration intentionally decoupled</span>
         </footer>
       </main>
 
       {selectedProject && (
-        <div className="drawer-backdrop" onMouseDown={() => setSelectedId(null)}>
-          <aside className="detail-drawer" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="drawer-topline">
-              <span className={`status-pill status-${selectedProject.status.toLowerCase()}`}>{selectedProject.status}</span>
-              <button type="button" className="close-button" onClick={() => setSelectedId(null)}>×</button>
+        <div className="drawer-backdrop" onClick={() => setSelectedId(null)}>
+          <aside className={`project-drawer accent-${selectedProject.accent}`} onClick={(event) => event.stopPropagation()}>
+            <button className="drawer-close" type="button" onClick={() => setSelectedId(null)}>×</button>
+            <div className="drawer-hero">
+              <span>{selectedProject.status}</span>
+              <div className="drawer-monogram">{initials(selectedProject.name)}</div>
+              <p>{selectedProject.kicker}</p>
+              <h2>{selectedProject.name}</h2>
             </div>
-            <div className={`drawer-monogram accent-${selectedProject.accent}`}>{initials(selectedProject.name)}</div>
-            <p className="eyebrow">{selectedProject.kicker.toUpperCase()}</p>
-            <h2>{selectedProject.name}</h2>
-            <p className="drawer-description">{selectedProject.description || 'No description yet.'}</p>
-
-            <div className="drawer-progress">
-              <span>BUILD PROGRESS</span><strong>{selectedProject.progress}%</strong>
-              <div className="progress-track"><span style={{ width: `${selectedProject.progress}%` }} /></div>
-            </div>
-
-            <div className="drawer-section">
-              <span>STACK</span>
+            <div className="drawer-content">
+              <p className="drawer-description">{selectedProject.description || 'No description yet.'}</p>
+              <div className="drawer-progress"><span>Progress</span><strong>{selectedProject.progress}%</strong><div><i style={{ width: `${selectedProject.progress}%` }} /></div></div>
               <div className="stack-row">{selectedProject.stack.map((tech) => <span key={tech}>{tech}</span>)}</div>
-            </div>
-
-            <div className="drawer-section">
-              <span>NOTES</span>
-              <p>{selectedProject.notes || 'No notes yet.'}</p>
-            </div>
-
-            <div className="drawer-actions">
-              <button type="button" onClick={() => openEdit(selectedProject)}>Edit project</button>
-              <button type="button" disabled={!selectedProject.repoUrl} onClick={() => safeOpen(selectedProject.repoUrl)}>Open repo ↗</button>
-              <button type="button" disabled={!selectedProject.liveUrl} onClick={() => safeOpen(selectedProject.liveUrl)}>Launch ↗</button>
-            </div>
-
-            <div className="drawer-danger">
-              <button type="button" onClick={() => toggleArchive(selectedProject.id)}>{selectedProject.archived ? 'Restore from archive' : 'Archive'}</button>
-              <button type="button" onClick={() => deleteProject(selectedProject.id)}>Delete</button>
+              <div className="drawer-section"><span>NOTES</span><p>{selectedProject.notes || 'No notes yet.'}</p></div>
+              <div className="drawer-links">
+                <button disabled={!selectedProject.repoUrl} onClick={() => safeOpen(selectedProject.repoUrl)} type="button">Open repository ↗</button>
+                <button disabled={!selectedProject.liveUrl} onClick={() => safeOpen(selectedProject.liveUrl)} type="button">Open live app ↗</button>
+              </div>
+              <div className="drawer-actions">
+                <button type="button" onClick={() => openEdit(selectedProject)}>Edit project</button>
+                <button type="button" onClick={() => toggleFavorite(selectedProject.id)}>{selectedProject.favorite ? 'Remove favorite' : 'Favorite'}</button>
+                <button type="button" onClick={() => toggleArchive(selectedProject.id)}>{selectedProject.archived ? 'Restore' : 'Archive'}</button>
+                <button className="danger" type="button" onClick={() => deleteProject(selectedProject.id)}>Delete</button>
+              </div>
             </div>
           </aside>
         </div>
       )}
 
       {showForm && (
-        <div className="modal-backdrop" onMouseDown={() => setShowForm(false)}>
-          <form className="project-form" onSubmit={saveProject} onMouseDown={(event) => event.stopPropagation()}>
-            <div className="form-header">
-              <div><p className="eyebrow">PROJECT.X / EDITOR</p><h2>{editingId ? 'Edit project' : 'Add project'}</h2></div>
-              <button type="button" className="close-button" onClick={() => setShowForm(false)}>×</button>
+        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
+          <form className="project-modal" onSubmit={saveProject} onClick={(event) => event.stopPropagation()}>
+            <div className="modal-heading">
+              <div><p className="eyebrow">PROJECT RECORD</p><h2>{editingId ? 'Edit project' : 'Add project'}</h2></div>
+              <button type="button" onClick={() => setShowForm(false)}>×</button>
             </div>
-
             <div className="form-grid">
-              <label><span>Name *</span><input autoFocus value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="My new app" required /></label>
-              <label><span>Subtitle</span><input value={draft.kicker} onChange={(e) => setDraft({ ...draft, kicker: e.target.value })} placeholder="What is it?" /></label>
-              <label><span>Status</span><select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as ProjectStatus })}>{statuses.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label><span>Accent</span><select value={draft.accent} onChange={(e) => setDraft({ ...draft, accent: e.target.value as Accent })}><option value="pink">Pink</option><option value="cyan">Cyan</option><option value="violet">Violet</option></select></label>
-              <label className="full"><span>Description</span><textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={3} placeholder="What does this project do?" /></label>
-              <label className="full"><span>Tech stack <small>comma separated</small></span><input value={stackInput} onChange={(e) => setStackInput(e.target.value)} placeholder="React, Supabase, Tauri" /></label>
-              <label className="full range-label"><span>Progress <strong>{draft.progress}%</strong></span><input type="range" min="0" max="100" value={draft.progress} onChange={(e) => setDraft({ ...draft, progress: Number(e.target.value) })} /></label>
-              <label><span>Repository URL</span><input type="url" value={draft.repoUrl} onChange={(e) => setDraft({ ...draft, repoUrl: e.target.value })} placeholder="https://github.com/..." /></label>
-              <label><span>Live URL</span><input type="url" value={draft.liveUrl} onChange={(e) => setDraft({ ...draft, liveUrl: e.target.value })} placeholder="https://..." /></label>
-              <label className="full"><span>Notes</span><textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} rows={3} placeholder="Decisions, blockers, next steps..." /></label>
+              <label><span>Name *</span><input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="project.X" /></label>
+              <label><span>Subtitle</span><input value={draft.kicker} onChange={(event) => setDraft({ ...draft, kicker: event.target.value })} placeholder="Visual app manager" /></label>
+              <label className="wide"><span>Description</span><textarea rows={3} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+              <label><span>Status</span><select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as ProjectStatus })}>{statuses.filter((item) => item !== 'All').map((item) => <option key={item}>{item}</option>)}</select></label>
+              <label><span>Accent</span><select value={draft.accent} onChange={(event) => setDraft({ ...draft, accent: event.target.value as Accent })}><option value="pink">Hot pink</option><option value="cyan">Cyan</option><option value="violet">Violet</option></select></label>
+              <label><span>Progress ({draft.progress}%)</span><input type="range" min="0" max="100" value={draft.progress} onChange={(event) => setDraft({ ...draft, progress: Number(event.target.value) })} /></label>
+              <label><span>Stack</span><input value={stackInput} onChange={(event) => setStackInput(event.target.value)} placeholder="React, Supabase, Vercel" /></label>
+              <label className="wide"><span>Repository URL</span><input type="url" value={draft.repoUrl} onChange={(event) => setDraft({ ...draft, repoUrl: event.target.value })} placeholder="https://github.com/..." /></label>
+              <label className="wide"><span>Live URL</span><input type="url" value={draft.liveUrl} onChange={(event) => setDraft({ ...draft, liveUrl: event.target.value })} placeholder="https://...vercel.app" /></label>
+              <label className="wide"><span>Notes</span><textarea rows={4} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} placeholder="Decisions, blockers, next move..." /></label>
             </div>
-
-            <div className="form-footer">
-              <button type="button" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="save-button" type="submit">{editingId ? 'Save changes' : 'Create project'}</button>
-            </div>
+            <div className="modal-actions"><button type="button" onClick={() => setShowForm(false)}>Cancel</button><button className="add-primary" type="submit">{editingId ? 'Save changes' : 'Create project'}</button></div>
           </form>
         </div>
       )}
 
       {showSettings && (
-        <div className="modal-backdrop" onMouseDown={() => setShowSettings(false)}>
-          <section className="settings-modal" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="form-header">
-              <div><p className="eyebrow">PROJECT.X / SYSTEM</p><h2>Settings</h2></div>
-              <button type="button" className="close-button" onClick={() => setShowSettings(false)}>×</button>
+        <div className="modal-backdrop" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-heading"><div><p className="eyebrow">WORKSPACE</p><h2>Settings</h2></div><button type="button" onClick={() => setShowSettings(false)}>×</button></div>
+            <div className="settings-grid">
+              <button type="button" onClick={exportProjects}><strong>Export backup</strong><span>Download all project records as JSON.</span></button>
+              <button type="button" onClick={resetWorkspace}><strong>Reset starter data</strong><span>Restore the built-in project set.</span></button>
+              <div><strong>Storage</strong><span>Local browser storage. Cloud sync comes next.</span></div>
+              <div><strong>xOS integration</strong><span>Deliberately disabled until project.X stands on its own.</span></div>
             </div>
-            <div className="settings-copy">
-              <strong>Local-first workspace</strong>
-              <p>Projects are stored in this browser for now. Export a JSON backup whenever you want. Cloud account sync is the next infrastructure layer.</p>
-            </div>
-            <div className="settings-actions">
-              <button type="button" onClick={exportProjects}>Export JSON backup</button>
-              <button type="button" onClick={resetWorkspace}>Reset starter data</button>
-            </div>
-          </section>
+          </div>
         </div>
       )}
     </div>
