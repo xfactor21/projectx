@@ -1,11 +1,24 @@
-/* project.X visual mode overrides — intentionally separate from the base shell */
+/* project.X visual mode overrides — Phase 2 presentation layer */
+
+.controls-row {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  margin-inline: -8px;
+  padding: 14px 8px;
+  background: linear-gradient(180deg, rgba(7, 8, 11, .96), rgba(7, 8, 11, .86));
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,.055);
+}
 
 .project-grid {
   align-items: stretch;
+  min-height: 260px;
 }
 
 .project-card {
   min-width: 0;
+  isolation: isolate;
 }
 
 .card-body,
@@ -17,93 +30,241 @@
   min-width: 0;
 }
 
+.card-body {
+  padding: 20px;
+}
+
+.project-title-row h4 {
+  margin-top: 3px;
+  color: #fff;
+  font-size: clamp(21px, 2vw, 29px);
+  line-height: 1.02;
+  letter-spacing: -.045em;
+}
+
+.project-title-row > div > p {
+  color: #a9b0bd;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .025em;
+}
+
 .project-description {
+  color: #b2b8c4;
+  font-size: 13px;
+  line-height: 1.62;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* GRID — readable default */
+.stack-row {
+  gap: 7px;
+}
+
+.stack-row span {
+  color: #d3d8e1;
+  background: rgba(255,255,255,.055);
+  border-color: rgba(255,255,255,.105);
+  font-size: 10px;
+}
+
+.progress-meta span,
+.card-footer > span {
+  color: #89919f;
+}
+
+.card-footer button:not(:disabled),
+.icon-button:not(:disabled) {
+  color: #edf0f6;
+}
+
+.card-footer button:not(:disabled):hover,
+.icon-button:not(:disabled):hover {
+  border-color: rgba(41,224,255,.28);
+  background: rgba(41,224,255,.06);
+}
+
+.card-footer button:disabled {
+  opacity: .22;
+  cursor: not-allowed;
+}
+
+.card-visual[role='button'] {
+  cursor: pointer;
+  outline: none;
+}
+
+.card-visual[role='button']:focus-visible {
+  box-shadow: inset 0 0 0 2px #29e0ff;
+}
+
+.project-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 75% 10%, var(--card-glow), transparent 38%);
+  transition: opacity .22s ease;
+}
+
+.project-card:hover::after,
+.project-card:focus-within::after {
+  opacity: .42;
+}
+
+/* GRID — readable everyday command-center view */
 .view-grid {
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
+  gap: 20px;
 }
 
 .view-grid .project-card {
-  min-height: 430px;
+  min-height: 455px;
 }
 
 .view-grid .card-visual {
-  height: 190px;
+  height: 205px;
 }
 
-/* STOREFRONT — large immersive project windows */
-.view-storefront {
-  grid-template-columns: 1fr;
-  gap: 24px;
-}
-
-.view-storefront .project-card {
-  display: grid;
-  grid-template-columns: minmax(320px, 44%) 1fr;
-  min-height: 300px;
-}
-
-.view-storefront .card-visual {
-  height: 100%;
-  min-height: 300px;
-  border-bottom: 0;
-  border-right: 1px solid rgba(255,255,255,.08);
-}
-
-.view-storefront .monogram {
-  font-size: clamp(54px, 9vw, 112px);
-}
-
-.view-storefront .card-body {
-  padding: 26px 28px;
+.view-grid .card-body {
   display: flex;
   flex-direction: column;
 }
 
+.view-grid .card-footer {
+  margin-top: auto;
+}
+
+/* STOREFRONT — each app becomes a full shop-window / product display */
+.view-storefront {
+  grid-template-columns: 1fr;
+  gap: 30px;
+}
+
+.view-storefront .project-card {
+  display: grid;
+  grid-template-columns: minmax(390px, 48%) 1fr;
+  min-height: 350px;
+  border-color: rgba(255,255,255,.12);
+  box-shadow: 0 26px 70px rgba(0,0,0,.24);
+}
+
+.view-storefront .card-visual {
+  height: 100%;
+  min-height: 350px;
+  border-bottom: 0;
+  border-right: 1px solid rgba(255,255,255,.1);
+}
+
+.view-storefront .card-visual::after {
+  content: 'PROJECT DISPLAY';
+  position: absolute;
+  left: 22px;
+  bottom: 18px;
+  font: 700 8px/1 var(--mono);
+  letter-spacing: .18em;
+  color: rgba(255,255,255,.38);
+}
+
+.view-storefront .monogram {
+  font-size: clamp(70px, 10vw, 132px);
+}
+
+.view-storefront .card-body {
+  padding: 32px 34px;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-storefront .project-title-row h4 {
+  font-size: clamp(30px, 4vw, 48px);
+}
+
 .view-storefront .project-description {
-  font-size: 14px;
+  margin-top: 18px;
+  font-size: 15px;
   line-height: 1.75;
   -webkit-line-clamp: 5;
 }
 
-.view-storefront .card-footer {
-  margin-top: auto;
+.view-storefront .stack-row {
+  margin-top: 20px;
 }
 
-/* VENDING — narrow vertical slots, designed to feel like a machine bay */
+.view-storefront .progress-block {
+  margin-top: 25px;
+}
+
+.view-storefront .card-footer {
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+/* VENDING — compact machine bays; projects feel selectable like cartridges */
 .view-vending {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  padding: 18px;
-  border: 1px solid rgba(41,224,255,.12);
+  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(41,224,255,.16);
   background:
-    linear-gradient(rgba(255,255,255,.02), rgba(255,255,255,.01)),
-    repeating-linear-gradient(90deg, transparent 0 238px, rgba(255,255,255,.025) 238px 239px);
+    linear-gradient(rgba(255,255,255,.022), rgba(255,255,255,.008)),
+    repeating-linear-gradient(90deg, transparent 0 252px, rgba(255,255,255,.026) 252px 253px),
+    #080a0e;
+  box-shadow: inset 0 0 50px rgba(0,0,0,.38);
+}
+
+.view-vending::before {
+  content: 'PROJECT.X // SELECT A BUILD';
+  grid-column: 1 / -1;
+  font: 700 9px/1 var(--mono);
+  letter-spacing: .2em;
+  color: #29e0ff;
+  padding: 2px 3px 8px;
 }
 
 .view-vending .project-card {
-  min-height: 520px;
-  border-color: rgba(255,255,255,.12);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 14px 40px rgba(0,0,0,.2);
+  min-height: 535px;
+  border-color: rgba(255,255,255,.13);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.42), 0 15px 40px rgba(0,0,0,.22);
+}
+
+.view-vending .project-card:hover {
+  transform: translateY(-6px) scale(1.012);
+  border-color: rgba(41,224,255,.28);
 }
 
 .view-vending .card-visual {
-  height: 235px;
+  height: 240px;
+  border-bottom-color: rgba(255,255,255,.12);
+}
+
+.view-vending .card-visual::before {
+  content: 'READY';
+  position: absolute;
+  left: 13px;
+  bottom: 13px;
+  padding: 5px 7px;
+  border: 1px solid rgba(41,224,255,.22);
+  color: #29e0ff;
+  background: rgba(0,0,0,.36);
+  font: 700 8px/1 var(--mono);
+  letter-spacing: .14em;
 }
 
 .view-vending .card-body {
-  padding: 16px;
+  padding: 17px;
 }
 
 .view-vending .project-title-row {
   align-items: flex-start;
+}
+
+.view-vending .project-title-row h4 {
+  font-size: 23px;
 }
 
 .view-vending .project-description {
@@ -111,6 +272,7 @@
 }
 
 .view-vending .card-footer {
+  margin-top: auto;
   flex-direction: column;
   align-items: stretch;
   gap: 12px;
@@ -121,16 +283,16 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
-/* COMIC — staggered panel composition */
+/* COMIC — irregular panel wall, intentionally bold without losing legibility */
 .view-comic {
   grid-template-columns: repeat(12, 1fr);
-  gap: 12px;
+  gap: 15px;
 }
 
 .view-comic .project-card {
   grid-column: span 6;
   border-width: 2px;
-  box-shadow: 8px 8px 0 rgba(255,255,255,.025);
+  box-shadow: 9px 9px 0 rgba(255,255,255,.025);
 }
 
 .view-comic .project-card:nth-child(3n + 1) {
@@ -141,17 +303,40 @@
   grid-column: span 5;
 }
 
+.view-comic .project-card:nth-child(odd) {
+  transform: rotate(-.35deg);
+}
+
+.view-comic .project-card:nth-child(even) {
+  transform: rotate(.35deg);
+}
+
+.view-comic .project-card:hover {
+  transform: rotate(0) translateY(-5px);
+}
+
 .view-comic .card-visual {
-  height: 210px;
+  height: 220px;
 }
 
 .view-comic .project-card:nth-child(even) .card-visual {
-  height: 250px;
+  height: 265px;
+}
+
+.view-comic .card-visual::after {
+  content: 'X';
+  position: absolute;
+  right: -4px;
+  bottom: -29px;
+  font-size: 110px;
+  font-weight: 950;
+  line-height: 1;
+  color: rgba(255,255,255,.025);
+  transform: rotate(-9deg);
 }
 
 .view-comic .project-title-row h4 {
-  font-size: 24px;
-  letter-spacing: -.04em;
+  font-size: 27px;
 }
 
 .view-comic .new-project-card,
@@ -159,72 +344,76 @@
   grid-column: span 12;
 }
 
-/* 3D — perspective carousel-like deck without adding a rendering dependency yet */
+/* 3D — CSS perspective deck; richer spatial feel before a later WebGL renderer */
 .view-3d {
   display: flex;
-  gap: 22px;
+  gap: 28px;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 30px 28px 44px;
-  perspective: 1200px;
-  scroll-snap-type: x proximity;
+  padding: 44px 42px 58px;
+  perspective: 1350px;
+  scroll-snap-type: x mandatory;
   scrollbar-width: thin;
+  border: 1px solid rgba(255,255,255,.055);
+  background: radial-gradient(circle at 50% 110%, rgba(41,224,255,.07), transparent 46%);
 }
 
 .view-3d .project-card {
-  flex: 0 0 min(430px, 78vw);
-  min-height: 470px;
+  flex: 0 0 min(460px, 78vw);
+  min-height: 500px;
   scroll-snap-align: center;
-  transform: rotateY(-7deg) translateZ(0);
+  transform: rotateY(-8deg) translateZ(-18px);
   transform-origin: center center;
-  transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+  transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease, opacity .3s ease;
+  opacity: .84;
 }
 
 .view-3d .project-card:nth-child(even) {
-  transform: rotateY(7deg) translateZ(0);
+  transform: rotateY(8deg) translateZ(-18px);
 }
 
 .view-3d .project-card:hover,
 .view-3d .project-card:focus-within {
-  transform: rotateY(0deg) translateY(-8px) scale(1.015);
+  transform: rotateY(0deg) translateZ(45px) translateY(-10px) scale(1.02);
+  opacity: 1;
   z-index: 2;
-  box-shadow: 0 28px 80px rgba(0,0,0,.38), 0 0 40px rgba(41,224,255,.06);
+  border-color: rgba(41,224,255,.24);
+  box-shadow: 0 34px 95px rgba(0,0,0,.42), 0 0 44px rgba(41,224,255,.075);
 }
 
 .view-3d .card-visual {
-  height: 225px;
+  height: 235px;
 }
 
 .view-3d .new-project-card,
 .view-3d .empty-state {
-  flex: 0 0 320px;
+  flex: 0 0 330px;
+  scroll-snap-align: center;
 }
 
-/* Make card text/actions easier to see in every mode */
-.project-title-row h4 {
-  color: #fff;
+/* Slightly reduce the huge decorative hero once users reach project management */
+@media (min-width: 1100px) {
+  .hero-panel {
+    min-height: 220px;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(34px, 3.6vw, 52px);
+  }
 }
 
-.project-title-row > div > p,
-.project-description,
-.progress-meta span,
-.card-footer > span {
-  color: #9aa1af;
-}
+@media (max-width: 1100px) {
+  .controls-row {
+    position: static;
+  }
 
-.stack-row span {
-  color: #c4cad5;
-  background: rgba(255,255,255,.045);
-  border-color: rgba(255,255,255,.09);
-}
+  .view-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
 
-.card-footer button:not(:disabled),
-.icon-button:not(:disabled) {
-  color: #e8ebf2;
-}
-
-.card-footer button:disabled {
-  opacity: .28;
+  .view-storefront .project-card {
+    grid-template-columns: minmax(300px, 42%) 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -239,6 +428,7 @@
   .view-comic .new-project-card,
   .view-comic .empty-state {
     grid-column: 1;
+    transform: none;
   }
 
   .view-storefront .project-card {
@@ -246,14 +436,40 @@
   }
 
   .view-storefront .card-visual {
-    height: 220px;
-    min-height: 220px;
+    height: 230px;
+    min-height: 230px;
     border-right: 0;
     border-bottom: 1px solid rgba(255,255,255,.08);
   }
 
   .view-vending {
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    padding: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    padding: 12px;
+  }
+
+  .view-3d {
+    padding-inline: 20px;
+  }
+}
+
+@media (max-width: 620px) {
+  .view-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .view-grid .project-card {
+    min-height: 0;
+  }
+
+  .view-vending {
+    grid-template-columns: 1fr;
+  }
+
+  .view-vending .project-card {
+    min-height: 0;
+  }
+
+  .view-3d .project-card {
+    flex-basis: 88vw;
   }
 }
