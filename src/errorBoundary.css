@@ -1,0 +1,77 @@
+.px-crash-screen {
+  min-height: 100vh;
+  padding: 8vh clamp(24px, 7vw, 100px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: #f4f6fb;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,62,176,.14), transparent 32%),
+    radial-gradient(circle at 80% 65%, rgba(41,224,255,.1), transparent 36%),
+    #07080b;
+}
+
+.px-crash-mark {
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,62,176,.65);
+  color: #ff3eb0;
+  font-size: 42px;
+  font-weight: 900;
+  box-shadow: 0 0 42px rgba(255,62,176,.12);
+}
+
+.px-crash-kicker {
+  margin: 26px 0 8px;
+  color: #29e0ff;
+  font: 700 10px/1 ui-monospace, Consolas, monospace;
+  letter-spacing: .18em;
+}
+
+.px-crash-screen h1 {
+  margin: 0;
+  max-width: 900px;
+  font-size: clamp(38px, 7vw, 86px);
+  line-height: .94;
+  letter-spacing: -.06em;
+}
+
+.px-crash-copy {
+  max-width: 680px;
+  margin: 22px 0;
+  color: #a1a8b5;
+  line-height: 1.7;
+}
+
+.px-crash-screen pre {
+  max-width: 980px;
+  overflow: auto;
+  padding: 16px;
+  color: #ffd5ed;
+  background: rgba(255,62,176,.05);
+  border: 1px solid rgba(255,62,176,.18);
+  font-size: 12px;
+}
+
+.px-crash-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.px-crash-actions button {
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: #fff;
+  cursor: pointer;
+}
+
+.px-crash-actions button:hover {
+  border-color: rgba(41,224,255,.35);
+  background: rgba(41,224,255,.06);
+}
