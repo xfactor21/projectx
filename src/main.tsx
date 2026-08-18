@@ -5,6 +5,7 @@ import './errorBoundary.css'
 import App from './App.tsx'
 import ErrorBoundary from './ErrorBoundary.tsx'
 import './viewModes.css'
+import './phase3.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
