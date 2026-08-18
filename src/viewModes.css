@@ -1,0 +1,259 @@
+/* project.X visual mode overrides — intentionally separate from the base shell */
+
+.project-grid {
+  align-items: stretch;
+}
+
+.project-card {
+  min-width: 0;
+}
+
+.card-body,
+.project-title-row,
+.project-description,
+.stack-row,
+.progress-block,
+.card-footer {
+  min-width: 0;
+}
+
+.project-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* GRID — readable default */
+.view-grid {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.view-grid .project-card {
+  min-height: 430px;
+}
+
+.view-grid .card-visual {
+  height: 190px;
+}
+
+/* STOREFRONT — large immersive project windows */
+.view-storefront {
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+.view-storefront .project-card {
+  display: grid;
+  grid-template-columns: minmax(320px, 44%) 1fr;
+  min-height: 300px;
+}
+
+.view-storefront .card-visual {
+  height: 100%;
+  min-height: 300px;
+  border-bottom: 0;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+
+.view-storefront .monogram {
+  font-size: clamp(54px, 9vw, 112px);
+}
+
+.view-storefront .card-body {
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-storefront .project-description {
+  font-size: 14px;
+  line-height: 1.75;
+  -webkit-line-clamp: 5;
+}
+
+.view-storefront .card-footer {
+  margin-top: auto;
+}
+
+/* VENDING — narrow vertical slots, designed to feel like a machine bay */
+.view-vending {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(41,224,255,.12);
+  background:
+    linear-gradient(rgba(255,255,255,.02), rgba(255,255,255,.01)),
+    repeating-linear-gradient(90deg, transparent 0 238px, rgba(255,255,255,.025) 238px 239px);
+}
+
+.view-vending .project-card {
+  min-height: 520px;
+  border-color: rgba(255,255,255,.12);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 14px 40px rgba(0,0,0,.2);
+}
+
+.view-vending .card-visual {
+  height: 235px;
+}
+
+.view-vending .card-body {
+  padding: 16px;
+}
+
+.view-vending .project-title-row {
+  align-items: flex-start;
+}
+
+.view-vending .project-description {
+  -webkit-line-clamp: 4;
+}
+
+.view-vending .card-footer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.view-vending .card-footer > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* COMIC — staggered panel composition */
+.view-comic {
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px;
+}
+
+.view-comic .project-card {
+  grid-column: span 6;
+  border-width: 2px;
+  box-shadow: 8px 8px 0 rgba(255,255,255,.025);
+}
+
+.view-comic .project-card:nth-child(3n + 1) {
+  grid-column: span 7;
+}
+
+.view-comic .project-card:nth-child(3n + 2) {
+  grid-column: span 5;
+}
+
+.view-comic .card-visual {
+  height: 210px;
+}
+
+.view-comic .project-card:nth-child(even) .card-visual {
+  height: 250px;
+}
+
+.view-comic .project-title-row h4 {
+  font-size: 24px;
+  letter-spacing: -.04em;
+}
+
+.view-comic .new-project-card,
+.view-comic .empty-state {
+  grid-column: span 12;
+}
+
+/* 3D — perspective carousel-like deck without adding a rendering dependency yet */
+.view-3d {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 30px 28px 44px;
+  perspective: 1200px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.view-3d .project-card {
+  flex: 0 0 min(430px, 78vw);
+  min-height: 470px;
+  scroll-snap-align: center;
+  transform: rotateY(-7deg) translateZ(0);
+  transform-origin: center center;
+  transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+}
+
+.view-3d .project-card:nth-child(even) {
+  transform: rotateY(7deg) translateZ(0);
+}
+
+.view-3d .project-card:hover,
+.view-3d .project-card:focus-within {
+  transform: rotateY(0deg) translateY(-8px) scale(1.015);
+  z-index: 2;
+  box-shadow: 0 28px 80px rgba(0,0,0,.38), 0 0 40px rgba(41,224,255,.06);
+}
+
+.view-3d .card-visual {
+  height: 225px;
+}
+
+.view-3d .new-project-card,
+.view-3d .empty-state {
+  flex: 0 0 320px;
+}
+
+/* Make card text/actions easier to see in every mode */
+.project-title-row h4 {
+  color: #fff;
+}
+
+.project-title-row > div > p,
+.project-description,
+.progress-meta span,
+.card-footer > span {
+  color: #9aa1af;
+}
+
+.stack-row span {
+  color: #c4cad5;
+  background: rgba(255,255,255,.045);
+  border-color: rgba(255,255,255,.09);
+}
+
+.card-footer button:not(:disabled),
+.icon-button:not(:disabled) {
+  color: #e8ebf2;
+}
+
+.card-footer button:disabled {
+  opacity: .28;
+}
+
+@media (max-width: 900px) {
+  .view-grid,
+  .view-comic {
+    grid-template-columns: 1fr;
+  }
+
+  .view-comic .project-card,
+  .view-comic .project-card:nth-child(3n + 1),
+  .view-comic .project-card:nth-child(3n + 2),
+  .view-comic .new-project-card,
+  .view-comic .empty-state {
+    grid-column: 1;
+  }
+
+  .view-storefront .project-card {
+    grid-template-columns: 1fr;
+  }
+
+  .view-storefront .card-visual {
+    height: 220px;
+    min-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  .view-vending {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    padding: 10px;
+  }
+}
