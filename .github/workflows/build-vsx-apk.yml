@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - tmp/voicestudiox-v27-apk-build
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
