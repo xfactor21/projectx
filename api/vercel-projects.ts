@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 type VercelDeployment = {
   uid: string
   name: string
