@@ -34,6 +34,7 @@ function readLocalProjects(): LocalProject[] {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
     return Array.isArray(parsed) ? parsed : []
   } catch {
+    // Backup should fail safe to an empty collection if local data is malformed instead of crashing the dock.
     return []
   }
 }
@@ -46,6 +47,7 @@ export default function CloudSyncDock() {
   const [expanded, setExpanded] = useState(false)
   const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'Add Supabase publishable key in Vercel')
 
+  // Configuration comes from Vite build-time environment values, so it is stable for the lifetime of this bundle.
   const configured = useMemo(() => isSupabaseConfigured(), [])
 
   async function authenticate(mode: 'signin' | 'signup') {
@@ -59,6 +61,7 @@ export default function CloudSyncDock() {
         setSession(next)
         setMessage(mode === 'signin' ? 'Signed in. Cloud sync ready.' : 'Account created and signed in.')
       } else {
+        // Supabase can create the account without issuing a session when email confirmation is enabled.
         setMessage('Account created. Check your email if confirmation is enabled.')
       }
       setPassword('')
@@ -91,6 +94,7 @@ export default function CloudSyncDock() {
         cover_url: project.coverUrl || '',
         notes: project.notes || '',
         github: project.github || null,
+        // Preserve the visible local ordering in the cloud snapshot so restore can reproduce it.
         sort_order: index,
       })))
       setMessage(`Cloud backup complete: ${projects.length} projects.`)
@@ -124,6 +128,8 @@ export default function CloudSyncDock() {
         github: row.github || undefined,
         updated: row.updated_at ? new Date(row.updated_at).toLocaleString() : 'Cloud',
       }))
+      // Restore is intentionally snapshot-style, not merge-style: replacing the key avoids retaining
+      // deleted/stale local projects that are absent from the cloud backup. App state is rehydrated on reload.
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
       setMessage(`Restored ${projects.length} projects. Reloading…`)
       window.setTimeout(() => window.location.reload(), 500)
