@@ -1,44 +1,34 @@
 # project.X
 
-project.X is a standalone visual project manager built with React, TypeScript, and Vite. The current application is a browser-based, local-first manager for project records with public GitHub discovery, a server-side Vercel deployment adapter, manual Supabase cloud backup/restore, JSON import/export, multiple visual presentation modes, and a runtime recovery screen.
+project.X is a standalone visual project manager built with React, TypeScript, and Vite. The current application is a browser-based, local-first manager for project records with curated public GitHub discovery, server-side Vercel status/deployment actions, optional deployment analytics, manual Supabase cloud backup/merge/restore, browser-authorized local-folder onboarding, project attention scanning, a mobile companion mode, tester diagnostics, JSON import/export, multiple visual presentation modes, and a runtime recovery screen.
 
 This README describes only functionality that exists in the current codebase.
 
 ## Requirements
 
-- Node.js. GitHub Actions currently verifies the project with Node 22; the checked-in Vercel project configuration currently deploys on Node 24.x.
+- Node.js. GitHub Actions verifies the project with Node 22.
 - npm, using the checked-in `package-lock.json`.
-- A modern browser with `localStorage` for the local project store.
-- Optional external accounts/configuration for Supabase and Vercel integrations.
+- A modern browser with `localStorage`.
+- Chrome/Edge or another File System Access API browser for browser-based local-folder selection.
+- Optional Supabase and Vercel configuration for cloud/deployment features.
 
 ## Install and run locally
-
-Clone the repository and install the locked dependency set:
 
 ```bash
 git clone https://github.com/xfactor21/projectx.git
 cd projectx
 npm ci
-```
-
-Start the Vite development server:
-
-```bash
 npm run dev -- --host 127.0.0.1 --port 5175
 ```
 
-Then open the URL printed by Vite, normally `http://127.0.0.1:5175` with the command above.
-
-### Verify a local checkout
+Build/lint verification:
 
 ```bash
 npm run build
 npm run lint
 ```
 
-`npm run build` runs TypeScript project builds followed by the Vite production build. `npm run lint` runs Oxlint.
-
-A production bundle can be previewed locally with:
+Production preview:
 
 ```bash
 npm run preview
@@ -46,184 +36,270 @@ npm run preview
 
 ## Environment configuration
 
-Copy `.env.example` to `.env.local` for local Vite environment values. Do not commit private tokens.
+Copy `.env.example` to `.env.local` for local Vite values. Never expose a Supabase service-role key or a Vercel API token to browser code.
 
-### Supabase cloud backup/authentication
-
-The browser client reads:
+### Supabase
 
 ```text
 VITE_SUPABASE_URL=https://lufvkrnwqbqdaqcgljxt.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
-The client also accepts `VITE_SUPABASE_ANON_KEY` as a legacy fallback. Use a Supabase publishable/anon key only; never expose a service-role or secret key to the browser.
+The client also accepts `VITE_SUPABASE_ANON_KEY` as a legacy fallback.
 
-Before cloud project operations can work, apply:
+Required migrations:
 
 ```text
 supabase/migrations/20260818_projectx_phase4.sql
+supabase/migrations/20260821_projectx_companion.sql
 ```
 
-The migration creates `projectx_projects` and `projectx_activity`, enables row-level security, and adds policies that scope rows to `auth.uid()`.
+The first migration creates the cloud project/activity model with RLS. The companion migration adds per-user device registration and the remote-action queue used by the mobile/Windows-host contract.
 
-The current cloud UI supports email/password sign-up/sign-in, manual project backup, manual project restore, and sign-out. Restore replaces the browser's project array in `localStorage` and reloads the page.
+### Vercel
 
-### Vercel deployment sync
-
-The Vercel token is intentionally server-side. Configure these in the Vercel project environment:
+Server-side only:
 
 ```text
 VERCEL_API_TOKEN=...
 VERCEL_TEAM_ID=...
 ```
 
-`VERCEL_TEAM_ID` is optional in the API handler; when present it is sent as the Vercel API `teamId` query parameter.
+The browser never receives `VERCEL_API_TOKEN`. `/api/vercel-projects` fetches deployment status/history and `/api/vercel-deploy` creates explicit GitHub-backed Vercel deployments. Plain `vite` does not run these `/api` functions.
 
-The browser calls `/api/vercel-projects`. Plain `vite` development does not run the repository's Vercel `/api` function, so Vercel sync reports itself unavailable when the app is run only with `npm run dev`. The adapter is intended for the Vercel-hosted deployment (or another environment that runs that function).
+## Implemented product features
 
-### GitHub discovery
+### Project workspace
 
-GitHub discovery requires no application secret. The browser calls GitHub's public REST API directly for the selected owner. The current implementation requests up to 100 owner repositories, filters out forks, and is subject to GitHub's unauthenticated public API rate limits.
+- Create, edit, delete, archive, restore, and favorite project records.
+- Search and status filtering.
+- Notes, stack, progress, repository URL, live URL, cover URL, and project status.
+- Detail drawer and workspace statistics.
+- Grid, Storefront, Vending, Comic, and 3D presentation modes.
+- Activity view derived from local/GitHub metadata.
+- Ctrl/Cmd+K search shortcut and Escape overlay dismissal.
+- Local-first browser persistence.
+- JSON export/import and starter-data reset.
+- Error boundary with visible recovery controls.
 
-## Core features implemented
+### Curated GitHub discovery
 
-- Create and edit project records.
-- Delete projects with browser confirmation.
-- Archive and restore projects.
-- Favorite/unfavorite projects.
-- Search project name, subtitle, description, stack, and synced GitHub full name.
-- Filter by `Live`, `Building`, `Concept`, and `Paused` status.
-- Track description, stack, accent, progress, repository URL, live URL, cover URL, and notes.
-- Project detail drawer with GitHub metadata when available.
-- Project counts, live count, connected-GitHub count, average progress, and an activity view derived from current local project data.
-- Browser persistence using `localStorage`.
-- JSON export and merge-style JSON import.
-- Starter project reset.
-- Keyboard shortcut: Ctrl/Cmd+K focuses search; Escape closes active overlays/drawers.
-- Five presentation modes implemented through CSS: Grid, Storefront, Vending, Comic, and 3D.
-- Public GitHub repository import/refresh with language, stars, forks, open issues, default branch, last push, topics, repository URL, homepage, archive state, and GitHub Open Graph cover image.
-- Vercel deployment fetch through a server-side API function and name-based matching back to local projects.
-- Supabase email/password authentication plus manual project backup/restore.
-- React error boundary that renders a recovery screen instead of leaving a blank page.
-- GitHub Actions build and lint verification on pushes and pull requests targeting `main`.
+GitHub sync no longer automatically enrolls every public repository. It now:
 
-## Data storage
+1. Fetches public owner repositories.
+2. Refreshes metadata for repositories already tracked by project.X.
+3. Separates repositories that are not yet tracked.
+4. Opens a discovery/review modal for the new repositories.
+5. Adds only the repositories explicitly selected by the user.
 
-### Local project data
+Current GitHub metadata includes language, stars, forks, open issues, default branch, last push, topics, homepage, archive state, repository URL, and GitHub Open Graph artwork.
 
-The main application stores project records at:
+Current limitation: public unauthenticated API only, first 100 owner repositories, no private-repository flow yet.
+
+### Local project onboarding
+
+The LOCAL dock supports explicit project-folder selection.
+
+In a compatible browser it can inspect an authorized directory for:
+
+- `package.json`
+- common framework/dependency hints
+- package scripts
+- `.git` presence
+- Git branch from `.git/HEAD` when readable
+
+The browser intentionally does not receive an unrestricted Windows path.
+
+`src/services/desktop.ts` defines the host bridge that the Windows build will implement for:
+
+- folder selection/inspection
+- Explorer/terminal launch
+- Git status
+- Git commit
+- Git push
+- project script/build execution
+
+`desktop/capabilities.json` defines the least-privilege permission model for that host. Folder access is scoped to directories explicitly authorized by the user and write/process/network actions are capability-gated.
+
+### Vercel deployment lifecycle
+
+- Read recent Vercel deployments through a server-side adapter.
+- Match deployment names back to tracked project/repository names.
+- Explicitly create preview or production deployments from tracked GitHub repositories through `/api/vercel-deploy`.
+- Production is never selected automatically just because GitHub metadata changes.
+
+The Vercel Git connection/token must have access to the target GitHub repository.
+
+### Deployment analytics
+
+The optional ANALYTICS dock derives a first deployment-health layer from Vercel history:
+
+- recent deployment count
+- number of Vercel projects represented
+- latest deployment state
+- latest deployment timestamp
+- READY percentage
+- link to the latest deployment
+
+Traffic, runtime-error, performance, and cost adapters are deliberately separate future data providers; deployment health does not depend on them.
+
+### Cloud sync hardening
+
+Supabase cloud functionality supports:
+
+- email/password sign-up and sign-in
+- token refresh when an existing session is near expiry
+- manual cloud backup/upsert
+- safe merge from cloud
+- explicit replace-from-cloud with confirmation
+- automatic local pre-restore recovery snapshot
+- sign-out
+
+Cloud sync is still intentionally manual; it is not a background two-way synchronization engine yet.
+
+### Project intelligence
+
+The ATTENTION scanner is deterministic and local. Current checks include:
+
+- project marked Live with no launch URL
+- project with no repository connected
+- Building GitHub project with no push for 30+ days
+- high open-issue count
+- near-complete project still marked Building
+
+Provider-backed deployment drift/runtime error signals can be added later without changing this local scanner.
+
+### Companion mode
+
+A real mobile-first companion client exists in the same build. Open the hosted app with:
+
+```text
+?mode=companion
+```
+
+The companion supports:
+
+- Supabase sign-in
+- cloud-project browsing
+- project search
+- project/live counts
+- repo and live-app launch actions
+- device registration when the companion migration exists
+- active remote-action count
+
+The shared cloud contract includes `projectx_devices` and `projectx_remote_actions`. The remote-action lifecycle is:
+
+```text
+pending -> approved -> running -> succeeded | failed | canceled
+```
+
+The current companion is intentionally a mobile command/read surface rather than a clone of desktop filesystem management.
+
+### Beta diagnostics
+
+The BETA diagnostics dock checks the tester environment and can export a support JSON bundle containing non-secret operational information such as:
+
+- app mode/origin
+- browser/user-agent and online state
+- local project/source counts
+- Supabase configured/signed-in state
+- Vercel connected state and deployment count
+- browser-folder-picker support
+- Windows-host presence
+
+It deliberately excludes credentials, auth tokens, project notes, local paths, source code, and cloud row contents.
+
+## Storage keys
 
 ```text
 projectx.projects.v1
-```
-
-The selected view and GitHub owner are stored separately:
-
-```text
 projectx.view.v1
 projectx.github.owner.v1
-```
-
-`index.html` also uses `projectx.schema.v2` as a one-time local schema marker. On a browser profile where that marker does not yet exist, the bootstrap script clears the old project/view keys before mounting the React app and sets the marker.
-
-### Supabase session
-
-The custom Supabase client stores its auth session in:
-
-```text
+projectx.local.sources.v1
 projectx.supabase.session.v1
+projectx.projects.pre-restore.v1
+projectx.companion.device.v1
+projectx.schema.v2
 ```
 
-The implementation uses Supabase Auth and PostgREST endpoints directly with `fetch`; the repository does not depend on `@supabase/supabase-js`.
-
-## Project structure
+## Major project structure
 
 ```text
 .
 ├── api/
-│   └── vercel-projects.ts       # Server-side Vercel deployment proxy
-├── public/
-│   ├── favicon.svg              # App favicon
-│   └── icons.svg                # SVG icon asset sheet
+│   ├── vercel-projects.ts       # server-side deployment status/history adapter
+│   └── vercel-deploy.ts         # explicit GitHub-backed deployment action
+├── desktop/
+│   └── capabilities.json        # Windows host permission/capability manifest
+├── public/                      # static SVG assets
 ├── src/
-│   ├── App.tsx                  # Main project manager state, CRUD, filters, GitHub/Vercel sync, import/export, UI
-│   ├── CloudSyncDock.tsx        # Supabase auth and manual backup/restore controls
-│   ├── ErrorBoundary.tsx        # Runtime failure UI and local-data recovery actions
-│   ├── main.tsx                 # React entry point; mounts App + CloudSyncDock inside ErrorBoundary
-│   ├── services/
-│   │   ├── github.ts            # Public GitHub REST requests and relative-date helpers
-│   │   ├── supabase.ts          # Direct Supabase Auth/PostgREST client and session persistence
-│   │   └── vercel.ts            # Browser adapter for /api/vercel-projects
-│   ├── App.css                  # Main shell/component styling
-│   ├── viewModes.css            # Storefront/Vending/Comic/3D presentation overrides
-│   ├── phase3.css               # Integration/live-data UI styling
-│   ├── cloudSync.css            # Cloud dock styling
-│   ├── errorBoundary.css        # Runtime recovery screen styling
-│   └── index.css                # Global baseline styles
-├── supabase/
-│   └── migrations/
-│       └── 20260818_projectx_phase4.sql  # Cloud schema, indexes, RLS policies, updated_at trigger
-├── .github/workflows/ci.yml     # Node 22 npm ci/build/lint workflow
-├── .env.example                 # Integration environment variable template
-├── .oxlintrc.json               # Oxlint React/TypeScript configuration
-├── index.html                   # Vite HTML entry and local schema bootstrap
-├── package.json                 # Scripts and direct dependency declarations
-├── package-lock.json            # Locked npm dependency graph
-├── tsconfig*.json               # TypeScript project/reference configuration
-├── vercel.json                  # Vercel install/build/output configuration
-└── vite.config.ts               # Vite + React plugin configuration
+│   ├── App.tsx                  # main project manager
+│   ├── GitHubDiscoveryModal.tsx # curated repository import review
+│   ├── LocalProjectDock.tsx     # local folder onboarding
+│   ├── ProjectIntelDock.tsx     # deterministic attention scanner
+│   ├── DeploymentAnalyticsDock.tsx # deployment health analytics
+│   ├── DeployDock.tsx           # explicit Vercel deployment controls
+│   ├── CloudSyncDock.tsx        # auth/backup/merge/restore
+│   ├── BetaDiagnosticsDock.tsx  # tester support bundle
+│   ├── CompanionApp.tsx         # mobile-first companion mode
+│   ├── ErrorBoundary.tsx        # runtime recovery
+│   ├── main.tsx                 # main/companion entry selection
+│   └── services/
+│       ├── github.ts
+│       ├── vercel.ts
+│       ├── vercelDeploy.ts
+│       ├── supabase.ts
+│       ├── localProject.ts
+│       ├── desktop.ts
+│       └── companion.ts
+├── supabase/migrations/
+├── .github/workflows/ci.yml
+├── .env.example
+├── package.json
+├── vercel.json
+└── vite.config.ts
 ```
-
-The repository tree also currently contains a `projectx` gitlink entry without a `.gitmodules` file. It is not referenced by the application source. Some Vercel builds have consequently logged a submodule-fetch warning; this is a repository-structure issue rather than an application feature.
 
 ## Dependencies
 
-### Runtime
+Runtime:
 
-- `react` `^19.2.8` — component model, state, effects, memoization, and rendering logic.
-- `react-dom` `^19.2.8` — mounts the React application into the browser DOM.
+- `react` — component/state model.
+- `react-dom` — browser rendering.
 
-### Development/build
+Development/build:
 
-- `vite` `^8.2.0` — local development server and production bundler.
-- `@vitejs/plugin-react` `^6.0.4` — React integration for Vite.
-- `typescript` `~6.0.2` — static type checking and project builds.
-- `oxlint` `^1.75.0` — linting.
-- `@types/node` `^24.13.3` — Node type declarations used by build/server-side TypeScript contexts.
-- `@types/react` `^19.2.17` — React TypeScript declarations.
-- `@types/react-dom` `^19.2.3` — React DOM TypeScript declarations.
+- `vite` — development server and production bundler.
+- `@vitejs/plugin-react` — React integration for Vite.
+- `typescript` — type checking/build.
+- `oxlint` — linting.
+- `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-No GitHub, Vercel, or Supabase JavaScript SDK is installed. Those integrations use `fetch` against HTTP APIs.
+GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 
-## Configuration files
+## Known limitations / remaining work
 
-- `vite.config.ts` enables the React Vite plugin.
-- `vercel.json` sets Vite as the framework, `npm ci` as install command, `npm run build` as build command, and `dist` as output directory.
-- `tsconfig.json` references the browser and Node TypeScript configs.
-- `tsconfig.app.json` covers `src`; `noUnusedLocals` is currently disabled there.
-- `tsconfig.node.json` covers `vite.config.ts` with Node types.
-- `.oxlintrc.json` enables React, TypeScript, and Oxc plugins and enforces React hook rules.
-- `.github/workflows/ci.yml` runs `npm ci`, `npm run build`, and `npm run lint` using Node 22 for pushes and PRs targeting `main`.
+- A browser cannot provide the full Windows experience. Actual Git commit/push, terminal launch, process execution, durable filesystem handles, and unrestricted path operations require the Windows host implementation of the existing bridge/permission contracts.
+- Private GitHub repository authentication is not implemented.
+- `VERCEL_API_TOKEN` must be configured for Vercel status, analytics, and deploy actions to work.
+- Vercel project matching remains name-based for the existing sync surface.
+- Companion device/action tables require the companion migration to be applied before those features become durable.
+- Companion remote-action execution requires the future Windows host to poll/claim authorized actions.
+- Cloud sync is manual and conflict resolution is merge/replace based rather than a true timestamp/tombstone two-way engine.
+- The Activity view is still local/GitHub derived rather than backed by the cloud activity table.
+- There is no automated unit/E2E suite yet; CI currently verifies install/build/lint.
+- Traffic/performance/runtime-error/cost analytics providers are not yet connected.
+- xConnect is not required. Its future adapter can implement the same capability boundaries without replacing project.X's independent GitHub/Vercel/local/companion contracts.
 
-## Known limitations / work in progress
+## CI
 
-- GitHub sync only uses the public unauthenticated API: no private repositories, pagination beyond the first 100 repositories, organization-level authenticated discovery, or fork import.
-- Vercel sync requires the deployed `/api/vercel-projects` function and a valid server-side token; it does not work under plain local Vite.
-- Vercel-to-project matching is heuristic: it normalizes deployment names and compares them with the repository name/project name, so unusual naming can fail to match or potentially match incorrectly.
-- Supabase cloud synchronization is manual backup/restore, not continuous two-way synchronization.
-- Cloud restore replaces the local project array rather than merging it.
-- `refreshSession`, cloud activity helpers, and cloud delete helpers exist in `src/services/supabase.ts`, but the current UI does not invoke them. Automatic token refresh and cloud activity presentation are therefore not implemented.
-- The Supabase session is stored directly in browser `localStorage` by the custom client.
-- The Activity view is generated from local project/GitHub fields; it is not currently backed by the `projectx_activity` table.
-- The main Settings panel still contains copy saying cloud account sync is the "next layer" even though the separate CloudSyncDock now provides manual cloud backup/restore; that text is stale UI copy.
-- There is no automated unit, integration, or end-to-end test suite in the repository. CI currently verifies build and lint only.
-- `tsconfig.app.json` currently disables `noUnusedLocals`; the code includes at least one calculated value (`buildingCount`) that is not rendered.
-- The `projectx` gitlink/submodule-style repository entry is not used by the application and can produce submodule-fetch warnings.
+`.github/workflows/ci.yml` runs on pushes and pull requests targeting `main` and executes:
 
-## Deployment
-
-Vercel installs with `npm ci`, runs `npm run build`, and serves `dist` according to `vercel.json`. The serverless function under `api/` is deployed alongside the Vite output and keeps `VERCEL_API_TOKEN` out of the client bundle.
+```text
+npm ci
+npm run build
+npm run lint
+```
 
 ## Repository
 
