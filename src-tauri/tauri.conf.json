@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.github.com https://*.supabase.co https://*.vercel.app; font-src 'self' data:"
+      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://localhost:* ws://localhost:* https://api.github.com https://*.supabase.co https://*.vercel.app; font-src 'self' data:"
     }
   },
   "bundle": {
