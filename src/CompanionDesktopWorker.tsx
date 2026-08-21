@@ -68,8 +68,8 @@ export default function CompanionDesktopWorker() {
   const desktop = getDesktopHost()
 
   useEffect(() => {
-    const host = desktop
-    if (!host || !loadSession()) return
+    if (!desktop || !loadSession()) return
+    const hostVersion = desktop.version
     const id = desktopDeviceId()
     let stopped = false
     let running = false
@@ -82,7 +82,7 @@ export default function CompanionDesktopWorker() {
           device_id: id,
           name: 'project.X Windows',
           platform: 'windows',
-          app_version: host.version,
+          app_version: hostVersion,
           capabilities: ['project.open', 'git.status', 'git.commit', 'git.push', 'script.run'],
         })
         const actions = await claimPendingActions(id)
