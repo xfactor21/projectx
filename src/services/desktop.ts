@@ -1,0 +1,34 @@
+export type DesktopProjectSummary = {
+  name: string
+  path: string
+  packageName?: string
+  scripts?: string[]
+  frameworkHints?: string[]
+  git?: { branch?: string; remote?: string; dirty?: boolean }
+}
+
+export type DesktopHostBridge = {
+  version: string
+  selectProjectFolder(): Promise<DesktopProjectSummary | null>
+  inspectProject(path: string): Promise<DesktopProjectSummary>
+  openInExplorer(path: string): Promise<void>
+  openInTerminal(path: string): Promise<void>
+  gitStatus(path: string): Promise<DesktopProjectSummary['git']>
+  gitCommit(path: string, message: string): Promise<{ ok: boolean; output: string }>
+  gitPush(path: string): Promise<{ ok: boolean; output: string }>
+  runScript(path: string, script: string): Promise<{ ok: boolean; output: string }>
+}
+
+declare global {
+  interface Window {
+    projectXDesktop?: DesktopHostBridge
+  }
+}
+
+export function getDesktopHost(): DesktopHostBridge | null {
+  return window.projectXDesktop || null
+}
+
+export function isDesktopHostAvailable(): boolean {
+  return Boolean(window.projectXDesktop)
+}
