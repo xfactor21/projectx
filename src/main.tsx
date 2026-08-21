@@ -9,6 +9,7 @@ import GitHubDiscoveryModal from './GitHubDiscoveryModal.tsx'
 import LocalProjectDock from './LocalProjectDock.tsx'
 import ProjectIntelDock from './ProjectIntelDock.tsx'
 import DeploymentAnalyticsDock from './DeploymentAnalyticsDock.tsx'
+import DeployDock from './DeployDock.tsx'
 import './viewModes.css'
 import './phase3.css'
 import './cloudSync.css'
@@ -16,6 +17,7 @@ import './githubDiscovery.css'
 import './localProjects.css'
 import './projectIntel.css'
 import './deploymentAnalytics.css'
+import './deployDock.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -25,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
       <LocalProjectDock />
       <ProjectIntelDock />
       <DeploymentAnalyticsDock />
+      <DeployDock />
       <GitHubDiscoveryModal />
     </ErrorBoundary>
   </StrictMode>,
