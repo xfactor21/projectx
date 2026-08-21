@@ -3,13 +3,16 @@ import {
   fetchCloudProjects,
   isSupabaseConfigured,
   loadSession,
+  refreshSession,
   signInWithPassword,
   signOut,
   signUpWithPassword,
   upsertCloudProjects,
 } from './services/supabase'
+import type { SupabaseSession } from './services/supabase'
 
 const STORAGE_KEY = 'projectx.projects.v1'
+const PRE_RESTORE_KEY = 'projectx.projects.pre-restore.v1'
 
 type LocalProject = {
   id: string
@@ -27,6 +30,7 @@ type LocalProject = {
   coverUrl?: string
   notes?: string
   github?: unknown
+  updated?: string
 }
 
 function readLocalProjects(): LocalProject[] {
@@ -34,9 +38,29 @@ function readLocalProjects(): LocalProject[] {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
     return Array.isArray(parsed) ? parsed : []
   } catch {
-    // Backup should fail safe to an empty collection if local data is malformed instead of crashing the dock.
     return []
   }
+}
+
+function cloudRowsToProjects(rows: Awaited<ReturnType<typeof fetchCloudProjects>>): LocalProject[] {
+  return rows.map((row) => ({
+    id: row.client_id,
+    name: row.name,
+    kicker: row.kicker || '',
+    description: row.description || '',
+    status: row.status || 'Building',
+    stack: Array.isArray(row.stack) ? row.stack as string[] : [],
+    accent: row.accent || 'pink',
+    progress: row.progress || 0,
+    favorite: Boolean(row.favorite),
+    archived: Boolean(row.archived),
+    repoUrl: row.repo_url || '',
+    liveUrl: row.live_url || '',
+    coverUrl: row.cover_url || '',
+    notes: row.notes || '',
+    github: row.github || undefined,
+    updated: row.updated_at ? new Date(row.updated_at).toLocaleString() : 'Cloud',
+  }))
 }
 
 export default function CloudSyncDock() {
@@ -46,9 +70,17 @@ export default function CloudSyncDock() {
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'Add Supabase publishable key in Vercel')
-
-  // Configuration comes from Vite build-time environment values, so it is stable for the lifetime of this bundle.
   const configured = useMemo(() => isSupabaseConfigured(), [])
+
+  async function getFreshSession(): Promise<SupabaseSession | null> {
+    const current = session || loadSession()
+    if (!current) return null
+    const expiresSoon = current.expires_at ? current.expires_at * 1000 - Date.now() < 5 * 60 * 1000 : false
+    if (!expiresSoon) return current
+    const refreshed = await refreshSession(current)
+    if (refreshed) setSession(refreshed)
+    return refreshed
+  }
 
   async function authenticate(mode: 'signin' | 'signup') {
     if (!email.trim() || !password) return setMessage('Enter email and password.')
@@ -60,25 +92,21 @@ export default function CloudSyncDock() {
       if (next) {
         setSession(next)
         setMessage(mode === 'signin' ? 'Signed in. Cloud sync ready.' : 'Account created and signed in.')
-      } else {
-        // Supabase can create the account without issuing a session when email confirmation is enabled.
-        setMessage('Account created. Check your email if confirmation is enabled.')
-      }
+      } else setMessage('Account created. Check your email if confirmation is enabled.')
       setPassword('')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Authentication failed.')
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
   }
 
   async function pushCloud() {
-    if (!session) return setMessage('Sign in first.')
+    const activeSession = await getFreshSession()
+    if (!activeSession) return setMessage('Sign in first.')
     setBusy(true)
     try {
       const projects = readLocalProjects()
       await upsertCloudProjects(projects.map((project, index) => ({
-        user_id: session.user.id,
+        user_id: activeSession.user.id,
         client_id: project.id,
         name: project.name,
         kicker: project.kicker || '',
@@ -94,44 +122,37 @@ export default function CloudSyncDock() {
         cover_url: project.coverUrl || '',
         notes: project.notes || '',
         github: project.github || null,
-        // Preserve the visible local ordering in the cloud snapshot so restore can reproduce it.
         sort_order: index,
-      })))
+      })), activeSession)
       setMessage(`Cloud backup complete: ${projects.length} projects.`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cloud backup failed.')
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
   }
 
-  async function pullCloud() {
-    if (!session) return setMessage('Sign in first.')
+  async function pullCloud(mode: 'merge' | 'replace') {
+    const activeSession = await getFreshSession()
+    if (!activeSession) return setMessage('Sign in first.')
+    if (mode === 'replace' && !window.confirm('Replace the local project list with the cloud snapshot? A local recovery copy will be saved first.')) return
     setBusy(true)
     try {
-      const rows = await fetchCloudProjects(session)
-      const projects = rows.map((row) => ({
-        id: row.client_id,
-        name: row.name,
-        kicker: row.kicker || '',
-        description: row.description || '',
-        status: row.status || 'Building',
-        stack: Array.isArray(row.stack) ? row.stack : [],
-        accent: row.accent || 'pink',
-        progress: row.progress || 0,
-        favorite: Boolean(row.favorite),
-        archived: Boolean(row.archived),
-        repoUrl: row.repo_url || '',
-        liveUrl: row.live_url || '',
-        coverUrl: row.cover_url || '',
-        notes: row.notes || '',
-        github: row.github || undefined,
-        updated: row.updated_at ? new Date(row.updated_at).toLocaleString() : 'Cloud',
-      }))
-      // Restore is intentionally snapshot-style, not merge-style: replacing the key avoids retaining
-      // deleted/stale local projects that are absent from the cloud backup. App state is rehydrated on reload.
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
-      setMessage(`Restored ${projects.length} projects. Reloading…`)
+      const cloud = cloudRowsToProjects(await fetchCloudProjects(activeSession))
+      const local = readLocalProjects()
+      localStorage.setItem(PRE_RESTORE_KEY, JSON.stringify({ savedAt: new Date().toISOString(), projects: local }))
+
+      let next = cloud
+      if (mode === 'merge') {
+        const merged = [...local]
+        cloud.forEach((incoming) => {
+          const index = merged.findIndex((project) => project.id === incoming.id || (incoming.repoUrl && project.repoUrl === incoming.repoUrl))
+          if (index >= 0) merged[index] = { ...merged[index], ...incoming }
+          else merged.push(incoming)
+        })
+        next = merged
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      setMessage(`${mode === 'merge' ? 'Merged' : 'Restored'} ${cloud.length} cloud projects. Reloading…`)
       window.setTimeout(() => window.location.reload(), 500)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cloud restore failed.')
@@ -163,7 +184,8 @@ export default function CloudSyncDock() {
           <div className="cloud-actions"><button type="button" onClick={() => authenticate('signin')} disabled={!configured || busy}>Sign in</button><button type="button" onClick={() => authenticate('signup')} disabled={!configured || busy}>Create account</button></div>
         </> : <>
           <div className="cloud-user"><span>CONNECTED</span><strong>{session.user.email || session.user.id}</strong></div>
-          <div className="cloud-actions"><button type="button" onClick={pushCloud} disabled={busy}>↑ Backup</button><button type="button" onClick={pullCloud} disabled={busy}>↓ Restore</button></div>
+          <div className="cloud-actions"><button type="button" onClick={() => void pushCloud()} disabled={busy}>↑ Backup</button><button type="button" onClick={() => void pullCloud('merge')} disabled={busy}>↓ Merge</button></div>
+          <button className="cloud-signout" type="button" onClick={() => void pullCloud('replace')} disabled={busy}>Replace from cloud</button>
           <button className="cloud-signout" type="button" onClick={logOut} disabled={busy}>Sign out</button>
         </>}
       </div>}
