@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "host": "project.X Windows",
+  "principles": [
+    "No unrestricted filesystem access by default",
+    "Every project folder must be explicitly authorized by the user",
+    "Destructive Git or deployment actions require explicit user initiation",
+    "Secrets remain in the host or server environment and are never returned to browser UI code"
+  ],
+  "capabilities": {
+    "filesystem.selectProjectFolder": {
+      "permission": "user-picked-directory",
+      "scope": "selected-folder-only"
+    },
+    "filesystem.readProject": {
+      "permission": "read",
+      "scope": "authorized-project-folders"
+    },
+    "filesystem.writeProject": {
+      "permission": "write",
+      "scope": "authorized-project-folders",
+      "default": false
+    },
+    "shell.openExplorer": {
+      "permission": "launch-shell",
+      "scope": "authorized-project-folders"
+    },
+    "shell.openTerminal": {
+      "permission": "launch-shell",
+      "scope": "authorized-project-folders"
+    },
+    "process.runProjectScript": {
+      "permission": "spawn-process",
+      "scope": "authorized-project-folders",
+      "requiresUserAction": true
+    },
+    "git.status": {
+      "permission": "spawn-git-read",
+      "scope": "authorized-project-folders"
+    },
+    "git.commit": {
+      "permission": "spawn-git-write",
+      "scope": "authorized-project-folders",
+      "requiresUserAction": true
+    },
+    "git.push": {
+      "permission": "network-and-git-write",
+      "scope": "authorized-project-folders",
+      "requiresUserAction": true
+    },
+    "companion.pollActions": {
+      "permission": "network",
+      "scope": "authenticated-projectx-account"
+    },
+    "companion.executeAction": {
+      "permission": "capability-dependent",
+      "scope": "authorized-project-folders",
+      "requiresApprovalFor": ["git.commit", "git.push", "process.runProjectScript", "deployment.production"]
+    }
+  }
+}
