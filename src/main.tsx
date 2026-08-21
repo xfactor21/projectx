@@ -10,6 +10,7 @@ import LocalProjectDock from './LocalProjectDock.tsx'
 import ProjectIntelDock from './ProjectIntelDock.tsx'
 import DeploymentAnalyticsDock from './DeploymentAnalyticsDock.tsx'
 import DeployDock from './DeployDock.tsx'
+import BetaDiagnosticsDock from './BetaDiagnosticsDock.tsx'
 import CompanionApp from './CompanionApp.tsx'
 import './viewModes.css'
 import './phase3.css'
@@ -19,6 +20,7 @@ import './localProjects.css'
 import './projectIntel.css'
 import './deploymentAnalytics.css'
 import './deployDock.css'
+import './betaDiagnostics.css'
 import './companion.css'
 
 const companionMode = new URLSearchParams(window.location.search).get('mode') === 'companion'
@@ -33,6 +35,7 @@ createRoot(document.getElementById('root')!).render(
         <ProjectIntelDock />
         <DeploymentAnalyticsDock />
         <DeployDock />
+        <BetaDiagnosticsDock />
         <GitHubDiscoveryModal />
       </>}
     </ErrorBoundary>
