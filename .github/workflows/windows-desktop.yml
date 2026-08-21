@@ -11,10 +11,14 @@ on:
       - 'package-lock.json'
       - '.github/workflows/windows-desktop.yml'
 
+concurrency:
+  group: projectx-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   windows-installer:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,11 +35,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
-
       - name: Build Windows installer
-        run: cargo tauri build --bundles nsis
+        run: npx --yes @tauri-apps/cli@2 build --bundles nsis
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
