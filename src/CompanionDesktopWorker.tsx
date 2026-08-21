@@ -68,7 +68,7 @@ export default function CompanionDesktopWorker() {
   const desktop = getDesktopHost()
 
   useEffect(() => {
-    if (!desktop || !loadSession()) return
+    if (!desktop) return
     const hostVersion = desktop.version
     const id = desktopDeviceId()
     let stopped = false
