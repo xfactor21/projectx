@@ -12,6 +12,9 @@ import DeploymentAnalyticsDock from './DeploymentAnalyticsDock.tsx'
 import DeployDock from './DeployDock.tsx'
 import BetaDiagnosticsDock from './BetaDiagnosticsDock.tsx'
 import CompanionApp from './CompanionApp.tsx'
+import DesktopActionsDock from './DesktopActionsDock.tsx'
+import CompanionDesktopWorker from './CompanionDesktopWorker.tsx'
+import { installTauriDesktopBridge } from './services/tauriDesktop'
 import './viewModes.css'
 import './phase3.css'
 import './cloudSync.css'
@@ -22,6 +25,9 @@ import './deploymentAnalytics.css'
 import './deployDock.css'
 import './betaDiagnostics.css'
 import './companion.css'
+import './desktopActions.css'
+
+installTauriDesktopBridge()
 
 const companionMode = new URLSearchParams(window.location.search).get('mode') === 'companion'
 
@@ -32,6 +38,8 @@ createRoot(document.getElementById('root')!).render(
         <App />
         <CloudSyncDock />
         <LocalProjectDock />
+        <DesktopActionsDock />
+        <CompanionDesktopWorker />
         <ProjectIntelDock />
         <DeploymentAnalyticsDock />
         <DeployDock />
