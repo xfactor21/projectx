@@ -22,6 +22,8 @@ export default async function handler(request: any, response: any) {
     return
   }
 
+  // The Vercel token must stay in the server environment. Proxying through this function prevents
+  // the browser bundle from ever receiving a credential that can inspect the user's Vercel account.
   const token = process.env.VERCEL_API_TOKEN
   const teamId = process.env.VERCEL_TEAM_ID
 
@@ -44,6 +46,8 @@ export default async function handler(request: any, response: any) {
 
     const payload = await upstream.json() as VercelResponse
     if (!upstream.ok) {
+      // Pass through the upstream status so the browser can distinguish credential/scope problems
+      // from an ordinary application-level "not connected" state.
       response.status(upstream.status).json({
         connected: false,
         deployments: [],
@@ -52,6 +56,8 @@ export default async function handler(request: any, response: any) {
       return
     }
 
+    // Normalize Vercel's response before it reaches the UI. This keeps the frontend independent of
+    // the upstream API shape and, critically, never forwards request headers or credentials.
     const deployments = (payload.deployments || []).map((deployment) => ({
       id: deployment.uid,
       name: deployment.name,
@@ -63,6 +69,7 @@ export default async function handler(request: any, response: any) {
       source: deployment.meta?.githubRepo || deployment.meta?.githubCommitRef || null,
     }))
 
+    // Deployment state is useful live data but does not need a fresh upstream API call for every browser request.
     response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
     response.status(200).json({ connected: true, deployments })
   } catch (error) {

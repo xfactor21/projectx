@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/prepare-desktop-icon.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop:dev": "cargo tauri dev",
+    "desktop:build": "cargo tauri build --bundles nsis"
   },
   "dependencies": {
     "react": "^19.2.8",

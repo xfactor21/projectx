@@ -1,0 +1,200 @@
+.github-discovery-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 3, 7, .78);
+  backdrop-filter: blur(14px);
+}
+
+.github-discovery-modal {
+  width: min(820px, 100%);
+  max-height: min(82vh, 860px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 24px;
+  background: rgba(9, 11, 18, .98);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .55);
+}
+
+.github-discovery-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 30px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.github-discovery-head p {
+  margin: 0 0 8px;
+  color: #ff42bf;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.github-discovery-head h2 {
+  margin: 0 0 8px;
+  font-size: clamp(24px, 3vw, 34px);
+}
+
+.github-discovery-head span {
+  color: rgba(255, 255, 255, .6);
+  font-size: 14px;
+}
+
+.github-discovery-head > button {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .04);
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.github-discovery-toolbar,
+.github-discovery-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 30px;
+}
+
+.github-discovery-toolbar {
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .55);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.github-discovery-toolbar button,
+.github-discovery-actions button {
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, .04);
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+.github-discovery-list {
+  overflow: auto;
+  padding: 10px 14px 18px;
+}
+
+.github-discovery-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 14px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 16px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .025);
+  color: white;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.github-discovery-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 229, 255, .34);
+}
+
+.github-discovery-row.selected {
+  border-color: rgba(255, 66, 191, .55);
+  background: linear-gradient(135deg, rgba(255, 66, 191, .11), rgba(0, 229, 255, .05));
+}
+
+.github-check {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .03);
+  color: #ff42bf;
+  font-weight: 900;
+}
+
+.github-discovery-row.selected .github-check {
+  border-color: rgba(255, 66, 191, .75);
+  background: rgba(255, 66, 191, .14);
+}
+
+.github-repo-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.github-repo-copy strong {
+  font-size: 16px;
+}
+
+.github-repo-copy small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, .58);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-repo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.github-repo-meta b,
+.github-repo-meta i,
+.github-repo-meta em {
+  font-style: normal;
+  font-weight: 700;
+}
+
+.github-repo-meta b { color: #00e5ff; }
+.github-repo-meta i { color: rgba(255, 255, 255, .45); }
+.github-repo-meta em { color: #ffb347; }
+
+.github-discovery-actions {
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.github-discovery-actions .github-import-primary {
+  border-color: rgba(255, 66, 191, .55);
+  background: linear-gradient(135deg, #ff42bf, #8b5cff);
+  color: white;
+  font-weight: 800;
+}
+
+.github-discovery-actions .github-import-primary:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .github-discovery-backdrop { padding: 10px; }
+  .github-discovery-modal { max-height: 90vh; border-radius: 18px; }
+  .github-discovery-head { padding: 20px 18px 16px; }
+  .github-discovery-toolbar,
+  .github-discovery-actions { padding: 12px 18px; }
+  .github-discovery-actions { align-items: stretch; flex-direction: column-reverse; }
+  .github-discovery-actions button { width: 100%; }
+}

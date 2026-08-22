@@ -17,12 +17,30 @@ export type GitHubRepo = {
   updated_at: string
 }
 
+export const GITHUB_DISCOVERY_EVENT = 'projectx:github-discovery'
+
+const PROJECT_STORAGE_KEY = 'projectx.projects.v1'
+
 const githubHeaders = {
   Accept: 'application/vnd.github+json',
   'X-GitHub-Api-Version': '2022-11-28',
 }
 
-export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
+function repoKey(url: string) {
+  return url.toLowerCase().replace(/\.git$/i, '').replace(/\/$/, '')
+}
+
+function trackedRepoKeys(): Set<string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]') as Array<{ repoUrl?: string }>
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(parsed.map((project) => project.repoUrl || '').filter(Boolean).map(repoKey))
+  } catch {
+    return new Set()
+  }
+}
+
+async function requestPublicRepos(owner: string): Promise<GitHubRepo[]> {
   const cleanOwner = owner.trim()
   if (!cleanOwner) throw new Error('GitHub owner is required.')
 
@@ -42,6 +60,25 @@ export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
 
   const repos = await response.json() as GitHubRepo[]
   return repos.filter((repo) => !repo.fork)
+}
+
+/**
+ * Sync intentionally returns only repositories that are already represented in
+ * project.X. Discovery is emitted separately so a GitHub account with many
+ * experiments cannot silently flood the user's curated project workspace.
+ */
+export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
+  const repos = await requestPublicRepos(owner)
+  const tracked = trackedRepoKeys()
+  const existing = repos.filter((repo) => tracked.has(repoKey(repo.html_url)))
+  const discovered = repos.filter((repo) => !tracked.has(repoKey(repo.html_url)))
+
+  window.dispatchEvent(new CustomEvent<GitHubRepo[]>(GITHUB_DISCOVERY_EVENT, { detail: discovered }))
+  return existing
+}
+
+export async function discoverPublicRepos(owner: string): Promise<GitHubRepo[]> {
+  return requestPublicRepos(owner)
 }
 
 export function repoNameFromUrl(repoUrl: string) {

@@ -52,6 +52,8 @@ export type CloudActivity = {
 function headers(accessToken?: string, extra?: HeadersInit): HeadersInit {
   return {
     apikey: SUPABASE_KEY,
+    // Authenticated PostgREST calls must use the user's JWT so database RLS evaluates auth.uid().
+    // The publishable key is only the fallback for unauthenticated Auth API requests.
     Authorization: `Bearer ${accessToken || SUPABASE_KEY}`,
     'Content-Type': 'application/json',
     ...extra,
@@ -69,6 +71,8 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   })
 
   if (!response.ok) {
+    // Preserve Supabase's response text because Auth/PostgREST errors contain setup and RLS details
+    // that are more actionable than replacing them with a generic client error.
     const body = await response.text()
     throw new Error(body || `Supabase request failed (${response.status})`)
   }
@@ -94,6 +98,7 @@ export function loadSession(): SupabaseSession | null {
     if (!session?.access_token || !session?.user?.id) return null
     return session
   } catch {
+    // A corrupt/old session should degrade to signed-out state rather than prevent the app from mounting.
     return null
   }
 }
@@ -103,6 +108,8 @@ export function saveSession(session: SupabaseSession | null): void {
     localStorage.removeItem(SESSION_KEY)
     return
   }
+  // This custom client intentionally persists the complete session because no Supabase SDK is installed
+  // to manage browser persistence on the application's behalf.
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
@@ -111,6 +118,7 @@ export async function signUpWithPassword(email: string, password: string): Promi
     '/auth/v1/signup',
     { method: 'POST', body: JSON.stringify({ email, password }) },
   )
+  // Supabase returns no active session when email confirmation is required, so callers must handle null.
   const session = 'session' in result ? result.session : result
   if (session?.access_token) saveSession(session)
   return session || null
@@ -159,6 +167,8 @@ export async function upsertCloudProjects(projects: CloudProject[], session = lo
   if (!session) throw new Error('Sign in before syncing projects.')
   const payload = projects.map((project, index) => ({
     ...project,
+    // Never trust a caller-supplied user_id: overwrite it with the authenticated user so the payload
+    // agrees with the RLS policy and cannot intentionally target another user's rows.
     user_id: session.user.id,
     sort_order: project.sort_order ?? index,
   }))
@@ -166,6 +176,7 @@ export async function upsertCloudProjects(projects: CloudProject[], session = lo
     '/rest/v1/projectx_projects?on_conflict=user_id,client_id',
     {
       method: 'POST',
+      // The database uniqueness constraint on (user_id, client_id) turns a manual backup into an idempotent upsert.
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify(payload),
     },
