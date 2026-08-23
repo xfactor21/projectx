@@ -14,6 +14,7 @@ import BetaDiagnosticsDock from './BetaDiagnosticsDock.tsx'
 import CompanionApp from './CompanionApp.tsx'
 import DesktopActionsDock from './DesktopActionsDock.tsx'
 import CompanionDesktopWorker from './CompanionDesktopWorker.tsx'
+import AddProjectLauncher from './AddProjectLauncher.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import './viewModes.css'
 import './immersiveThemes.css'
@@ -27,6 +28,7 @@ import './deployDock.css'
 import './betaDiagnostics.css'
 import './companion.css'
 import './desktopActions.css'
+import './addProjectLauncher.css'
 
 installTauriDesktopBridge()
 
@@ -37,6 +39,7 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       {companionMode ? <CompanionApp /> : <>
         <App />
+        <AddProjectLauncher />
         <CloudSyncDock />
         <LocalProjectDock />
         <DesktopActionsDock />
