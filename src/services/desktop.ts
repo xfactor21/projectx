@@ -35,6 +35,22 @@ export type ProjectRunResult = {
   script: string
 }
 
+export type ZipMergePreview = {
+  targetPath: string
+  zipPath: string
+  added: string[]
+  replaced: string[]
+  addedCount: number
+  replacedCount: number
+}
+
+export type ZipMergeResult = {
+  summary: DesktopProjectSummary
+  backupPath: string
+  addedCount: number
+  replacedCount: number
+}
+
 export type DesktopHostBridge = {
   version: string
   selectProjectFolder(): Promise<DesktopProjectSummary | null>
@@ -44,6 +60,8 @@ export type DesktopHostBridge = {
   listProjectRelocations(): Promise<ProjectRelocation[]>
   selectZipFile(): Promise<string | null>
   initializeZipProject(zipPath: string, install: boolean): Promise<ProjectInitializationResult>
+  previewZipMerge(zipPath: string, targetPath: string): Promise<ZipMergePreview>
+  applyZipMerge(zipPath: string, targetPath: string): Promise<ZipMergeResult>
   createViteProject(name: string, template: string): Promise<ProjectInitializationResult>
   runDevProject(path: string, script: string): Promise<ProjectRunResult>
   openInExplorer(path: string): Promise<void>
