@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod imports;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -13,13 +15,13 @@ use std::{
 use tauri::{AppHandle, Manager, State};
 
 #[derive(Default)]
-struct DesktopState {
+pub(crate) struct DesktopState {
     authorized_roots: Mutex<Vec<PathBuf>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-struct GitSummary {
+pub(crate) struct GitSummary {
     branch: Option<String>,
     remote: Option<String>,
     dirty: Option<bool>,
@@ -27,13 +29,13 @@ struct GitSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ProjectSummary {
-    name: String,
-    path: String,
-    package_name: Option<String>,
-    scripts: Vec<String>,
-    framework_hints: Vec<String>,
-    git: Option<GitSummary>,
+pub(crate) struct ProjectSummary {
+    pub(crate) name: String,
+    pub(crate) path: String,
+    pub(crate) package_name: Option<String>,
+    pub(crate) scripts: Vec<String>,
+    pub(crate) framework_hints: Vec<String>,
+    pub(crate) git: Option<GitSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,9 +57,9 @@ struct DesktopRelocationResult {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ExecResult {
-    ok: bool,
-    output: String,
+pub(crate) struct ExecResult {
+    pub(crate) ok: bool,
+    pub(crate) output: String,
 }
 
 fn now_stamp() -> String {
@@ -88,7 +90,7 @@ fn relocations_file(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("project-relocations.json"))
 }
 
-fn managed_workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn managed_workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let documents = app
         .path()
         .document_dir()
@@ -127,7 +129,7 @@ fn persist_relocations(app: &AppHandle, values: &[ProjectRelocation]) -> Result<
     fs::write(file, text).map_err(|error| format!("Unable to save relocation history: {error}"))
 }
 
-fn authorize_root(app: &AppHandle, state: &State<'_, DesktopState>, path: &Path) -> Result<(), String> {
+pub(crate) fn authorize_root(app: &AppHandle, state: &State<'_, DesktopState>, path: &Path) -> Result<(), String> {
     let canonical = fs::canonicalize(path).map_err(|error| format!("Unable to authorize project folder: {error}"))?;
     let mut roots = state.authorized_roots.lock().map_err(|_| "Project permission state is unavailable.".to_string())?;
     if !roots.iter().any(|root| root == &canonical) {
@@ -152,7 +154,7 @@ fn replace_authorized_root(
     persist_roots(app, &roots)
 }
 
-fn ensure_authorized(state: &State<'_, DesktopState>, path: &str) -> Result<PathBuf, String> {
+pub(crate) fn ensure_authorized(state: &State<'_, DesktopState>, path: &str) -> Result<PathBuf, String> {
     let canonical = canonical_existing(path)?;
     let roots = state.authorized_roots.lock().map_err(|_| "Project permission state is unavailable.".to_string())?;
     if roots.iter().any(|root| canonical == *root || canonical.starts_with(root)) {
@@ -204,7 +206,7 @@ fn move_tree(source: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn command_output(command: &mut Command) -> Result<ExecResult, String> {
+pub(crate) fn command_output(command: &mut Command) -> Result<ExecResult, String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -236,7 +238,7 @@ fn git_summary(root: &Path) -> Option<GitSummary> {
     Some(GitSummary { branch, remote, dirty })
 }
 
-fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
+pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
     let name = root
         .file_name()
         .and_then(|value| value.to_str())
@@ -466,7 +468,11 @@ fn main() {
             git_status,
             git_commit,
             git_push,
-            run_script
+            run_script,
+            imports::select_zip_file,
+            imports::initialize_zip_project,
+            imports::create_vite_project,
+            imports::run_dev_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running project.X desktop");
