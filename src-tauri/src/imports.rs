@@ -1,9 +1,12 @@
 use serde::Serialize;
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
-    process::Command,
-    time::{SystemTime, UNIX_EPOCH},
+    process::{Command, Stdio},
+    sync::{Mutex, OnceLock},
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, State};
 
@@ -11,6 +14,12 @@ use crate::{
     authorize_root, command_output, ensure_authorized, inspect_inner, managed_workspace_dir, DesktopState,
     ExecResult, ProjectSummary,
 };
+
+static RUNNING_PIDS: OnceLock<Mutex<BTreeSet<u32>>> = OnceLock::new();
+
+fn running_pids() -> &'static Mutex<BTreeSet<u32>> {
+    RUNNING_PIDS.get_or_init(|| Mutex::new(BTreeSet::new()))
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +38,9 @@ pub(crate) struct ProjectRunResult {
     pub output: String,
     pub pid: Option<u32>,
     pub script: String,
+    pub package_manager: String,
+    pub url: Option<String>,
+    pub log_path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -108,6 +120,46 @@ fn install_dependencies(root: &Path, manager: &str) -> Result<ExecResult, String
     };
     command.current_dir(root).arg("install");
     command_output(&mut command)
+}
+
+fn run_command(root: &Path, manager: &str, script: &str) -> Command {
+    let mut command = match manager {
+        "pnpm" => Command::new("pnpm.cmd"),
+        "yarn" => Command::new("yarn.cmd"),
+        "bun" => Command::new("bun.exe"),
+        _ => Command::new("npm.cmd"),
+    };
+    command.current_dir(root).args(["run", script]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+    command
+}
+
+fn extract_local_url(text: &str) -> Option<String> {
+    for needle in ["http://localhost:", "https://localhost:", "http://127.0.0.1:", "https://127.0.0.1:"] {
+        if let Some(start) = text.find(needle) {
+            let tail = &text[start..];
+            let end = tail.find(|ch: char| ch.is_whitespace() || matches!(ch, '\u{1b}' | '"' | '\'' | ')' | ']' | '>')).unwrap_or(tail.len());
+            let url = tail[..end].trim_end_matches(|ch: char| matches!(ch, ',' | ';')).to_string();
+            if url.len() > needle.len() { return Some(url); }
+        }
+    }
+    None
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    let mut command = Command::new("cmd.exe");
+    command.args(["/C", "start", "", url]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+    command.spawn().map_err(|error| format!("Project started but browser could not be opened: {error}"))?;
+    Ok(())
 }
 
 fn expand_zip(zip_path: &Path, destination: &Path) -> Result<(), String> {
@@ -322,15 +374,61 @@ pub(crate) fn run_dev_project(
     if !summary.scripts.iter().any(|candidate| candidate == &script) {
         return Err(format!("Script '{script}' is not declared by this project."));
     }
-    let child = Command::new("npm.cmd")
-        .current_dir(&root)
-        .args(["run", &script])
-        .spawn()
-        .map_err(|error| format!("Unable to start project: {error}"))?;
+    let manager = detect_package_manager(&root).map(|value| value.0).unwrap_or("npm");
+    let log_dir = std::env::temp_dir().join("projectx-runs");
+    fs::create_dir_all(&log_dir).map_err(|error| format!("Unable to create run log directory: {error}"))?;
+    let log_path = log_dir.join(format!("{}-{}-{}.log", safe_folder_name(&summary.name), script, stamp()));
+    let stdout = fs::File::create(&log_path).map_err(|error| format!("Unable to create run log: {error}"))?;
+    let stderr = stdout.try_clone().map_err(|error| format!("Unable to prepare run log: {error}"))?;
+    let mut command = run_command(&root, manager, &script);
+    command.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
+    let mut child = command.spawn().map_err(|error| format!("Unable to start {manager} run {script}: {error}"))?;
+    let pid = child.id();
+    running_pids().lock().map_err(|_| "Run process registry is unavailable.".to_string())?.insert(pid);
+
+    let mut url = None;
+    let mut latest_log = String::new();
+    for _ in 0..32 {
+        thread::sleep(Duration::from_millis(250));
+        latest_log = fs::read_to_string(&log_path).unwrap_or_default();
+        if let Some(found) = extract_local_url(&latest_log) {
+            url = Some(found);
+            break;
+        }
+        if child.try_wait().map_err(|error| format!("Unable to inspect running project: {error}"))?.is_some() {
+            running_pids().lock().map_err(|_| "Run process registry is unavailable.".to_string())?.remove(&pid);
+            break;
+        }
+    }
+
+    if let Some(ref local_url) = url {
+        let _ = open_external_url(local_url);
+    }
+    let last_lines = latest_log.lines().rev().take(8).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
     Ok(ProjectRunResult {
         ok: true,
-        output: format!("Started npm run {script} in {}", root.display()),
-        pid: Some(child.id()),
+        output: if let Some(ref local_url) = url {
+            format!("Started {manager} run {script} at {local_url}")
+        } else if last_lines.is_empty() {
+            format!("Started {manager} run {script}. Waiting for the project to expose a local URL.")
+        } else {
+            format!("Started {manager} run {script}. Latest output:\n{last_lines}")
+        },
+        pid: Some(pid),
         script,
+        package_manager: manager.to_string(),
+        url,
+        log_path: log_path.to_string_lossy().into_owned(),
     })
+}
+
+#[tauri::command]
+pub(crate) fn stop_dev_project(pid: u32) -> Result<ExecResult, String> {
+    let registered = running_pids().lock().map_err(|_| "Run process registry is unavailable.".to_string())?.remove(&pid);
+    if !registered {
+        return Err("project.X can only stop development processes that it started during this session.".into());
+    }
+    let mut command = Command::new("taskkill.exe");
+    command.args(["/PID", &pid.to_string(), "/T", "/F"]);
+    command_output(&mut command)
 }
