@@ -18,6 +18,7 @@ import AddProjectLauncher from './AddProjectLauncher.tsx'
 import ThemeSensoryLayer from './ThemeSensoryLayer.tsx'
 import ThemeEnvironmentLayer from './ThemeEnvironmentLayer.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
+import { quarantineLegacyStarterProjects } from './services/legacyMigration'
 import './viewModes.css'
 import './immersiveThemes.css'
 import './workspaceV2.css'
@@ -36,6 +37,7 @@ import './desktopActions.css'
 import './addProjectLauncher.css'
 import './themeSensory.css'
 
+quarantineLegacyStarterProjects()
 installTauriDesktopBridge()
 
 window.addEventListener('projectx:open-add-project', () => {
