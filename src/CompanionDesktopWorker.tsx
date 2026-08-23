@@ -7,7 +7,12 @@ import type { RemoteAction } from './services/companion'
 const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
 
-type LocalSource = { projectId: string; kind: 'desktop' | 'browser'; path?: string; scripts?: string[] }
+type LocalSource = {
+  projectId: string
+  kind: 'desktop' | 'browser' | 'managed' | 'zip' | 'generated'
+  path?: string
+  scripts?: string[]
+}
 
 function desktopDeviceId() {
   try {
@@ -19,12 +24,16 @@ function desktopDeviceId() {
   } catch { return `windows-${Date.now()}` }
 }
 
-function localSource(projectId?: string | null): LocalSource | null {
-  if (!projectId) return null
+function localSources(): LocalSource[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LocalSource[]
-    return Array.isArray(parsed) ? parsed.find((item) => item.projectId === projectId && item.kind === 'desktop' && item.path) || null : null
-  } catch { return null }
+    return Array.isArray(parsed) ? parsed.filter((item) => item.kind !== 'browser' && Boolean(item.path)) : []
+  } catch { return [] }
+}
+
+function localSource(projectId?: string | null): LocalSource | null {
+  if (!projectId) return null
+  return localSources().find((item) => item.projectId === projectId) || null
 }
 
 async function execute(action: RemoteAction) {
@@ -78,12 +87,16 @@ export default function CompanionDesktopWorker() {
       if (stopped || running || !loadSession()) return
       running = true
       try {
+        const sources = localSources()
         await registerCompanionDevice({
           device_id: id,
           name: 'project.X Windows',
           platform: 'windows',
           app_version: hostVersion,
-          capabilities: ['project.open', 'git.status', 'git.commit', 'git.push', 'script.run'],
+          capabilities: [
+            'project.open', 'git.status', 'git.commit', 'git.push', 'script.run',
+            ...sources.slice(0, 200).map((source) => `project:${source.projectId}`),
+          ],
         })
         const actions = await claimPendingActions(id)
         for (const action of actions) {
