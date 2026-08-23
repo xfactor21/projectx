@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './errorBoundary.css'
-import App from './App.tsx'
+import WorkspaceApp from './WorkspaceApp.tsx'
 import ErrorBoundary from './ErrorBoundary.tsx'
 import CloudSyncDock from './CloudSyncDock.tsx'
 import GitHubDiscoveryModal from './GitHubDiscoveryModal.tsx'
@@ -18,6 +18,7 @@ import AddProjectLauncher from './AddProjectLauncher.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import './viewModes.css'
 import './immersiveThemes.css'
+import './workspaceV2.css'
 import './phase3.css'
 import './cloudSync.css'
 import './githubDiscovery.css'
@@ -38,7 +39,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       {companionMode ? <CompanionApp /> : <>
-        <App />
+        <WorkspaceApp />
         <AddProjectLauncher />
         <CloudSyncDock />
         <LocalProjectDock />
