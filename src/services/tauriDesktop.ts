@@ -1,4 +1,4 @@
-import type { DesktopHostBridge, DesktopProjectSummary } from './desktop'
+import type { DesktopHostBridge, DesktopProjectSummary, DesktopRelocationResult, ProjectRelocation } from './desktop'
 
 type TauriInternals = {
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>
@@ -20,9 +20,12 @@ export function installTauriDesktopBridge(): boolean {
   if (!window.__TAURI_INTERNALS__) return false
 
   const bridge: DesktopHostBridge = {
-    version: '0.1.0',
+    version: '0.2.0',
     selectProjectFolder: () => invoke<DesktopProjectSummary | null>('select_project_folder'),
     inspectProject: (path) => invoke<DesktopProjectSummary>('inspect_project', { path }),
+    moveProjectIntoWorkspace: (path) => invoke<DesktopRelocationResult>('move_project_into_workspace', { path }),
+    restoreProjectLocation: (managedPath) => invoke<DesktopRelocationResult>('restore_project_location', { managedPath }),
+    listProjectRelocations: () => invoke<ProjectRelocation[]>('list_project_relocations'),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
     openInTerminal: (path) => invoke<void>('open_in_terminal', { path }),
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),
