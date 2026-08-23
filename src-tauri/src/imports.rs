@@ -3,12 +3,13 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, State};
 
 use crate::{
-    authorize_root, command_output, inspect_inner, managed_workspace_dir, DesktopState, ExecResult,
-    ProjectSummary,
+    authorize_root, command_output, ensure_authorized, inspect_inner, managed_workspace_dir, DesktopState,
+    ExecResult, ProjectSummary,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,6 +29,30 @@ pub(crate) struct ProjectRunResult {
     pub output: String,
     pub pid: Option<u32>,
     pub script: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ZipMergePreview {
+    pub target_path: String,
+    pub zip_path: String,
+    pub added: Vec<String>,
+    pub replaced: Vec<String>,
+    pub added_count: usize,
+    pub replaced_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ZipMergeResult {
+    pub summary: ProjectSummary,
+    pub backup_path: String,
+    pub added_count: usize,
+    pub replaced_count: usize,
+}
+
+fn stamp() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|value| value.as_secs()).unwrap_or(0)
 }
 
 fn safe_folder_name(value: &str) -> String {
@@ -99,6 +124,34 @@ fn expand_zip(zip_path: &Path, destination: &Path) -> Result<(), String> {
     if result.ok { Ok(()) } else { Err(format!("Unable to unpack ZIP: {}", result.output)) }
 }
 
+fn collect_files(root: &Path, current: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
+    for entry in fs::read_dir(current).map_err(|error| format!("Unable to inspect incoming files: {error}"))? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files(root, &path, output)?;
+        } else if path.is_file() {
+            output.push(path.strip_prefix(root).map_err(|error| error.to_string())?.to_path_buf());
+        }
+    }
+    Ok(())
+}
+
+fn temporary_extract(zip: &Path) -> Result<PathBuf, String> {
+    let temp = std::env::temp_dir().join(format!("projectx-zip-{}", stamp()));
+    if temp.exists() { let _ = fs::remove_dir_all(&temp); }
+    expand_zip(zip, &temp)?;
+    Ok(temp)
+}
+
+fn validated_zip(path: &str) -> Result<PathBuf, String> {
+    let zip = fs::canonicalize(path).map_err(|error| format!("Unable to access ZIP: {error}"))?;
+    if zip.extension().and_then(|value| value.to_str()).map(|value| value.eq_ignore_ascii_case("zip")) != Some(true) {
+        return Err("Only .zip project archives are supported by this importer.".into());
+    }
+    Ok(zip)
+}
+
 #[tauri::command]
 pub(crate) fn select_zip_file() -> Result<Option<String>, String> {
     Ok(rfd::FileDialog::new()
@@ -115,12 +168,7 @@ pub(crate) fn initialize_zip_project(
     zip_path: String,
     install: bool,
 ) -> Result<ProjectInitializationResult, String> {
-    let zip = fs::canonicalize(&zip_path)
-        .map_err(|error| format!("Unable to access ZIP: {error}"))?;
-    if zip.extension().and_then(|value| value.to_str()).map(|value| value.eq_ignore_ascii_case("zip")) != Some(true) {
-        return Err("Only .zip project archives are supported by this importer.".into());
-    }
-
+    let zip = validated_zip(&zip_path)?;
     let workspace = managed_workspace_dir(&app)?;
     let stem = zip.file_stem().and_then(|value| value.to_str()).unwrap_or("imported-project");
     let destination = unique_destination(&workspace, stem);
@@ -130,12 +178,7 @@ pub(crate) fn initialize_zip_project(
     }
 
     let detected_root = detect_project_root(&destination);
-    let root = if detected_root != destination {
-        // Keep the archive's folder intact. A nested single project directory is the managed root.
-        detected_root
-    } else {
-        destination.clone()
-    };
+    let root = if detected_root != destination { detected_root } else { destination.clone() };
     authorize_root(&app, &state, &root)?;
 
     let package = detect_package_manager(&root);
@@ -147,9 +190,7 @@ pub(crate) fn initialize_zip_project(
             Some(manager) => Some(install_dependencies(&root, manager)?),
             None => None,
         }
-    } else {
-        None
-    };
+    } else { None };
 
     Ok(ProjectInitializationResult {
         summary: inspect_inner(&root)?,
@@ -158,6 +199,87 @@ pub(crate) fn initialize_zip_project(
         install: install_result,
         source: zip.to_string_lossy().into_owned(),
     })
+}
+
+#[tauri::command]
+pub(crate) fn preview_zip_merge(
+    zip_path: String,
+    target_path: String,
+    state: State<'_, DesktopState>,
+) -> Result<ZipMergePreview, String> {
+    let target = ensure_authorized(&state, &target_path)?;
+    let zip = validated_zip(&zip_path)?;
+    let extracted = temporary_extract(&zip)?;
+    let incoming_root = detect_project_root(&extracted);
+    let mut files = Vec::new();
+    let result = (|| {
+        collect_files(&incoming_root, &incoming_root, &mut files)?;
+        let mut added = Vec::new();
+        let mut replaced = Vec::new();
+        for relative in files {
+            let label = relative.to_string_lossy().replace('\\', "/");
+            if target.join(&relative).exists() { replaced.push(label); } else { added.push(label); }
+        }
+        Ok(ZipMergePreview {
+            target_path: target.to_string_lossy().into_owned(),
+            zip_path: zip.to_string_lossy().into_owned(),
+            added_count: added.len(),
+            replaced_count: replaced.len(),
+            added: added.into_iter().take(120).collect(),
+            replaced: replaced.into_iter().take(120).collect(),
+        })
+    })();
+    let _ = fs::remove_dir_all(&extracted);
+    result
+}
+
+#[tauri::command]
+pub(crate) fn apply_zip_merge(
+    app: AppHandle,
+    zip_path: String,
+    target_path: String,
+    state: State<'_, DesktopState>,
+) -> Result<ZipMergeResult, String> {
+    let target = ensure_authorized(&state, &target_path)?;
+    let zip = validated_zip(&zip_path)?;
+    let extracted = temporary_extract(&zip)?;
+    let incoming_root = detect_project_root(&extracted);
+    let workspace = managed_workspace_dir(&app)?;
+    let backup_root = workspace.join(".projectx-backups").join(format!(
+        "merge-{}-{}",
+        stamp(),
+        safe_folder_name(target.file_name().and_then(|value| value.to_str()).unwrap_or("project"))
+    ));
+    fs::create_dir_all(&backup_root).map_err(|error| format!("Unable to create merge backup: {error}"))?;
+    let mut files = Vec::new();
+    collect_files(&incoming_root, &incoming_root, &mut files)?;
+    let mut added_count = 0usize;
+    let mut replaced_count = 0usize;
+
+    let result = (|| {
+        for relative in files {
+            let incoming = incoming_root.join(&relative);
+            let destination = target.join(&relative);
+            if destination.exists() {
+                replaced_count += 1;
+                let backup = backup_root.join(&relative);
+                if let Some(parent) = backup.parent() { fs::create_dir_all(parent).map_err(|error| error.to_string())?; }
+                fs::copy(&destination, &backup).map_err(|error| format!("Unable to back up {}: {error}", destination.display()))?;
+            } else {
+                added_count += 1;
+            }
+            if let Some(parent) = destination.parent() { fs::create_dir_all(parent).map_err(|error| error.to_string())?; }
+            fs::copy(&incoming, &destination).map_err(|error| format!("Unable to merge {}: {error}", relative.display()))?;
+        }
+        Ok(ZipMergeResult {
+            summary: inspect_inner(&target)?,
+            backup_path: backup_root.to_string_lossy().into_owned(),
+            added_count,
+            replaced_count,
+        })
+    })();
+    let _ = fs::remove_dir_all(&extracted);
+    result
 }
 
 #[tauri::command]
@@ -171,9 +293,7 @@ pub(crate) fn create_vite_project(
     let destination = unique_destination(&workspace, &name);
     let folder_name = destination.file_name().and_then(|value| value.to_str()).ok_or("Invalid project name.")?;
     let allowed = ["react", "react-ts", "vue", "vue-ts", "svelte", "svelte-ts", "vanilla", "vanilla-ts"];
-    if !allowed.contains(&template.as_str()) {
-        return Err("Unsupported starter template.".into());
-    }
+    if !allowed.contains(&template.as_str()) { return Err("Unsupported starter template.".into()); }
 
     let mut create = Command::new("npm.cmd");
     create.current_dir(&workspace).args(["create", "vite@latest", folder_name, "--", "--template", &template, "--yes"]);
@@ -197,7 +317,7 @@ pub(crate) fn run_dev_project(
     script: String,
     state: State<'_, DesktopState>,
 ) -> Result<ProjectRunResult, String> {
-    let root = crate::ensure_authorized(&state, &path)?;
+    let root = ensure_authorized(&state, &path)?;
     let summary = inspect_inner(&root)?;
     if !summary.scripts.iter().any(|candidate| candidate == &script) {
         return Err(format!("Script '{script}' is not declared by this project."));
