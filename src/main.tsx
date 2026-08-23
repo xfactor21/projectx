@@ -33,6 +33,10 @@ import './addProjectLauncher.css'
 
 installTauriDesktopBridge()
 
+window.addEventListener('projectx:open-add-project', () => {
+  window.setTimeout(() => document.querySelector<HTMLButtonElement>('.project-launcher-fab')?.click(), 0)
+})
+
 const companionMode = new URLSearchParams(window.location.search).get('mode') === 'companion'
 
 createRoot(document.getElementById('root')!).render(
