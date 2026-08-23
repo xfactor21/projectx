@@ -5,6 +5,8 @@ import type {
   ProjectInitializationResult,
   ProjectRelocation,
   ProjectRunResult,
+  ZipMergePreview,
+  ZipMergeResult,
 } from './desktop'
 
 type TauriInternals = {
@@ -27,7 +29,7 @@ export function installTauriDesktopBridge(): boolean {
   if (!window.__TAURI_INTERNALS__) return false
 
   const bridge: DesktopHostBridge = {
-    version: '0.3.0',
+    version: '0.4.0',
     selectProjectFolder: () => invoke<DesktopProjectSummary | null>('select_project_folder'),
     inspectProject: (path) => invoke<DesktopProjectSummary>('inspect_project', { path }),
     moveProjectIntoWorkspace: (path) => invoke<DesktopRelocationResult>('move_project_into_workspace', { path }),
@@ -35,6 +37,8 @@ export function installTauriDesktopBridge(): boolean {
     listProjectRelocations: () => invoke<ProjectRelocation[]>('list_project_relocations'),
     selectZipFile: () => invoke<string | null>('select_zip_file'),
     initializeZipProject: (zipPath, install) => invoke<ProjectInitializationResult>('initialize_zip_project', { zipPath, install }),
+    previewZipMerge: (zipPath, targetPath) => invoke<ZipMergePreview>('preview_zip_merge', { zipPath, targetPath }),
+    applyZipMerge: (zipPath, targetPath) => invoke<ZipMergeResult>('apply_zip_merge', { zipPath, targetPath }),
     createViteProject: (name, template) => invoke<ProjectInitializationResult>('create_vite_project', { name, template }),
     runDevProject: (path, script) => invoke<ProjectRunResult>('run_dev_project', { path, script }),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
