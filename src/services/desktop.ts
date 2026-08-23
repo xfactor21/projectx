@@ -20,6 +20,21 @@ export type DesktopRelocationResult = {
   relocation: ProjectRelocation
 }
 
+export type ProjectInitializationResult = {
+  summary: DesktopProjectSummary
+  packageManager?: string
+  installCommand?: string
+  install?: { ok: boolean; output: string }
+  source: string
+}
+
+export type ProjectRunResult = {
+  ok: boolean
+  output: string
+  pid?: number
+  script: string
+}
+
 export type DesktopHostBridge = {
   version: string
   selectProjectFolder(): Promise<DesktopProjectSummary | null>
@@ -27,6 +42,10 @@ export type DesktopHostBridge = {
   moveProjectIntoWorkspace(path: string): Promise<DesktopRelocationResult>
   restoreProjectLocation(managedPath: string): Promise<DesktopRelocationResult>
   listProjectRelocations(): Promise<ProjectRelocation[]>
+  selectZipFile(): Promise<string | null>
+  initializeZipProject(zipPath: string, install: boolean): Promise<ProjectInitializationResult>
+  createViteProject(name: string, template: string): Promise<ProjectInitializationResult>
+  runDevProject(path: string, script: string): Promise<ProjectRunResult>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
