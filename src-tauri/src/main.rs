@@ -471,6 +471,8 @@ fn main() {
             run_script,
             imports::select_zip_file,
             imports::initialize_zip_project,
+            imports::preview_zip_merge,
+            imports::apply_zip_merge,
             imports::create_vite_project,
             imports::run_dev_project
         ])
