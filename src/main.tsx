@@ -16,10 +16,12 @@ import DesktopActionsDock from './DesktopActionsDock.tsx'
 import CompanionDesktopWorker from './CompanionDesktopWorker.tsx'
 import AddProjectLauncher from './AddProjectLauncher.tsx'
 import ThemeSensoryLayer from './ThemeSensoryLayer.tsx'
+import ThemeEnvironmentLayer from './ThemeEnvironmentLayer.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import './viewModes.css'
 import './immersiveThemes.css'
 import './workspaceV2.css'
+import './themeEnvironment.css'
 import './phase3.css'
 import './cloudSync.css'
 import './githubDiscovery.css'
@@ -29,6 +31,7 @@ import './deploymentAnalytics.css'
 import './deployDock.css'
 import './betaDiagnostics.css'
 import './companion.css'
+import './companionV2.css'
 import './desktopActions.css'
 import './addProjectLauncher.css'
 import './themeSensory.css'
@@ -45,6 +48,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       {companionMode ? <CompanionApp /> : <>
+        <ThemeEnvironmentLayer />
         <WorkspaceApp />
         <AddProjectLauncher />
         <ThemeSensoryLayer />
