@@ -7,10 +7,26 @@ export type DesktopProjectSummary = {
   git?: { branch?: string; remote?: string; dirty?: boolean }
 }
 
+export type ProjectRelocation = {
+  id: string
+  originalPath: string
+  managedPath: string
+  movedAt: string
+  restoredAt?: string
+}
+
+export type DesktopRelocationResult = {
+  summary: DesktopProjectSummary
+  relocation: ProjectRelocation
+}
+
 export type DesktopHostBridge = {
   version: string
   selectProjectFolder(): Promise<DesktopProjectSummary | null>
   inspectProject(path: string): Promise<DesktopProjectSummary>
+  moveProjectIntoWorkspace(path: string): Promise<DesktopRelocationResult>
+  restoreProjectLocation(managedPath: string): Promise<DesktopRelocationResult>
+  listProjectRelocations(): Promise<ProjectRelocation[]>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
