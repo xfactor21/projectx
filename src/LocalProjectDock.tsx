@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
+import type { ProjectRelocation } from './services/desktop'
 import { browserFolderPickerAvailable, selectBrowserProjectFolder } from './services/localProject'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
@@ -12,6 +13,9 @@ type LocalSource = {
   kind: 'desktop' | 'browser'
   label: string
   path?: string
+  originalPath?: string
+  managed?: boolean
+  relocationId?: string
   gitBranch?: string
   hasGit?: boolean
   scripts?: string[]
@@ -25,78 +29,143 @@ function readArray<T>(key: string): T[] {
   } catch { return [] }
 }
 
+function projectIdFor(name: string) {
+  return `local-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString().slice(-6)}`
+}
+
 export default function LocalProjectDock() {
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('Add a project from this computer.')
+  const [message, setMessage] = useState('Add an existing project or move it into the project.X managed workspace.')
+  const [relocations, setRelocations] = useState<ProjectRelocation[]>([])
   const desktop = getDesktopHost()
   const browserAvailable = browserFolderPickerAvailable()
 
-  async function addLocalProject() {
+  useEffect(() => {
+    if (!desktop) return
+    void desktop.listProjectRelocations().then(setRelocations).catch(() => setRelocations([]))
+  }, [desktop])
+
+  function persistProject(
+    name: string,
+    label: string,
+    stack: string[],
+    scripts: string[],
+    hasGit: boolean,
+    gitBranch: string | undefined,
+    kind: LocalSource['kind'],
+    path?: string,
+    relocation?: ProjectRelocation,
+  ) {
+    const projects = readArray<StoredProject>(PROJECTS_KEY)
+    const localSources = readArray<LocalSource>(LOCAL_KEY)
+    const id = projectIdFor(name)
+    const project = {
+      id,
+      name,
+      kicker: relocation ? 'Managed local project' : 'Local project',
+      description: relocation
+        ? `Managed by project.X. Original location: ${relocation.originalPath}`
+        : `Linked from ${kind === 'desktop' ? 'Windows' : 'this browser'}: ${label}`,
+      status: 'Building',
+      stack,
+      accent: 'cyan',
+      updated: 'Just now',
+      progress: 10,
+      favorite: false,
+      archived: false,
+      repoUrl: '',
+      liveUrl: '',
+      notes: hasGit ? `Local Git repository${gitBranch ? ` · ${gitBranch}` : ''}` : 'Local folder · Git not detected',
+      coverUrl: '',
+    }
+    localSources.push({
+      projectId: id,
+      kind,
+      label,
+      path,
+      originalPath: relocation?.originalPath,
+      managed: Boolean(relocation),
+      relocationId: relocation?.id,
+      gitBranch,
+      hasGit,
+      scripts,
+      linkedAt: new Date().toISOString(),
+    })
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify([project, ...projects]))
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(localSources))
+  }
+
+  async function addLocalProject(moveIntoWorkspace: boolean) {
     setBusy(true)
     try {
-      let name = ''
-      let label = ''
-      let path: string | undefined
-      let stack: string[] = []
-      let scripts: string[] = []
-      let hasGit = false
-      let gitBranch: string | undefined
-      let kind: LocalSource['kind'] = 'browser'
+      if (moveIntoWorkspace && !desktop) {
+        throw new Error('Moving a project into project.X requires the Windows desktop app.')
+      }
 
       if (desktop) {
-        const result = await desktop.selectProjectFolder()
-        if (!result) return
-        name = result.name
-        label = result.path
-        path = result.path
-        stack = result.frameworkHints || []
-        scripts = result.scripts || []
-        hasGit = Boolean(result.git)
-        gitBranch = result.git?.branch
-        kind = 'desktop'
+        const selected = await desktop.selectProjectFolder()
+        if (!selected) return
+        const result = moveIntoWorkspace ? await desktop.moveProjectIntoWorkspace(selected.path) : null
+        const summary = result?.summary || selected
+        const relocation = result?.relocation
+        persistProject(
+          summary.name,
+          summary.path,
+          summary.frameworkHints || [],
+          summary.scripts || [],
+          Boolean(summary.git),
+          summary.git?.branch,
+          'desktop',
+          summary.path,
+          relocation,
+        )
+        setMessage(relocation
+          ? `Moved ${summary.name} into project.X Workspace. Original location saved for restore.`
+          : `Linked ${summary.name} without moving its files.`)
       } else {
-        const result = await selectBrowserProjectFolder()
-        if (!result) return
-        name = result.name
-        label = result.sourceLabel
-        stack = result.stack
-        scripts = result.scripts
-        hasGit = result.hasGit
-        gitBranch = result.gitBranch
+        const selected = await selectBrowserProjectFolder()
+        if (!selected) return
+        persistProject(
+          selected.name,
+          selected.sourceLabel,
+          selected.stack,
+          selected.scripts,
+          selected.hasGit,
+          selected.gitBranch,
+          'browser',
+        )
+        setMessage(`Linked ${selected.name} from this browser.`)
       }
 
-      const projects = readArray<StoredProject>(PROJECTS_KEY)
-      const id = `local-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString().slice(-6)}`
-      const project = {
-        id,
-        name,
-        kicker: 'Local project',
-        description: `Linked from ${kind === 'desktop' ? 'Windows' : 'this browser'}: ${label}`,
-        status: 'Building',
-        stack,
-        accent: 'cyan',
-        updated: 'Just now',
-        progress: 10,
-        favorite: false,
-        archived: false,
-        repoUrl: '',
-        liveUrl: '',
-        notes: hasGit ? `Local Git repository${gitBranch ? ` · ${gitBranch}` : ''}` : 'Local folder · Git not detected',
-        coverUrl: '',
-      }
-      const localSources = readArray<LocalSource>(LOCAL_KEY)
-      localSources.push({ projectId: id, kind, label, path, gitBranch, hasGit, scripts, linkedAt: new Date().toISOString() })
-      localStorage.setItem(PROJECTS_KEY, JSON.stringify([project, ...projects]))
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(localSources))
-      setMessage(`Added ${name}. Reloading workspace…`)
-      window.setTimeout(() => window.location.reload(), 450)
+      window.setTimeout(() => window.location.reload(), 500)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to add local project.')
     } finally {
       setBusy(false)
     }
   }
+
+  async function restoreRelocation(relocation: ProjectRelocation) {
+    if (!desktop) return
+    if (!window.confirm(`Restore this project to its original location?\n\n${relocation.originalPath}`)) return
+    setBusy(true)
+    try {
+      const result = await desktop.restoreProjectLocation(relocation.managedPath)
+      const sources = readArray<LocalSource>(LOCAL_KEY).map((source) => source.relocationId === relocation.id
+        ? { ...source, path: result.summary.path, label: result.summary.path, managed: false }
+        : source)
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(sources))
+      setRelocations(await desktop.listProjectRelocations())
+      setMessage(`Restored ${result.summary.name} to ${result.summary.path}.`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to restore project location.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const activeRelocations = relocations.filter((item) => !item.restoredAt)
 
   return (
     <aside className={`local-dock ${expanded ? 'open' : ''}`} aria-label="Local project access">
@@ -108,15 +177,26 @@ export default function LocalProjectDock() {
       {expanded && <div className="local-dock-panel">
         <div className="local-dock-head"><div><small>PROJECT SOURCE</small><strong>{desktop ? 'Windows workspace' : 'Browser folder access'}</strong></div><button type="button" onClick={() => setExpanded(false)}>×</button></div>
         <p>{message}</p>
-        <button className="local-primary" type="button" disabled={busy || (!desktop && !browserAvailable)} onClick={() => void addLocalProject()}>{busy ? 'Inspecting…' : '+ Choose project folder'}</button>
+        <div className="local-action-stack">
+          <button className="local-primary" type="button" disabled={busy || (!desktop && !browserAvailable)} onClick={() => void addLocalProject(false)}>{busy ? 'Working…' : '+ Link existing folder'}</button>
+          {desktop && <button className="local-secondary" type="button" disabled={busy} onClick={() => void addLocalProject(true)}>⇢ Move into project.X Workspace</button>}
+        </div>
         <div className="local-capabilities">
           <span className="yes">✓ Explicit folder permission</span>
           <span className="yes">✓ package.json + framework detection</span>
           <span className="yes">✓ Local Git detection</span>
-          <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Git commit/push host bridge</span>
-          <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Terminal/build host bridge</span>
+          <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Managed workspace relocation</span>
+          <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Original location restore record</span>
+          <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Git + terminal/build host bridge</span>
         </div>
-        {!desktop && <small className="local-note">The web build never receives an unrestricted disk path. The Windows host contract is already defined for the full desktop version.</small>}
+        {desktop && activeRelocations.length > 0 && <div className="relocation-history">
+          <small>MANAGED PROJECTS / RESTORE</small>
+          {activeRelocations.map((item) => <button key={item.id} type="button" disabled={busy} onClick={() => void restoreRelocation(item)}>
+            <strong>{item.managedPath.split(/[\\/]/).pop()}</strong>
+            <span>Restore to {item.originalPath}</span>
+          </button>)}
+        </div>}
+        {!desktop && <small className="local-note">The web build can link a user-selected folder, but moving/restoring projects is intentionally reserved for the Windows host.</small>}
       </div>}
     </aside>
   )
