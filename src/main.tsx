@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './App.css'
 import './errorBoundary.css'
 import WorkspaceApp from './WorkspaceAppV3.tsx'
 import ErrorBoundary from './ErrorBoundary.tsx'
@@ -45,6 +46,7 @@ import './themeSensory.css'
 import './artworkDock.css'
 import './taskConsole.css'
 import './runtimeDock.css'
+import './interactionSafety.css'
 
 quarantineLegacyStarterProjects()
 installTauriDesktopBridge()
