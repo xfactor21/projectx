@@ -1,5 +1,6 @@
 /* v1 stabilization pass: keep functional UI readable while the visual system is refined. */
 .command-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;position:relative;z-index:1}
+.v2-remote-note{margin:12px 0;padding:10px 12px;border-left:2px solid rgba(156,92,255,.7);background:rgba(156,92,255,.06);color:#aeb7c6!important;font-size:11px!important}
 
 /* One artwork source, theme-specific treatment. */
 .project-art-surface{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important}
@@ -10,22 +11,34 @@
 .gallery-exhibit.has-project-art .gallery-frame{background-image:linear-gradient(rgba(5,4,11,.08),rgba(5,4,11,.38)),var(--project-art)!important;filter:saturate(.72) contrast(1.08)}
 .command-project.has-project-art .command-visual{background-image:linear-gradient(145deg,rgba(2,8,12,.34),rgba(2,8,12,.82)),var(--project-art)!important;filter:saturate(.78) contrast(1.08)}
 
-/* Utility controls get fixed lanes instead of stacking on one coordinate. */
-.artwork-dock{right:18px!important;bottom:318px!important}
-.runtime-dock{right:18px!important;bottom:264px!important}
-.task-console{right:18px!important;bottom:210px!important}
-.local-project-dock{right:18px!important;bottom:156px!important}
+/* Right-side lifecycle tools get dedicated vertical lanes. */
+.artwork-dock{right:18px!important;bottom:372px!important}
+.runtime-dock{right:18px!important;bottom:318px!important}
+.task-console{right:18px!important;bottom:264px!important}
+.desktop-actions-dock{right:18px!important;bottom:210px!important}
+.local-dock{right:18px!important;bottom:156px!important}
 .cloud-dock{right:18px!important;bottom:102px!important}
 .theme-sound-toggle{right:18px!important;bottom:56px!important}
 .project-launcher-fab{right:18px!important;bottom:12px!important}
 
-/* Open panels sit above their toggle lane and do not fight for the same footprint. */
-.artwork-panel,.runtime-panel,.task-console-panel,.local-project-panel,.cloud-dock-panel{z-index:250!important;box-shadow:0 24px 80px rgba(0,0,0,.6)!important}
+/* Bottom-left optional tools get dedicated horizontal lanes. */
+.intel-dock{left:18px!important;right:auto!important;bottom:14px!important}
+.analytics-dock{left:170px!important;right:auto!important;bottom:14px!important}
+.deploy-dock{left:318px!important;right:auto!important;bottom:14px!important}
+.beta-dock{left:430px!important;right:auto!important;bottom:14px!important}
+
+/* Open panels sit above toggle lanes. */
+.artwork-panel,.runtime-panel,.task-console-panel,.desktop-actions-panel,.local-dock-panel,.cloud-dock-panel,.intel-panel,.analytics-panel,.deploy-panel,.beta-panel{z-index:250!important;box-shadow:0 24px 80px rgba(0,0,0,.6)!important}
 
 /* Command background is intentionally quiet; project cards should be the content. */
-.env-command .command-backdrop-grid{opacity:.42}
-.env-command .command-scan{opacity:.3}
+.env-command .command-backdrop-grid{opacity:.34}
+.env-command .command-scan{opacity:.18}
 
+.github-install-message{margin:10px 0;padding:10px 12px;border:1px solid rgba(53,231,255,.15);border-radius:9px;background:rgba(53,231,255,.045);color:#aeeef7;font-size:11px;line-height:1.45}
+
+@media(max-width:1050px){
+  .intel-dock{left:10px!important}.analytics-dock{left:148px!important}.deploy-dock{left:284px!important}.beta-dock{left:390px!important}
+}
 @media(max-width:900px){
-  .artwork-dock,.runtime-dock,.task-console,.local-project-dock,.cloud-dock{right:10px!important}
+  .artwork-dock,.runtime-dock,.task-console,.desktop-actions-dock,.local-dock,.cloud-dock{right:10px!important}
 }
