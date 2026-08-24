@@ -36,6 +36,9 @@ jobs:
         run: npm ci
 
       - name: Build Windows installer
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npx --yes @tauri-apps/cli@2 build --bundles nsis
 
       - name: Upload installer
