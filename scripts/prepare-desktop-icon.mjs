@@ -1,7 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const target = new URL('../src-tauri/icons/icon.ico', import.meta.url)
+const targetUrl = new URL('../src-tauri/icons/icon.ico', import.meta.url)
+const target = fileURLToPath(targetUrl)
 const size = 64
 const xorBytes = size * size * 4
 const andStride = Math.ceil(size / 32) * 4
@@ -9,12 +11,9 @@ const andBytes = andStride * size
 const imageBytes = 40 + xorBytes + andBytes
 const file = Buffer.alloc(6 + 16 + imageBytes)
 
-// ICONDIR
 file.writeUInt16LE(0, 0)
 file.writeUInt16LE(1, 2)
 file.writeUInt16LE(1, 4)
-
-// ICONDIRENTRY
 file.writeUInt8(size, 6)
 file.writeUInt8(size, 7)
 file.writeUInt8(0, 8)
@@ -24,7 +23,6 @@ file.writeUInt16LE(32, 12)
 file.writeUInt32LE(imageBytes, 14)
 file.writeUInt32LE(22, 18)
 
-// BITMAPINFOHEADER. ICO DIB height includes XOR + AND mask.
 const dib = 22
 file.writeUInt32LE(40, dib)
 file.writeInt32LE(size, dib + 4)
@@ -45,8 +43,6 @@ function mix(a, b, t) {
   return Math.round(a + (b - a) * t)
 }
 
-// Windows DIB rows are bottom-up. Draw a branded pink→violet→cyan X
-// over a very dark circular plate, all as real BGRA pixels.
 for (let y = 0; y < size; y += 1) {
   for (let x = 0; x < size; x += 1) {
     const dx = x - center
@@ -94,7 +90,6 @@ for (let y = 0; y < size; y += 1) {
   }
 }
 
-// 1-bit AND mask: 1 means transparent. Keep transparent pixels outside plate.
 const maskStart = pixelStart + xorBytes
 for (let y = 0; y < size; y += 1) {
   const row = size - 1 - y
@@ -107,6 +102,6 @@ for (let y = 0; y < size; y += 1) {
   }
 }
 
-await mkdir(dirname(target.pathname), { recursive: true })
+await mkdir(dirname(target), { recursive: true })
 await writeFile(target, file)
 console.log(`Generated Windows-compatible project.X icon (${file.length} bytes).`)
