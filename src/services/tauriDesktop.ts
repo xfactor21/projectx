@@ -10,6 +10,7 @@ import type {
   ZipMergePreview,
   ZipMergeResult,
 } from './desktop'
+import { APP_VERSION } from '../version'
 
 type TauriInternals = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> }
 declare global { interface Window { __TAURI_INTERNALS__?: TauriInternals } }
@@ -22,7 +23,7 @@ function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> 
 export function installTauriDesktopBridge(): boolean {
   if (!window.__TAURI_INTERNALS__) return false
   const bridge: DesktopHostBridge = {
-    version: 'v1',
+    version: APP_VERSION,
     selectProjectFolder: () => invoke<DesktopProjectSummary | null>('select_project_folder'),
     inspectProject: (path) => invoke<DesktopProjectSummary>('inspect_project', { path }),
     moveProjectIntoWorkspace: (path) => invoke<DesktopRelocationResult>('move_project_into_workspace', { path }),
