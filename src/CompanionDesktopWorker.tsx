@@ -1,18 +1,24 @@
 import { useEffect } from 'react'
 import { getDesktopHost } from './services/desktop'
 import { claimPendingActions, registerCompanionDevice, updateRemoteAction } from './services/companion'
-import { loadSession } from './services/supabase'
+import { createCompanionZipSignedUrl, deleteCompanionZip } from './services/companionPackages'
+import { loadSession, upsertCloudProjects } from './services/supabase'
 import type { RemoteAction } from './services/companion'
+import type { DesktopProjectSummary } from './services/desktop'
 
 const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
+const PROJECTS_KEY = 'projectx.projects.v1'
 
 type LocalSource = {
   projectId: string
   kind: 'desktop' | 'browser' | 'managed' | 'zip' | 'generated'
   path?: string
   scripts?: string[]
+  label?: string
 }
+
+type StoredProject = Record<string, unknown> & { id: string; name?: string }
 
 function desktopDeviceId() {
   try {
@@ -24,48 +30,100 @@ function desktopDeviceId() {
   } catch { return `windows-${Date.now()}` }
 }
 
-function localSources(): LocalSource[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LocalSource[]
-    return Array.isArray(parsed) ? parsed.filter((item) => item.kind !== 'browser' && Boolean(item.path)) : []
-  } catch { return [] }
+function readArray<T>(key: string): T[] {
+  try { const value = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(value) ? value : [] }
+  catch { return [] }
+}
+function localSources(): LocalSource[] { return readArray<LocalSource>(LOCAL_KEY).filter((item) => item.kind !== 'browser' && Boolean(item.path)) }
+function localSource(projectId?: string | null): LocalSource | null { return projectId ? localSources().find((item) => item.projectId === projectId) || null : null }
+function newProjectId(name: string) { return `remote-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString().slice(-6)}` }
+
+async function registerInitializedProject(summary: DesktopProjectSummary) {
+  const id = newProjectId(summary.name)
+  const projects = readArray<StoredProject>(PROJECTS_KEY)
+  const sources = readArray<LocalSource>(LOCAL_KEY)
+  const project = {
+    id,
+    name: summary.name,
+    kicker: 'Created from companion',
+    description: 'ZIP sent through project.X Companion and initialized on this Windows host.',
+    status: 'Building',
+    stack: summary.frameworkHints || [],
+    accent: 'violet',
+    updated: 'Just now',
+    progress: 10,
+    favorite: false,
+    archived: false,
+    repoUrl: summary.git?.remote?.replace(/\.git$/i, '') || '',
+    liveUrl: '',
+    notes: 'Companion package handoff',
+    coverUrl: '',
+  }
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify([project, ...projects]))
+  localStorage.setItem(LOCAL_KEY, JSON.stringify([...sources, { projectId: id, kind: 'zip', path: summary.path, label: summary.path, scripts: summary.scripts || [] }]))
+  window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
+  const session = loadSession()
+  if (session) {
+    try {
+      await upsertCloudProjects([{ user_id: session.user.id, client_id: id, name: summary.name, kicker: 'Created from companion', description: 'ZIP initialized remotely on project.X Windows.', status: 'Building', stack: summary.frameworkHints || [], accent: 'violet', progress: 10, favorite: false, archived: false, repo_url: summary.git?.remote?.replace(/\.git$/i, '') || '', live_url: '', notes: 'Companion package handoff' }], session)
+    } catch { /* Local creation succeeded even if cloud record refresh fails. */ }
+  }
+  return id
 }
 
-function localSource(projectId?: string | null): LocalSource | null {
-  if (!projectId) return null
-  return localSources().find((item) => item.projectId === projectId) || null
+function refreshUpdatedProject(projectId: string, summary: DesktopProjectSummary) {
+  const projects = readArray<StoredProject>(PROJECTS_KEY).map((project) => project.id === projectId ? { ...project, name: summary.name || project.name, stack: summary.frameworkHints || [], updated: 'Just now' } : project)
+  const sources = readArray<LocalSource>(LOCAL_KEY).map((source) => source.projectId === projectId ? { ...source, path: summary.path, label: summary.path, scripts: summary.scripts || [] } : source)
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(sources))
+  window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
 }
 
 async function execute(action: RemoteAction) {
   const desktop = getDesktopHost()
   if (!desktop || !action.id) return
   const source = localSource(action.project_client_id)
-  if (!source?.path) {
-    await updateRemoteAction(action.id, 'failed', { error: 'This project is not linked to an authorized folder on this Windows device.' })
-    return
-  }
-
   await updateRemoteAction(action.id, 'running')
   try {
     let result: unknown
-    switch (action.action_type) {
-      case 'project.open_explorer': result = await desktop.openInExplorer(source.path); break
-      case 'project.open_terminal': result = await desktop.openInTerminal(source.path); break
-      case 'git.status': result = await desktop.gitStatus(source.path); break
-      case 'git.push': result = await desktop.gitPush(source.path); break
-      case 'git.commit': {
-        const message = String(action.payload?.message || '').trim()
-        if (!message) throw new Error('Commit message is required.')
-        result = await desktop.gitCommit(source.path, message)
-        break
+    if (action.action_type === 'package.create_project' || action.action_type === 'package.update_project') {
+      const storagePath = String(action.payload?.storagePath || '')
+      const fileName = String(action.payload?.fileName || 'companion-project.zip')
+      if (!storagePath) throw new Error('Companion package storage path is missing.')
+      if (action.action_type === 'package.update_project' && !source?.path) throw new Error('The target project is not linked to an authorized folder on this Windows device.')
+      const signedUrl = await createCompanionZipSignedUrl(storagePath, 600)
+      const localZip = await desktop.downloadRemotePackage(signedUrl, fileName)
+      if (action.action_type === 'package.create_project') {
+        const initialized = await desktop.initializeZipProject(localZip, action.payload?.installDeps !== false)
+        const createdProjectId = await registerInitializedProject(initialized.summary)
+        result = { createdProjectId, summary: initialized.summary, install: initialized.install || null }
+      } else {
+        const merged = await desktop.applyZipMerge(localZip, source!.path!)
+        refreshUpdatedProject(action.project_client_id!, merged.summary)
+        result = { summary: merged.summary, addedCount: merged.addedCount, replacedCount: merged.replacedCount, backupPath: merged.backupPath }
       }
-      case 'script.run': {
-        const script = String(action.payload?.script || '').trim()
-        if (!script || !source.scripts?.includes(script)) throw new Error('Requested script is not available for this local project.')
-        result = await desktop.runScript(source.path, script)
-        break
+      await deleteCompanionZip(storagePath).catch(() => undefined)
+    } else {
+      if (!source?.path) throw new Error('This project is not linked to an authorized folder on this Windows device.')
+      switch (action.action_type) {
+        case 'project.open_explorer': result = await desktop.openInExplorer(source.path); break
+        case 'project.open_terminal': result = await desktop.openInTerminal(source.path); break
+        case 'git.status': result = await desktop.gitStatus(source.path); break
+        case 'git.push': result = await desktop.gitPush(source.path); break
+        case 'git.commit': {
+          const message = String(action.payload?.message || '').trim()
+          if (!message) throw new Error('Commit message is required.')
+          result = await desktop.gitCommit(source.path, message)
+          break
+        }
+        case 'script.run': {
+          const script = String(action.payload?.script || '').trim()
+          if (!script || !source.scripts?.includes(script)) throw new Error('Requested script is not available for this local project.')
+          result = await desktop.runScript(source.path, script)
+          break
+        }
+        default: throw new Error(`Unsupported remote action: ${action.action_type}`)
       }
-      default: throw new Error(`Unsupported remote action: ${action.action_type}`)
     }
     await updateRemoteAction(action.id, 'succeeded', { result: result ?? null })
   } catch (error) {
@@ -94,7 +152,7 @@ export default function CompanionDesktopWorker() {
           platform: 'windows',
           app_version: hostVersion,
           capabilities: [
-            'project.open', 'git.status', 'git.commit', 'git.push', 'script.run',
+            'project.open', 'git.status', 'git.commit', 'git.push', 'script.run', 'package.create', 'package.update',
             ...sources.slice(0, 200).map((source) => `project:${source.projectId}`),
           ],
         })
@@ -103,7 +161,7 @@ export default function CompanionDesktopWorker() {
           if (action.status === 'approved') await execute(action)
         }
       } catch {
-        // Companion support remains optional; missing migration/network should never break the desktop manager.
+        // Companion support remains optional; network/config errors must never break desktop startup.
       } finally { running = false }
     }
 
