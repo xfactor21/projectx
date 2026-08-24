@@ -33,6 +33,19 @@ export type ProjectRunResult = {
   output: string
   pid?: number
   script: string
+  packageManager?: string
+  url?: string
+  logPath?: string
+}
+
+export type ArtworkCandidate = {
+  path: string
+  relativePath: string
+  fileName: string
+  kind: 'icon' | 'logo' | 'banner' | 'cover' | 'screenshot' | 'image' | string
+  score: number
+  bytes: number
+  dataUrl?: string
 }
 
 export type ZipMergePreview = {
@@ -64,6 +77,8 @@ export type DesktopHostBridge = {
   applyZipMerge(zipPath: string, targetPath: string): Promise<ZipMergeResult>
   createViteProject(name: string, template: string): Promise<ProjectInitializationResult>
   runDevProject(path: string, script: string): Promise<ProjectRunResult>
+  stopDevProject(pid: number): Promise<{ ok: boolean; output: string }>
+  discoverProjectArtwork(path: string): Promise<ArtworkCandidate[]>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
@@ -73,15 +88,8 @@ export type DesktopHostBridge = {
 }
 
 declare global {
-  interface Window {
-    projectXDesktop?: DesktopHostBridge
-  }
+  interface Window { projectXDesktop?: DesktopHostBridge }
 }
 
-export function getDesktopHost(): DesktopHostBridge | null {
-  return window.projectXDesktop || null
-}
-
-export function isDesktopHostAvailable(): boolean {
-  return Boolean(window.projectXDesktop)
-}
+export function getDesktopHost(): DesktopHostBridge | null { return window.projectXDesktop || null }
+export function isDesktopHostAvailable(): boolean { return Boolean(window.projectXDesktop) }
