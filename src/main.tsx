@@ -19,6 +19,7 @@ import AddProjectLauncher from './AddProjectLauncher.tsx'
 import ThemeSensoryLayer from './ThemeSensoryLayer.tsx'
 import ThemeEnvironmentLayer from './ThemeEnvironmentLayer.tsx'
 import ArtworkDock from './ArtworkDock.tsx'
+import ArtworkAutoDiscovery from './ArtworkAutoDiscovery.tsx'
 import TaskConsole from './TaskConsole.tsx'
 import RuntimeDock from './RuntimeDock.tsx'
 import SurfaceCoordinator from './SurfaceCoordinator.tsx'
@@ -69,6 +70,7 @@ createRoot(document.getElementById('root')!).render(
         <AddProjectLauncher />
         <ThemeSensoryLayer />
         <SurfaceCoordinator />
+        <ArtworkAutoDiscovery />
         <CloudSyncDock />
         <LocalProjectDock />
         <ArtworkDock />
