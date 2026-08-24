@@ -22,7 +22,7 @@ function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> 
 export function installTauriDesktopBridge(): boolean {
   if (!window.__TAURI_INTERNALS__) return false
   const bridge: DesktopHostBridge = {
-    version: '0.7.0',
+    version: 'v1',
     selectProjectFolder: () => invoke<DesktopProjectSummary | null>('select_project_folder'),
     inspectProject: (path) => invoke<DesktopProjectSummary>('inspect_project', { path }),
     moveProjectIntoWorkspace: (path) => invoke<DesktopRelocationResult>('move_project_into_workspace', { path }),
