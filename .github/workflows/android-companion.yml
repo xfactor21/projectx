@@ -13,6 +13,9 @@ concurrency:
   group: projectx-companion-android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  PROJECTX_BUILD_NAME: projectX_8-24_v1.1
+
 jobs:
   android-debug:
     runs-on: ubuntu-latest
@@ -57,9 +60,12 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Apply project.X build filename
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk "${PROJECTX_BUILD_NAME}.apk"
+
       - name: Upload Companion APK
         uses: actions/upload-artifact@v4
         with:
-          name: projectX-companion-android-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ env.PROJECTX_BUILD_NAME }}-android
+          path: projectX_8-24_v1.1.apk
           if-no-files-found: error
