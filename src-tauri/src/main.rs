@@ -2,6 +2,7 @@
 
 mod artwork;
 mod imports;
+mod system_tools;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -294,7 +295,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             select_project_folder, inspect_project, list_project_relocations, move_project_into_workspace, restore_project_location,
             open_in_explorer, open_in_terminal, git_status, git_commit, git_push, run_script,
-            artwork::discover_project_artwork,
+            artwork::discover_project_artwork, system_tools::toolchain_preflight,
             imports::select_zip_file, imports::initialize_zip_project, imports::preview_zip_merge, imports::apply_zip_merge,
             imports::create_vite_project, imports::run_dev_project, imports::stop_dev_project
         ])
