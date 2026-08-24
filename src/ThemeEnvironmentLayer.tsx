@@ -38,5 +38,5 @@ export default function ThemeEnvironmentLayer() {
     <div className="gallery-horizon"/><div className="gallery-plaque">PROJECT.X / DIGITAL EXHIBITION</div><div className="gallery-room-number">ROOM 05</div>
   </div>
 
-  return <div className="theme-environment env-command" aria-hidden="true"><div className="command-grid"/><div className="command-scan"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>
+  return <div className="theme-environment env-command" aria-hidden="true"><div className="command-backdrop-grid"/><div className="command-scan"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>
 }
