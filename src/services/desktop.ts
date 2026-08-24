@@ -87,6 +87,10 @@ export type DesktopHostBridge = {
   stopDevProject(pid: number): Promise<{ ok: boolean; output: string }>
   discoverProjectArtwork(path: string): Promise<ArtworkCandidate[]>
   toolchainPreflight(): Promise<ToolStatus[]>
+  downloadRemotePackage(url: string, fileName: string): Promise<string>
+  openPreviewWindow(projectId: string, projectName: string, url: string): Promise<void>
+  reloadPreviewWindow(projectId: string): Promise<void>
+  closePreviewWindow(projectId: string): Promise<void>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
