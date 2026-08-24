@@ -14,8 +14,6 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
-alter table storage.objects enable row level security;
-
 drop policy if exists "projectx_companion_packages_select_own" on storage.objects;
 create policy "projectx_companion_packages_select_own"
 on storage.objects for select
