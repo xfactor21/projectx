@@ -2,15 +2,15 @@ import { useEffect } from 'react'
 
 const ROOTS = [
   '.cloud-dock',
-  '.local-project-dock',
+  '.local-dock',
   '.artwork-dock',
   '.task-console',
   '.runtime-dock',
   '.desktop-actions-dock',
-  '.project-intel-dock',
-  '.deployment-analytics-dock',
+  '.intel-dock',
+  '.analytics-dock',
   '.deploy-dock',
-  '.beta-diagnostics-dock',
+  '.beta-dock',
 ]
 
 function closeRoot(root: Element) {
@@ -28,15 +28,13 @@ export default function SurfaceCoordinator() {
 
       const roots = ROOTS.flatMap((selector) => Array.from(document.querySelectorAll(selector)))
       const clickedRoot = roots.find((root) => root.contains(target))
-      const clickedToggle = target.closest('button[class*="toggle"]')
 
       roots.forEach((root) => {
-        if (!root.classList.contains('open')) return
-        if (root === clickedRoot) return
+        if (!root.classList.contains('open') || root === clickedRoot) return
         closeRoot(root)
       })
 
-      if (!clickedRoot && !clickedToggle) roots.forEach(closeRoot)
+      if (!clickedRoot) roots.forEach(closeRoot)
     }
 
     document.addEventListener('pointerdown', onPointerDown, true)
