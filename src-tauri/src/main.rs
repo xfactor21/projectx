@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod artwork;
+mod dev_preview;
 mod imports;
 mod preview;
 mod remote_packages;
@@ -300,6 +301,7 @@ fn main() {
             artwork::discover_project_artwork, system_tools::toolchain_preflight,
             remote_packages::download_remote_package,
             preview::open_preview_window, preview::reload_preview_window, preview::close_preview_window,
+            dev_preview::run_preview_project, dev_preview::stop_preview_project,
             imports::select_zip_file, imports::initialize_zip_project, imports::preview_zip_merge, imports::apply_zip_merge,
             imports::create_vite_project, imports::run_dev_project, imports::stop_dev_project
         ])
