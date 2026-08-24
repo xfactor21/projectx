@@ -18,7 +18,7 @@ export default function ThemeEnvironmentLayer() {
   if (theme === 'Storefront') return <div className="theme-environment env-storefront" aria-hidden="true">
     <div className="store-sky"/><div className="store-brick-wall"/><div className="store-awning"><i/><i/><i/><i/><i/><i/></div>
     <div className="store-sign">PROJECT.X SHOWROOM</div><div className="store-window-glow left"/><div className="store-window-glow right"/>
-    <div className="store-lamp lamp-left"/><div className="store-lamp lamp-right"/><div className="store-sidewalk"/>
+    <div className="store-lamp lamp-left"/><div className="store-lamp lamp-right"/><div className="xfactor-door-mark"/><div className="store-sidewalk"/>
   </div>
 
   if (theme === 'Vending') return <div className="theme-environment env-vending" aria-hidden="true">
@@ -30,6 +30,7 @@ export default function ThemeEnvironmentLayer() {
   if (theme === 'Comic') return <div className="theme-environment env-comic" aria-hidden="true">
     <div className="comic-masthead"><b>PROJECT.X</b><span>ISSUE // BUILD UNIVERSE</span></div><div className="comic-page-corner"/>
     <div className="comic-sfx sfx-one">BUILD!</div><div className="comic-sfx sfx-two">SHIP!</div><div className="comic-caption">Meanwhile, inside the project universe…</div>
+    <div className="comic-prop one"><b>xFactor</b><span/><small>VS. THE NULL</small></div><div className="comic-prop two"><b>xFactor</b><span/><small>GLITCH CITY #X</small></div>
   </div>
 
   if (theme === '3D') return <div className="theme-environment env-gallery" aria-hidden="true">
