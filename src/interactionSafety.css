@@ -36,18 +36,12 @@
   pointer-events: none !important;
 }
 
-/* Keep the real application shell and its controls above all decorative worlds. */
+/* Keep the application shell above environment scenery without changing layout positioning. */
 .workspace-v2,
-.workspace-v3,
-.sidebar,
-.workspace,
-.topbar,
-.primary-nav,
-.v2-theme-deck,
-.v2-project-grid,
-.project-launcher-fab {
+.workspace-v3 {
   position: relative;
-  z-index: 2;
+  z-index: 1;
+  isolation: isolate;
 }
 
 button,
