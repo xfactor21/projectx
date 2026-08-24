@@ -43,13 +43,55 @@ fn local_url(text: &str) -> Option<String> {
     None
 }
 
+fn tail(text: &str, count: usize) -> String {
+    text.lines().rev().take(count).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+}
+
+fn ensure_dependencies(root: &Path, manager: &str) -> Result<Option<String>, String> {
+    if !root.join("package.json").exists() || root.join("node_modules").exists() { return Ok(None); }
+
+    let logs = std::env::temp_dir().join("projectx-installs");
+    fs::create_dir_all(&logs).map_err(|error| format!("Unable to create dependency install log directory: {error}"))?;
+    let name = root.file_name().and_then(|value| value.to_str()).unwrap_or("project").replace(|ch: char| !ch.is_ascii_alphanumeric(), "-");
+    let log_path = logs.join(format!("{name}-install-{}.log", stamp()));
+    let stdout = fs::File::create(&log_path).map_err(|error| format!("Unable to create dependency install log: {error}"))?;
+    let stderr = stdout.try_clone().map_err(|error| format!("Unable to prepare dependency install log: {error}"))?;
+
+    let mut command = Command::new(executable(manager));
+    command.current_dir(root).arg("install");
+    match manager {
+        "npm" => { command.args(["--no-audit", "--no-fund", "--prefer-offline"]); }
+        "pnpm" => { command.args(["--reporter=append-only"]); }
+        "yarn" => { command.arg("--non-interactive"); }
+        _ => {}
+    }
+    command.env("CI", "true").env("GIT_TERMINAL_PROMPT", "0").stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
+    #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
+    let mut child = command.spawn().map_err(|error| format!("Unable to start {manager} dependency install: {error}"))?;
+
+    for _ in 0..360 {
+        thread::sleep(Duration::from_millis(500));
+        if let Some(status) = child.try_wait().map_err(|error| format!("Unable to inspect dependency install: {error}"))? {
+            let output = fs::read_to_string(&log_path).unwrap_or_default();
+            if status.success() { return Ok(Some(format!("Dependencies installed with {manager}."))); }
+            return Err(format!("Dependency install failed with {manager}.\n{}\nLog: {}", tail(&output, 16), log_path.display()));
+        }
+    }
+
+    let _ = child.kill();
+    let output = fs::read_to_string(&log_path).unwrap_or_default();
+    Err(format!("Dependency install timed out after 3 minutes and was stopped. This often means a package or Git dependency is waiting on unavailable network/authentication.\n{}\nLog: {}", tail(&output, 16), log_path.display()))
+}
+
 #[tauri::command]
 pub(crate) fn run_preview_project(path: String, script: String, state: State<'_, DesktopState>) -> Result<PreviewRunResult, String> {
     let root = ensure_authorized(&state, &path)?;
-    if !declared(&root, &script) { return Err(format!("Script '{script}' is not declared by this project.")); }
+    if !declared(&root, &script) { return Err(format!("Script '{script}' is not declared by this project. Open the project details and verify package.json scripts.")); }
     let manager = package_manager(&root);
     let check = Command::new(executable(manager)).arg("--version").output();
-    if !matches!(check, Ok(ref output) if output.status.success()) { return Err(format!("{manager} is required but is not available on this PC.")); }
+    if !matches!(check, Ok(ref output) if output.status.success()) { return Err(format!("{manager} is required but is not available on this PC. Open ENV / Runtimes to review the toolchain.")); }
+    let install_note = ensure_dependencies(&root, manager)?;
+
     let logs = std::env::temp_dir().join("projectx-runs");
     fs::create_dir_all(&logs).map_err(|error| format!("Unable to create run log directory: {error}"))?;
     let name = root.file_name().and_then(|value| value.to_str()).unwrap_or("project").replace(|ch: char| !ch.is_ascii_alphanumeric(), "-");
@@ -57,28 +99,39 @@ pub(crate) fn run_preview_project(path: String, script: String, state: State<'_,
     let stdout = fs::File::create(&log_path).map_err(|error| format!("Unable to create run log: {error}"))?;
     let stderr = stdout.try_clone().map_err(|error| format!("Unable to prepare run log: {error}"))?;
     let mut command = Command::new(executable(manager));
-    command.current_dir(&root).args(["run", &script]).stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
+    command.current_dir(&root).args(["run", &script]).env("CI", "false").stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
     #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
     let mut child = command.spawn().map_err(|error| format!("Unable to start {manager} run {script}: {error}"))?;
     let pid = child.id();
     pids().lock().map_err(|_| "Preview process registry is unavailable.".to_string())?.insert(pid);
     let mut url = None;
     let mut latest = String::new();
-    for _ in 0..40 {
+    let mut exited = false;
+
+    for _ in 0..60 {
         thread::sleep(Duration::from_millis(250));
         latest = fs::read_to_string(&log_path).unwrap_or_default();
         if let Some(found) = local_url(&latest) { url = Some(found); break; }
         if child.try_wait().map_err(|error| format!("Unable to inspect project process: {error}"))?.is_some() {
             pids().lock().map_err(|_| "Preview process registry is unavailable.".to_string())?.remove(&pid);
+            exited = true;
             break;
         }
     }
-    let tail = latest.lines().rev().take(8).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
-    Ok(PreviewRunResult {
-        ok: true,
-        output: match &url { Some(value) => format!("Started {manager} run {script} at {value}. Opened with project.X Preview control."), None if !tail.is_empty() => format!("Started {manager} run {script}. Latest output:\n{tail}"), None => format!("Started {manager} run {script}.") },
-        pid: Some(pid), script, package_manager: manager.into(), url, log_path: log_path.to_string_lossy().into_owned()
-    })
+
+    let latest_tail = tail(&latest, 16);
+    if exited && url.is_none() {
+        return Err(format!("The dev server exited before exposing a local URL.\n{}\nLog: {}", if latest_tail.is_empty() { "No console output was produced." } else { &latest_tail }, log_path.display()));
+    }
+
+    let mut output = match &url {
+        Some(value) => format!("Started {manager} run {script} at {value}."),
+        None if !latest_tail.is_empty() => format!("Started {manager} run {script}, but no local URL was detected yet. Latest output:\n{latest_tail}"),
+        None => format!("Started {manager} run {script}. Waiting for a local URL."),
+    };
+    if let Some(note) = install_note { output = format!("{note}\n{output}"); }
+
+    Ok(PreviewRunResult { ok: true, output, pid: Some(pid), script, package_manager: manager.into(), url, log_path: log_path.to_string_lossy().into_owned() })
 }
 
 #[tauri::command]
