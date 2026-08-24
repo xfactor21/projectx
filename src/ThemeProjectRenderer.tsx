@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 type Project = {
   id: string
   name: string
@@ -83,7 +85,8 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
     <div className="gallery-ceiling" aria-hidden="true"/><div className="gallery-floor" aria-hidden="true"/>
     <div className="gallery-exhibits">{projects.map((project, index) => {
       const source = sourceMap.get(project.id)
-      return <article className="gallery-exhibit" key={project.id} style={{ '--gallery-depth': `${index % 3}` } as React.CSSProperties}>
+      const depthStyle = { '--gallery-depth': `${index % 3}` } as CSSProperties
+      return <article className="gallery-exhibit" key={project.id} style={depthStyle}>
         <div className="gallery-light"/><button type="button" className="gallery-frame" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span><b>{monogram(project.name)}</b></button>
         <div className="gallery-plaque"><strong>{project.name}</strong><span>{sourceLabel(project, source)}</span><small>{(project.stack || []).slice(0, 3).join(' · ') || project.status || 'Project'}</small><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Launch exhibit</button></div>
       </article>
