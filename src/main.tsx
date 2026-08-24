@@ -21,6 +21,7 @@ import ThemeEnvironmentLayer from './ThemeEnvironmentLayer.tsx'
 import ArtworkDock from './ArtworkDock.tsx'
 import TaskConsole from './TaskConsole.tsx'
 import RuntimeDock from './RuntimeDock.tsx'
+import SurfaceCoordinator from './SurfaceCoordinator.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import { quarantineLegacyStarterProjects } from './services/legacyMigration'
 import './viewModes.css'
@@ -47,6 +48,7 @@ import './artworkDock.css'
 import './taskConsole.css'
 import './runtimeDock.css'
 import './interactionSafety.css'
+import './stabilization.css'
 
 quarantineLegacyStarterProjects()
 installTauriDesktopBridge()
@@ -66,6 +68,7 @@ createRoot(document.getElementById('root')!).render(
         <WorkspaceApp />
         <AddProjectLauncher />
         <ThemeSensoryLayer />
+        <SurfaceCoordinator />
         <CloudSyncDock />
         <LocalProjectDock />
         <ArtworkDock />
