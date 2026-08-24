@@ -1,0 +1,68 @@
+/* Interaction guardrails: decorative theme/world layers must never block app controls. */
+.theme-environment,
+.theme-environment *,
+.env-command,
+.env-storefront,
+.env-vending,
+.env-comic,
+.env-gallery,
+.command-grid,
+.command-scan,
+.store-sky,
+.store-brick-wall,
+.store-awning,
+.store-sign,
+.store-window-glow,
+.store-lamp,
+.store-sidewalk,
+.machine-shell,
+.machine-marquee,
+.machine-left-rail,
+.machine-right-rail,
+.machine-keypad,
+.machine-slot,
+.machine-status,
+.comic-masthead,
+.comic-page-corner,
+.comic-sfx,
+.comic-caption,
+.comic-prop,
+.gallery-ceiling,
+.gallery-beam,
+.gallery-horizon,
+.gallery-plaque,
+.gallery-room-number,
+.xfactor-door-mark {
+  pointer-events: none !important;
+}
+
+/* Keep the real application shell and its controls above all decorative worlds. */
+.workspace-v2,
+.workspace-v3,
+.sidebar,
+.workspace,
+.topbar,
+.primary-nav,
+.v2-theme-deck,
+.v2-project-grid,
+.project-launcher-fab {
+  position: relative;
+  z-index: 2;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+label,
+[role='button'] {
+  pointer-events: auto;
+}
+
+/* Modal/drawer systems stay above the shell. */
+.project-launcher-backdrop,
+.v2-detail-backdrop,
+.github-discovery-backdrop {
+  z-index: 1000 !important;
+}
