@@ -42,14 +42,41 @@ export default function ArtworkDock() {
     reader.readAsDataURL(file)
   }
 
-  async function scanProject() {
+  async function scanProject(autoApply = false) {
     if (!desktop || !source?.path) { setMessage('Native artwork scanning requires a local project on this Windows host.'); return }
     setScanning(true); setCandidates([])
     try {
       const found = await desktop.discoverProjectArtwork(source.path)
       setCandidates(found)
       const previewable = found.filter((item) => item.dataUrl).length
-      setMessage(found.length ? `Found ${found.length} ranked image candidates (${previewable} previewable).` : 'No likely project artwork was found. Manual upload remains available.')
+      const best = found.find((item) => item.dataUrl)
+      if (autoApply && best?.dataUrl && !selected?.coverUrl) {
+        saveCover(best.dataUrl, best.relativePath)
+        setMessage(`Automatically selected ${best.fileName} as the project artwork. ${found.length} candidates found.`)
+      } else {
+        setMessage(found.length ? `Found ${found.length} ranked image candidates (${previewable} previewable).` : 'No likely project artwork was found. Manual upload remains available.')
+      }
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Artwork scan failed.') }
+    finally { setScanning(false) }
+  }
+
+  async function selectProject(nextId: string) {
+    setProjectId(nextId); setCandidates([])
+    if (!nextId || !desktop) return
+    const currentProject = readArray<Project>(PROJECTS_KEY).find((project) => project.id === nextId)
+    const currentSource = readArray<LocalSource>(LOCAL_KEY).find((item) => item.projectId === nextId)
+    if (currentProject?.coverUrl || !currentSource?.path) return
+    setScanning(true)
+    try {
+      const found = await desktop.discoverProjectArtwork(currentSource.path)
+      setCandidates(found)
+      const best = found.find((item) => item.dataUrl)
+      if (best?.dataUrl) {
+        const next = readArray<Project>(PROJECTS_KEY).map((project) => project.id === nextId ? { ...project, coverUrl: best.dataUrl, artworkSource: best.relativePath } : project)
+        localStorage.setItem(PROJECTS_KEY, JSON.stringify(next)); setProjects(next)
+        setMessage(`Automatically selected ${best.fileName}. You can choose another candidate below.`)
+        window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
+      } else setMessage(found.length ? `Found ${found.length} candidates, but none small enough to preview automatically.` : 'No likely project artwork was found.')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Artwork scan failed.') }
     finally { setScanning(false) }
   }
@@ -71,10 +98,10 @@ export default function ArtworkDock() {
     {open && <div className="artwork-panel">
       <header><div><small>PROJECT IDENTITY</small><strong>Artwork manager</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>
-      <label>Project<select value={projectId} onChange={(event) => { setProjectId(event.target.value); setCandidates([]) }}><option value="">Choose project…</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+      <label>Project<select value={projectId} onChange={(event) => void selectProject(event.target.value)}><option value="">Choose project…</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
       {selected?.coverUrl && <><div className="artwork-preview" style={{ backgroundImage: `url(${selected.coverUrl})` }} /><small>{selected.artworkSource ? `Source: ${selected.artworkSource}` : 'Current artwork'}</small></>}
       <div className="artwork-actions">
-        <button type="button" disabled={!projectId || !desktop || !source?.path || scanning} onClick={() => void scanProject()}>{scanning ? 'Scanning…' : '⌕ Scan project artwork'}</button>
+        <button type="button" disabled={!projectId || !desktop || !source?.path || scanning} onClick={() => void scanProject(false)}>{scanning ? 'Scanning…' : '⌕ Scan project artwork'}</button>
         <label className={`artwork-upload ${projectId ? '' : 'disabled'}`}>Upload artwork<input type="file" accept="image/*,.ico,.svg" disabled={!projectId} onChange={(event) => chooseFile(event.target.files?.[0])}/></label>
         <button type="button" disabled={!projectId || !selected?.coverUrl} onClick={removeArtwork}>Remove artwork</button>
       </div>
