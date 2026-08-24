@@ -1,4 +1,5 @@
 import type {
+  ArtworkCandidate,
   DesktopHostBridge,
   DesktopProjectSummary,
   DesktopRelocationResult,
@@ -9,15 +10,9 @@ import type {
   ZipMergeResult,
 } from './desktop'
 
-type TauriInternals = {
-  invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>
-}
+type TauriInternals = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> }
 
-declare global {
-  interface Window {
-    __TAURI_INTERNALS__?: TauriInternals
-  }
-}
+declare global { interface Window { __TAURI_INTERNALS__?: TauriInternals } }
 
 function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   const internals = window.__TAURI_INTERNALS__
@@ -27,9 +22,8 @@ function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> 
 
 export function installTauriDesktopBridge(): boolean {
   if (!window.__TAURI_INTERNALS__) return false
-
   const bridge: DesktopHostBridge = {
-    version: '0.4.0',
+    version: '0.5.0',
     selectProjectFolder: () => invoke<DesktopProjectSummary | null>('select_project_folder'),
     inspectProject: (path) => invoke<DesktopProjectSummary>('inspect_project', { path }),
     moveProjectIntoWorkspace: (path) => invoke<DesktopRelocationResult>('move_project_into_workspace', { path }),
@@ -41,6 +35,8 @@ export function installTauriDesktopBridge(): boolean {
     applyZipMerge: (zipPath, targetPath) => invoke<ZipMergeResult>('apply_zip_merge', { zipPath, targetPath }),
     createViteProject: (name, template) => invoke<ProjectInitializationResult>('create_vite_project', { name, template }),
     runDevProject: (path, script) => invoke<ProjectRunResult>('run_dev_project', { path, script }),
+    stopDevProject: (pid) => invoke<{ ok: boolean; output: string }>('stop_dev_project', { pid }),
+    discoverProjectArtwork: (path) => invoke<ArtworkCandidate[]>('discover_project_artwork', { path }),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
     openInTerminal: (path) => invoke<void>('open_in_terminal', { path }),
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),
@@ -48,7 +44,6 @@ export function installTauriDesktopBridge(): boolean {
     gitPush: (path) => invoke<{ ok: boolean; output: string }>('git_push', { path }),
     runScript: (path, script) => invoke<{ ok: boolean; output: string }>('run_script', { path, script }),
   }
-
   window.projectXDesktop = bridge
   return true
 }
