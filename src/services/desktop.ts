@@ -48,6 +48,13 @@ export type ArtworkCandidate = {
   dataUrl?: string
 }
 
+export type ToolStatus = {
+  name: string
+  command: string
+  installed: boolean
+  version?: string
+}
+
 export type ZipMergePreview = {
   targetPath: string
   zipPath: string
@@ -79,6 +86,7 @@ export type DesktopHostBridge = {
   runDevProject(path: string, script: string): Promise<ProjectRunResult>
   stopDevProject(pid: number): Promise<{ ok: boolean; output: string }>
   discoverProjectArtwork(path: string): Promise<ArtworkCandidate[]>
+  toolchainPreflight(): Promise<ToolStatus[]>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
@@ -87,9 +95,6 @@ export type DesktopHostBridge = {
   runScript(path: string, script: string): Promise<{ ok: boolean; output: string }>
 }
 
-declare global {
-  interface Window { projectXDesktop?: DesktopHostBridge }
-}
-
+declare global { interface Window { projectXDesktop?: DesktopHostBridge } }
 export function getDesktopHost(): DesktopHostBridge | null { return window.projectXDesktop || null }
 export function isDesktopHostAvailable(): boolean { return Boolean(window.projectXDesktop) }
