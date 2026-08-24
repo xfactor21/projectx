@@ -101,13 +101,13 @@ export default function GitHubDiscoveryModal() {
         try {
           const archiveUrl = `https://github.com/${repo.full_name}/archive/refs/heads/${encodeURIComponent(repo.default_branch)}.zip`
           const zipPath = await desktop.downloadRemotePackage(archiveUrl, `${repo.name}.zip`)
-          setMessage(`Installing ${index + 1}/${chosen.length}: ${repo.name} — unpacking and installing dependencies…`)
-          const initialized = await desktop.initializeZipProject(zipPath, true)
+          setMessage(`Installing ${index + 1}/${chosen.length}: ${repo.name} — unpacking into project.X Workspace…`)
+          const initialized = await desktop.initializeZipProject(zipPath, false)
           project = {
             ...project,
             kicker: 'GitHub + local Windows project',
             stack: initialized.summary.frameworkHints?.length ? initialized.summary.frameworkHints : project.stack,
-            notes: `Local GitHub archive initialized at ${initialized.summary.path}`,
+            notes: `Local GitHub archive initialized at ${initialized.summary.path}. Missing dependencies will install automatically on first Run.`,
             progress: 55,
             updated: 'Just now',
           }
@@ -136,8 +136,8 @@ export default function GitHubDiscoveryModal() {
       setBusy(false)
       return
     }
-    setMessage(desktop ? `${imported.length} GitHub project${imported.length === 1 ? '' : 's'} installed and registered locally.` : `${imported.length} GitHub remote record${imported.length === 1 ? '' : 's'} added.`)
-    window.setTimeout(() => setOpen(false), 900)
+    setMessage(desktop ? `${imported.length} GitHub project${imported.length === 1 ? '' : 's'} installed locally. Dependencies will be completed automatically on first Run.` : `${imported.length} GitHub remote record${imported.length === 1 ? '' : 's'} added.`)
+    window.setTimeout(() => setOpen(false), 1000)
     setBusy(false)
   }
 
@@ -147,7 +147,7 @@ export default function GitHubDiscoveryModal() {
     <div className="github-discovery-backdrop" role="presentation" onClick={() => !busy && setOpen(false)}>
       <section className="github-discovery-modal" role="dialog" aria-modal="true" aria-labelledby="github-discovery-title" onClick={(event) => event.stopPropagation()}>
         <header className="github-discovery-head">
-          <div><p>GITHUB / NEW REPOSITORIES</p><h2 id="github-discovery-title">Choose what belongs in project.X</h2><span>{repos.length} untracked {repos.length === 1 ? 'repository' : 'repositories'} found. {desktop ? 'Selected public repositories will be installed into the Windows workspace.' : 'Nothing will be added until you choose it.'}</span></div>
+          <div><p>GITHUB / NEW REPOSITORIES</p><h2 id="github-discovery-title">Choose what belongs in project.X</h2><span>{repos.length} untracked {repos.length === 1 ? 'repository' : 'repositories'} found. {desktop ? 'Selected public repositories will be downloaded into the Windows workspace; dependencies finish on first Run.' : 'Nothing will be added until you choose it.'}</span></div>
           <button type="button" disabled={busy} onClick={() => setOpen(false)} aria-label="Close discovery">×</button>
         </header>
 
