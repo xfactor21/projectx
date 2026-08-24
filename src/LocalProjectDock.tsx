@@ -7,7 +7,6 @@ const PROJECTS_KEY = 'projectx.projects.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
 
 type StoredProject = Record<string, unknown> & { id: string; name: string }
-
 type LocalSource = {
   projectId: string
   kind: 'desktop' | 'browser'
@@ -56,6 +55,8 @@ export default function LocalProjectDock() {
     kind: LocalSource['kind'],
     path?: string,
     relocation?: ProjectRelocation,
+    coverUrl?: string,
+    artworkSource?: string,
   ) {
     const projects = readArray<StoredProject>(PROJECTS_KEY)
     const localSources = readArray<LocalSource>(LOCAL_KEY)
@@ -76,8 +77,11 @@ export default function LocalProjectDock() {
       archived: false,
       repoUrl: '',
       liveUrl: '',
-      notes: hasGit ? `Local Git repository${gitBranch ? ` · ${gitBranch}` : ''}` : 'Local folder · Git not detected',
-      coverUrl: '',
+      notes: [
+        hasGit ? `Local Git repository${gitBranch ? ` · ${gitBranch}` : ''}` : 'Local folder · Git not detected',
+        artworkSource ? `Artwork auto-detected: ${artworkSource}` : '',
+      ].filter(Boolean).join(' · '),
+      coverUrl: coverUrl || '',
     }
     localSources.push({
       projectId: id,
@@ -134,10 +138,17 @@ export default function LocalProjectDock() {
           selected.hasGit,
           selected.gitBranch,
           'browser',
+          undefined,
+          undefined,
+          selected.coverUrl,
+          selected.artworkSource,
         )
-        setMessage(`Linked ${selected.name} from this browser.`)
+        setMessage(selected.coverUrl
+          ? `Linked ${selected.name}; artwork detected from ${selected.artworkSource}.`
+          : `Linked ${selected.name}. No obvious artwork was found, so you can set one in ART.`)
       }
 
+      window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
       window.setTimeout(() => window.location.reload(), 500)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to add local project.')
@@ -185,6 +196,7 @@ export default function LocalProjectDock() {
           <span className="yes">✓ Explicit folder permission</span>
           <span className="yes">✓ package.json + framework detection</span>
           <span className="yes">✓ Local Git detection</span>
+          <span className="yes">✓ Common icon/logo/banner discovery</span>
           <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Managed workspace relocation</span>
           <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Original location restore record</span>
           <span className={desktop ? 'yes' : 'soon'}>{desktop ? '✓' : '○'} Git + terminal/build host bridge</span>
