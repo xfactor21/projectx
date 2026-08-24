@@ -22,7 +22,7 @@ function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> 
 export function installTauriDesktopBridge(): boolean {
   if (!window.__TAURI_INTERNALS__) return false
   const bridge: DesktopHostBridge = {
-    version: '0.6.0',
+    version: '0.7.0',
     selectProjectFolder: () => invoke<DesktopProjectSummary | null>('select_project_folder'),
     inspectProject: (path) => invoke<DesktopProjectSummary>('inspect_project', { path }),
     moveProjectIntoWorkspace: (path) => invoke<DesktopRelocationResult>('move_project_into_workspace', { path }),
@@ -37,6 +37,10 @@ export function installTauriDesktopBridge(): boolean {
     stopDevProject: (pid) => invoke<{ ok: boolean; output: string }>('stop_dev_project', { pid }),
     discoverProjectArtwork: (path) => invoke<ArtworkCandidate[]>('discover_project_artwork', { path }),
     toolchainPreflight: () => invoke<ToolStatus[]>('toolchain_preflight'),
+    downloadRemotePackage: (url, fileName) => invoke<string>('download_remote_package', { url, fileName }),
+    openPreviewWindow: (projectId, projectName, url) => invoke<void>('open_preview_window', { projectId, projectName, url }),
+    reloadPreviewWindow: (projectId) => invoke<void>('reload_preview_window', { projectId }),
+    closePreviewWindow: (projectId) => invoke<void>('close_preview_window', { projectId }),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
     openInTerminal: (path) => invoke<void>('open_in_terminal', { path }),
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),
