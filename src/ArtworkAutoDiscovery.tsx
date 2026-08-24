@@ -12,6 +12,10 @@ function readArray<T>(key: string): T[] {
   catch { return [] }
 }
 
+function isGenericFallback(project: Project) {
+  return Boolean(project.coverUrl?.includes('opengraph.githubassets.com')) && !project.artworkSource
+}
+
 export default function ArtworkAutoDiscovery() {
   useEffect(() => {
     const desktop = getDesktopHost()
@@ -26,7 +30,7 @@ export default function ArtworkAutoDiscovery() {
         const projects = readArray<Project>(PROJECTS_KEY)
         const sources = readArray<Source>(LOCAL_KEY)
         for (const project of projects) {
-          if (cancelled || project.coverUrl) continue
+          if (cancelled || (project.coverUrl && !isGenericFallback(project))) continue
           const source = sources.find((item) => item.projectId === project.id && item.path)
           if (!source?.path) continue
           try {
@@ -34,7 +38,11 @@ export default function ArtworkAutoDiscovery() {
             const best = candidates.find((candidate) => candidate.dataUrl)
             if (!best?.dataUrl) continue
             const latest = readArray<Project>(PROJECTS_KEY)
-            const next = latest.map((item) => item.id === project.id && !item.coverUrl ? { ...item, coverUrl: best.dataUrl, artworkSource: best.relativePath } : item)
+            const next = latest.map((item) => {
+              if (item.id !== project.id) return item
+              if (item.coverUrl && !isGenericFallback(item)) return item
+              return { ...item, coverUrl: best.dataUrl, artworkSource: best.relativePath }
+            })
             localStorage.setItem(PROJECTS_KEY, JSON.stringify(next))
             window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
           } catch {
