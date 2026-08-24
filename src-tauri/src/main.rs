@@ -2,6 +2,8 @@
 
 mod artwork;
 mod imports;
+mod preview;
+mod remote_packages;
 mod system_tools;
 
 use serde::{Deserialize, Serialize};
@@ -296,6 +298,8 @@ fn main() {
             select_project_folder, inspect_project, list_project_relocations, move_project_into_workspace, restore_project_location,
             open_in_explorer, open_in_terminal, git_status, git_commit, git_push, run_script,
             artwork::discover_project_artwork, system_tools::toolchain_preflight,
+            remote_packages::download_remote_package,
+            preview::open_preview_window, preview::reload_preview_window, preview::close_preview_window,
             imports::select_zip_file, imports::initialize_zip_project, imports::preview_zip_merge, imports::apply_zip_merge,
             imports::create_vite_project, imports::run_dev_project, imports::stop_dev_project
         ])
