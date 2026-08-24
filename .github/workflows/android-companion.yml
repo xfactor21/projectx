@@ -5,9 +5,12 @@ on:
   push:
     branches:
       - mobile/android-companion-build
+  pull_request:
+    branches:
+      - develop
 
 concurrency:
-  group: projectx-companion-android-${{ github.ref }}
+  group: projectx-companion-android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
