@@ -1,6 +1,7 @@
 /* v1 stabilization pass: keep functional UI readable while the visual system is refined. */
 .command-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;position:relative;z-index:1}
 .v2-remote-note{margin:12px 0;padding:10px 12px;border-left:2px solid rgba(156,92,255,.7);background:rgba(156,92,255,.06);color:#aeb7c6!important;font-size:11px!important}
+.brand-name::after{content:'v1';display:inline-block;margin-left:8px;padding:2px 5px;border:1px solid rgba(156,92,255,.28);border-radius:5px;color:#a98cff;font:700 7px/1 var(--mono,monospace);letter-spacing:.08em;vertical-align:middle}
 
 /* One artwork source, theme-specific treatment. */
 .project-art-surface{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important}
