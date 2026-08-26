@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-24_v1.5
+  PROJECTX_BUILD_NAME: projectX_8-25_v1.7
 
 jobs:
   windows-installer:
@@ -58,5 +58,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}
-          path: src-tauri/target/release/bundle/nsis/projectX_8-24_v1.5.exe
+          path: src-tauri/target/release/bundle/nsis/${{ env.PROJECTX_BUILD_NAME }}.exe
           if-no-files-found: error
