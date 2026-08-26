@@ -20,6 +20,7 @@ export type GitHubRepo = {
 export const GITHUB_DISCOVERY_EVENT = 'projectx:github-discovery'
 
 const PROJECT_STORAGE_KEY = 'projectx.projects.v1'
+const LOCAL_SOURCE_KEY = 'projectx.local.sources.v1'
 
 const githubHeaders = {
   Accept: 'application/vnd.github+json',
@@ -32,9 +33,16 @@ function repoKey(url: string) {
 
 function trackedRepoKeys(): Set<string> {
   try {
-    const parsed = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]') as Array<{ repoUrl?: string }>
-    if (!Array.isArray(parsed)) return new Set()
-    return new Set(parsed.map((project) => project.repoUrl || '').filter(Boolean).map(repoKey))
+    const projects = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]') as Array<{ id?: string; repoUrl?: string; archived?: boolean }>
+    const sources = JSON.parse(localStorage.getItem(LOCAL_SOURCE_KEY) || '[]') as Array<{ projectId?: string; path?: string }>
+    if (!Array.isArray(projects) || !Array.isArray(sources)) return new Set()
+    const locallyInstalled = new Set(sources.filter((source) => source.path).map((source) => source.projectId))
+    const requireLocalInstall = Boolean(window.projectXDesktop)
+    return new Set(projects
+      .filter((project) => !requireLocalInstall || project.archived || locallyInstalled.has(project.id))
+      .map((project) => project.repoUrl || '')
+      .filter(Boolean)
+      .map(repoKey))
   } catch {
     return new Set()
   }

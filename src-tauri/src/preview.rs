@@ -1,9 +1,6 @@
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::process::Command;
 
-fn label_for(project_id: &str) -> String {
-    let safe: String = project_id.chars().map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' }).collect();
-    format!("preview-{}", safe.trim_matches('-'))
-}
+use tauri::AppHandle;
 
 fn validate_local_url(value: &str) -> Result<url::Url, String> {
     let parsed = url::Url::parse(value).map_err(|error| format!("Invalid preview URL: {error}"))?;
@@ -18,37 +15,35 @@ fn validate_local_url(value: &str) -> Result<url::Url, String> {
 }
 
 #[tauri::command]
-pub(crate) fn open_preview_window(app: AppHandle, project_id: String, project_name: String, url: String) -> Result<(), String> {
-    let label = label_for(&project_id);
+pub(crate) fn open_preview_window(
+    _app: AppHandle,
+    _project_id: String,
+    _project_name: String,
+    url: String,
+) -> Result<(), String> {
     let parsed = validate_local_url(&url)?;
-    if let Some(existing) = app.get_webview_window(&label) {
-        existing.navigate(parsed).map_err(|error| format!("Unable to navigate Preview: {error}"))?;
-        existing.show().map_err(|error| format!("Unable to show Preview: {error}"))?;
-        existing.set_focus().map_err(|error| format!("Unable to focus Preview: {error}"))?;
-        return Ok(());
+    let mut command = Command::new("explorer.exe");
+    command.arg(parsed.as_str());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
     }
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::External(parsed))
-        .title(format!("{} — project.X Preview", project_name))
-        .inner_size(1180.0, 780.0)
-        .min_inner_size(420.0, 320.0)
-        .resizable(true)
-        .build()
-        .map_err(|error| format!("Unable to open project.X Preview: {error}"))?;
+    command
+        .spawn()
+        .map_err(|error| format!("Unable to open the project preview in your browser: {error}"))?;
     Ok(())
 }
 
-#[tauri::command]
-pub(crate) fn reload_preview_window(app: AppHandle, project_id: String) -> Result<(), String> {
-    let label = label_for(&project_id);
-    let window = app.get_webview_window(&label).ok_or("Preview window is not open.")?;
-    window.eval("location.reload()").map_err(|error| format!("Unable to reload Preview: {error}"))
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[tauri::command]
-pub(crate) fn close_preview_window(app: AppHandle, project_id: String) -> Result<(), String> {
-    let label = label_for(&project_id);
-    if let Some(window) = app.get_webview_window(&label) {
-        window.close().map_err(|error| format!("Unable to close Preview: {error}"))?;
+    #[test]
+    fn preview_accepts_only_loopback_http_urls() {
+        assert!(validate_local_url("http://localhost:5173/").is_ok());
+        assert!(validate_local_url("http://127.0.0.1:8081/path").is_ok());
+        assert!(validate_local_url("https://example.com").is_err());
+        assert!(validate_local_url("file:///C:/project/index.html").is_err());
     }
-    Ok(())
 }

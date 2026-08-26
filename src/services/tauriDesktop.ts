@@ -9,6 +9,7 @@ import type {
   ToolStatus,
   ZipMergePreview,
   ZipMergeResult,
+  WorkspaceBackupFile,
 } from './desktop'
 import { APP_VERSION } from '../version'
 
@@ -31,6 +32,7 @@ export function installTauriDesktopBridge(): boolean {
     listProjectRelocations: () => invoke<ProjectRelocation[]>('list_project_relocations'),
     selectZipFile: () => invoke<string | null>('select_zip_file'),
     initializeZipProject: (zipPath, install) => invoke<ProjectInitializationResult>('initialize_zip_project', { zipPath, install }),
+    cloneGitHubProject: (repoUrl, name) => invoke<ProjectInitializationResult>('clone_github_project', { repoUrl, name }),
     previewZipMerge: (zipPath, targetPath) => invoke<ZipMergePreview>('preview_zip_merge', { zipPath, targetPath }),
     applyZipMerge: (zipPath, targetPath) => invoke<ZipMergeResult>('apply_zip_merge', { zipPath, targetPath }),
     createViteProject: (name, template) => invoke<ProjectInitializationResult>('create_vite_project', { name, template }),
@@ -40,14 +42,14 @@ export function installTauriDesktopBridge(): boolean {
     toolchainPreflight: () => invoke<ToolStatus[]>('toolchain_preflight'),
     downloadRemotePackage: (url, fileName) => invoke<string>('download_remote_package', { url, fileName }),
     openPreviewWindow: (projectId, projectName, url) => invoke<void>('open_preview_window', { projectId, projectName, url }),
-    reloadPreviewWindow: (projectId) => invoke<void>('reload_preview_window', { projectId }),
-    closePreviewWindow: (projectId) => invoke<void>('close_preview_window', { projectId }),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
     openInTerminal: (path) => invoke<void>('open_in_terminal', { path }),
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),
     gitCommit: (path, message) => invoke<{ ok: boolean; output: string }>('git_commit', { path, message }),
     gitPush: (path) => invoke<{ ok: boolean; output: string }>('git_push', { path }),
     runScript: (path, script) => invoke<{ ok: boolean; output: string }>('run_script', { path, script }),
+    saveWorkspaceBackup: (content, suggestedName) => invoke<string | null>('save_workspace_backup', { content, suggestedName }),
+    selectWorkspaceBackup: () => invoke<WorkspaceBackupFile | null>('select_workspace_backup'),
   }
   window.projectXDesktop = bridge
   return true

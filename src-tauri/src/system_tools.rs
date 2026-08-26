@@ -16,12 +16,26 @@ fn tool(name: &str, command: &str, args: &[&str]) -> ToolStatus {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            let version = if !stdout.is_empty() { Some(stdout.lines().next().unwrap_or("").to_string()) }
-                else if !stderr.is_empty() { Some(stderr.lines().next().unwrap_or("").to_string()) }
-                else { None };
-            ToolStatus { name: name.into(), command: command.into(), installed: output.status.success(), version }
+            let version = if !stdout.is_empty() {
+                Some(stdout.lines().next().unwrap_or("").to_string())
+            } else if !stderr.is_empty() {
+                Some(stderr.lines().next().unwrap_or("").to_string())
+            } else {
+                None
+            };
+            ToolStatus {
+                name: name.into(),
+                command: command.into(),
+                installed: output.status.success(),
+                version,
+            }
         }
-        Err(_) => ToolStatus { name: name.into(), command: command.into(), installed: false, version: None },
+        Err(_) => ToolStatus {
+            name: name.into(),
+            command: command.into(),
+            installed: false,
+            version: None,
+        },
     }
 }
 

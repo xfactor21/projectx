@@ -1,7 +1,10 @@
 /* v1 stabilization pass: keep functional UI readable while the visual system is refined. */
-.command-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;position:relative;z-index:1}
+.command-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;position:relative;z-index:1;min-width:0}
+.command-project{grid-template-columns:minmax(86px,112px) minmax(0,1fr);min-width:0;overflow:hidden}
+.command-project>div{min-width:0}
+.command-project h3,.command-project p{overflow-wrap:anywhere}
+.command-project footer{flex-wrap:wrap}
 .v2-remote-note{margin:12px 0;padding:10px 12px;border-left:2px solid rgba(156,92,255,.7);background:rgba(156,92,255,.06);color:#aeb7c6!important;font-size:11px!important}
-.brand-name::after{content:'v1';display:inline-block;margin-left:8px;padding:2px 5px;border:1px solid rgba(156,92,255,.28);border-radius:5px;color:#a98cff;font:700 7px/1 var(--mono,monospace);letter-spacing:.08em;vertical-align:middle}
 
 /* One artwork source, theme-specific treatment. */
 .project-art-surface{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important}
@@ -12,24 +15,13 @@
 .gallery-exhibit.has-project-art .gallery-frame{background-image:linear-gradient(rgba(5,4,11,.08),rgba(5,4,11,.38)),var(--project-art)!important;filter:saturate(.72) contrast(1.08)}
 .command-project.has-project-art .command-visual{background-image:linear-gradient(145deg,rgba(2,8,12,.34),rgba(2,8,12,.82)),var(--project-art)!important;filter:saturate(.78) contrast(1.08)}
 
-/* Right-side lifecycle tools get dedicated vertical lanes. */
-.artwork-dock{right:18px!important;bottom:372px!important}
-.runtime-dock{right:18px!important;bottom:318px!important}
-.task-console{right:18px!important;bottom:264px!important}
-.desktop-actions-dock{right:18px!important;bottom:210px!important}
-.local-dock{right:18px!important;bottom:156px!important}
-.cloud-dock{right:18px!important;bottom:102px!important}
-.theme-sound-toggle{right:18px!important;bottom:56px!important}
-.project-launcher-fab{right:18px!important;bottom:12px!important}
-
-/* Bottom-left optional tools get dedicated horizontal lanes. */
-.intel-dock{left:18px!important;right:auto!important;bottom:14px!important}
-.analytics-dock{left:170px!important;right:auto!important;bottom:14px!important}
-.deploy-dock{left:318px!important;right:auto!important;bottom:14px!important}
-.beta-dock{left:430px!important;right:auto!important;bottom:14px!important}
-
-/* Open panels sit above toggle lanes. */
-.artwork-panel,.runtime-panel,.task-console-panel,.desktop-actions-panel,.local-dock-panel,.cloud-dock-panel,.intel-panel,.analytics-panel,.deploy-panel,.beta-panel{z-index:250!important;box-shadow:0 24px 80px rgba(0,0,0,.6)!important}
+/* One contained control rail replaces viewport-scattered floating pills. */
+.utility-rail{position:fixed;z-index:82;left:12px;right:12px;bottom:12px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;max-width:calc(100vw - 24px);padding:6px;border:1px solid rgba(124,150,184,.2);background:rgba(5,8,13,.97);box-shadow:0 18px 52px rgba(0,0,0,.46);box-sizing:border-box}
+.utility-rail>.artwork-dock,.utility-rail>.runtime-dock,.utility-rail>.task-console,.utility-rail>.data-backup-dock,.utility-rail>.desktop-actions-dock,.utility-rail>.local-dock,.utility-rail>.cloud-dock,.utility-rail>.intel-dock,.utility-rail>.analytics-dock,.utility-rail>.deploy-dock,.utility-rail>.beta-dock{position:static!important;inset:auto!important;width:auto!important;max-width:100%}
+.utility-rail>.theme-sound-toggle,.utility-rail>.project-launcher-fab{position:static!important;inset:auto!important;width:auto!important;max-width:100%}
+.utility-rail button{box-sizing:border-box}
+.artwork-panel,.runtime-panel,.task-console-panel,.data-backup-panel,.desktop-actions-panel,.local-dock-panel,.cloud-dock-panel,.intel-panel,.analytics-panel,.deploy-panel,.beta-panel{position:fixed!important;z-index:96!important;left:50%!important;right:auto!important;bottom:74px!important;transform:translateX(-50%)!important;width:min(520px,calc(100vw - 24px))!important;max-height:calc(100vh - 98px)!important;overflow:auto!important;box-sizing:border-box;box-shadow:0 24px 80px rgba(0,0,0,.6)!important}
+.project-launcher-backdrop,.github-discovery-backdrop,.v2-detail-backdrop,.modal-backdrop,.companion-package-backdrop{z-index:300!important}
 
 /* Command background is intentionally quiet; project cards should be the content. */
 .env-command .command-backdrop-grid{opacity:.34}
@@ -37,9 +29,5 @@
 
 .github-install-message{margin:10px 0;padding:10px 12px;border:1px solid rgba(53,231,255,.15);border-radius:9px;background:rgba(53,231,255,.045);color:#aeeef7;font-size:11px;line-height:1.45}
 
-@media(max-width:1050px){
-  .intel-dock{left:10px!important}.analytics-dock{left:148px!important}.deploy-dock{left:284px!important}.beta-dock{left:390px!important}
-}
-@media(max-width:900px){
-  .artwork-dock,.runtime-dock,.task-console,.desktop-actions-dock,.local-dock,.cloud-dock{right:10px!important}
-}
+@media(max-width:720px){.utility-rail{left:6px;right:6px;bottom:6px;max-width:calc(100vw - 12px);justify-content:flex-start}.artwork-panel,.runtime-panel,.task-console-panel,.data-backup-panel,.desktop-actions-panel,.local-dock-panel,.cloud-dock-panel,.intel-panel,.analytics-panel,.deploy-panel,.beta-panel{bottom:106px!important}}
+@media(max-width:520px){.command-project{grid-template-columns:1fr}.command-visual{min-height:110px;border-right:0!important;border-bottom:1px solid rgba(41,224,255,.14)}}

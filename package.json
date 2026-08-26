@@ -1,16 +1,17 @@
 {
   "name": "projectx",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/prepare-desktop-icon.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "desktop:dev": "cargo tauri dev",
-    "desktop:build": "cargo tauri build --bundles nsis"
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build --bundles nsis",
+    "package:windows": "node scripts/package-downloadables.mjs",
+    "package:source": "node scripts/package-source.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "@tauri-apps/cli": "^2.8.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",

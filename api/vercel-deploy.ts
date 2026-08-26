@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { fetchWithTimeout, requireAuthorizedUser } from './_auth'
 
 type DeployRequest = {
   projectName?: string
@@ -12,7 +13,7 @@ function parseGitHubRepo(repoUrl: string) {
     const url = new URL(repoUrl)
     if (url.hostname !== 'github.com') return null
     const parts = url.pathname.split('/').filter(Boolean)
-    if (parts.length < 2) return null
+    if (parts.length !== 2) return null
     return { org: parts[0], repo: parts[1].replace(/\.git$/i, '') }
   } catch { return null }
 }
@@ -26,6 +27,7 @@ export default async function handler(request: any, response: any) {
     response.status(405).json({ ok: false, message: 'Method not allowed.' })
     return
   }
+  if (!await requireAuthorizedUser(request, response)) return
 
   const token = process.env.VERCEL_API_TOKEN
   const teamId = process.env.VERCEL_TEAM_ID
@@ -46,7 +48,7 @@ export default async function handler(request: any, response: any) {
   const endpoint = `https://api.vercel.com/v13/deployments${params.size ? `?${params.toString()}` : ''}`
 
   try {
-    const upstream = await fetch(endpoint, {
+    const upstream = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -59,7 +61,7 @@ export default async function handler(request: any, response: any) {
           ref: body.ref || 'main',
         },
       }),
-    })
+    }, 30_000)
     const payload = await upstream.json() as Record<string, unknown>
     if (!upstream.ok) {
       const error = payload.error as { message?: string } | undefined

@@ -12,10 +12,12 @@ export async function deployGitHubProject(input: {
   ref?: string
   target?: 'preview' | 'production'
 }): Promise<VercelDeployResult> {
+  const session = loadSession()
+  if (!session) return { ok: false, message: 'Sign in before deploying through Vercel.' }
   try {
     const response = await fetch('/api/vercel-deploy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify(input),
     })
     const body = await response.json() as VercelDeployResult
@@ -25,3 +27,4 @@ export async function deployGitHubProject(input: {
     return { ok: false, message: 'Deployment actions require the hosted project.X API; plain local Vite does not run /api routes.' }
   }
 }
+import { loadSession } from './supabase'

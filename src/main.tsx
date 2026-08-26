@@ -23,8 +23,8 @@ import ArtworkAutoDiscovery from './ArtworkAutoDiscovery.tsx'
 import TaskConsole from './TaskConsole.tsx'
 import RuntimeDock from './RuntimeDock.tsx'
 import SurfaceCoordinator from './SurfaceCoordinator.tsx'
+import DataBackupDock from './DataBackupDock.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
-import { quarantineLegacyStarterProjects } from './services/legacyMigration'
 import './viewModes.css'
 import './immersiveThemes.css'
 import './workspaceV2.css'
@@ -50,8 +50,9 @@ import './taskConsole.css'
 import './runtimeDock.css'
 import './interactionSafety.css'
 import './stabilization.css'
+import './dataBackup.css'
+import './workflowFixes.css'
 
-quarantineLegacyStarterProjects()
 installTauriDesktopBridge()
 
 window.addEventListener('projectx:open-add-project', () => {
@@ -67,21 +68,24 @@ createRoot(document.getElementById('root')!).render(
       {companionMode ? <CompanionApp /> : <>
         <ThemeEnvironmentLayer />
         <WorkspaceApp />
-        <AddProjectLauncher />
-        <ThemeSensoryLayer />
         <SurfaceCoordinator />
         <ArtworkAutoDiscovery />
-        <CloudSyncDock />
-        <LocalProjectDock />
-        <ArtworkDock />
-        <TaskConsole />
-        <RuntimeDock />
-        <DesktopActionsDock />
         <CompanionDesktopWorker />
-        <ProjectIntelDock />
-        <DeploymentAnalyticsDock />
-        <DeployDock />
-        <BetaDiagnosticsDock />
+        <div className="utility-rail" aria-label="Project utilities">
+          <ThemeSensoryLayer />
+          <AddProjectLauncher />
+          <CloudSyncDock />
+          <LocalProjectDock />
+          <ArtworkDock />
+          <TaskConsole />
+          <DataBackupDock />
+          <RuntimeDock />
+          <DesktopActionsDock />
+          <ProjectIntelDock />
+          <DeploymentAnalyticsDock />
+          <DeployDock />
+          <BetaDiagnosticsDock />
+        </div>
         <GitHubDiscoveryModal />
       </>}
     </ErrorBoundary>

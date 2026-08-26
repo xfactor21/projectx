@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
 
 const LOCAL_KEY = 'projectx.local.sources.v1'
 
 type LocalSource = {
   projectId: string
-  kind: 'desktop' | 'browser'
+  kind: 'desktop' | 'browser' | 'managed' | 'zip' | 'generated'
   label: string
   path?: string
   gitBranch?: string
@@ -22,13 +22,20 @@ function readSources(): LocalSource[] {
 
 export default function DesktopActionsDock() {
   const desktop = getDesktopHost()
-  const sources = useMemo(() => readSources().filter((source) => source.kind === 'desktop' && source.path), [])
+  const [sources, setSources] = useState(() => readSources().filter((source) => source.kind !== 'browser' && source.path))
   const [expanded, setExpanded] = useState(false)
   const [selectedId, setSelectedId] = useState(sources[0]?.projectId || '')
   const [commitMessage, setCommitMessage] = useState('')
   const [script, setScript] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(desktop ? 'Windows host ready.' : 'Open the Windows app to use native project actions.')
+
+  useEffect(() => {
+    const refresh = () => setSources(readSources().filter((source) => source.kind !== 'browser' && source.path))
+    window.addEventListener('projectx:projects-changed', refresh)
+    window.addEventListener('storage', refresh)
+    return () => { window.removeEventListener('projectx:projects-changed', refresh); window.removeEventListener('storage', refresh) }
+  }, [])
 
   if (!desktop) return null
   const source = sources.find((item) => item.projectId === selectedId) || sources[0]
@@ -37,6 +44,9 @@ export default function DesktopActionsDock() {
     setBusy(true)
     try {
       const result = await action()
+      if (typeof result === 'object' && result && 'ok' in result && (result as { ok?: unknown }).ok === false) {
+        throw new Error(String((result as { output?: unknown }).output || 'Desktop action failed.'))
+      }
       const output = typeof result === 'object' && result && 'output' in result ? String((result as { output?: unknown }).output || '') : ''
       setMessage(output ? `${success}\n${output}` : success)
     } catch (error) {

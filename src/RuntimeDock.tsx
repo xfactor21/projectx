@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
 import type { ToolStatus } from './services/desktop'
 
@@ -9,7 +9,7 @@ export default function RuntimeDock() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(desktop ? 'Check the local runtimes project.X can use.' : 'Runtime inspection requires the Windows app.')
 
-  async function scan() {
+  const scan = useCallback(async () => {
     if (!desktop) return
     setBusy(true)
     try {
@@ -19,9 +19,9 @@ export default function RuntimeDock() {
       setMessage(`${available}/${result.length} supported tools detected on this PC.`)
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to inspect local toolchains.') }
     finally { setBusy(false) }
-  }
+  }, [desktop])
 
-  useEffect(() => { if (open && desktop && tools.length === 0) void scan() }, [open])
+  useEffect(() => { if (open && desktop && tools.length === 0) void scan() }, [open, desktop, tools.length, scan])
 
   return <aside className={`runtime-dock ${open ? 'open' : ''}`} aria-label="Runtime toolchain status">
     <button className="runtime-dock-toggle" type="button" onClick={() => setOpen((value) => !value)}><strong>ENV</strong><span>RUNTIMES</span></button>

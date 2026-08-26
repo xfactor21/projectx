@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { fetchWithTimeout, requireAuthorizedUser } from './_auth'
 
 type VercelDeployment = {
   uid: string
@@ -21,6 +22,7 @@ export default async function handler(request: any, response: any) {
     response.status(405).json({ connected: false, deployments: [], message: 'Method not allowed.' })
     return
   }
+  if (!await requireAuthorizedUser(request, response)) return
 
   // The Vercel token must stay in the server environment. Proxying through this function prevents
   // the browser bundle from ever receiving a credential that can inspect the user's Vercel account.
@@ -40,7 +42,7 @@ export default async function handler(request: any, response: any) {
   if (teamId) params.set('teamId', teamId)
 
   try {
-    const upstream = await fetch(`https://api.vercel.com/v6/deployments?${params.toString()}`, {
+    const upstream = await fetchWithTimeout(`https://api.vercel.com/v6/deployments?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -70,7 +72,7 @@ export default async function handler(request: any, response: any) {
     }))
 
     // Deployment state is useful live data but does not need a fresh upstream API call for every browser request.
-    response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+    response.setHeader('Cache-Control', 'private, no-store')
     response.status(200).json({ connected: true, deployments })
   } catch (error) {
     response.status(500).json({

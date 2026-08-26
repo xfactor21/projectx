@@ -5,6 +5,7 @@ const ROOTS = [
   '.local-dock',
   '.artwork-dock',
   '.task-console',
+  '.data-backup-dock',
   '.runtime-dock',
   '.desktop-actions-dock',
   '.intel-dock',
@@ -14,18 +15,19 @@ const ROOTS = [
 ]
 
 function closeRoot(root: Element) {
-  if (!root.classList.contains('open')) return
+  if (!root.classList.contains('open') || root.hasAttribute('data-projectx-closing')) return
   const toggle = root.querySelector<HTMLButtonElement>('button[class*="toggle"]') || root.querySelector<HTMLButtonElement>(':scope > button')
-  toggle?.click()
+  if (!toggle) return
+  root.setAttribute('data-projectx-closing', '')
+  toggle.click()
+  window.setTimeout(() => root.removeAttribute('data-projectx-closing'), 0)
 }
 
 export default function SurfaceCoordinator() {
   useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
+    const closeOutsideTarget = (event: Event) => {
       const target = event.target instanceof Element ? event.target : null
       if (!target) return
-      if (target.closest('.project-launcher-backdrop,.v2-detail-backdrop,.github-discovery-backdrop')) return
-
       const roots = ROOTS.flatMap((selector) => Array.from(document.querySelectorAll(selector)))
       const clickedRoot = roots.find((root) => root.contains(target))
 
@@ -37,8 +39,17 @@ export default function SurfaceCoordinator() {
       if (!clickedRoot) roots.forEach(closeRoot)
     }
 
-    document.addEventListener('pointerdown', onPointerDown, true)
-    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('pointerdown', closeOutsideTarget, true)
+    document.addEventListener('click', closeOutsideTarget)
+    const onEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') ROOTS.flatMap((selector) => Array.from(document.querySelectorAll(selector))).forEach(closeRoot) }
+    document.addEventListener('keydown', onEscape)
+    const modalObserver = new MutationObserver(() => {
+      if (document.querySelector('.project-launcher-backdrop,.v2-detail-backdrop,.github-discovery-backdrop,.modal-backdrop,.companion-package-backdrop')) {
+        ROOTS.flatMap((selector) => Array.from(document.querySelectorAll(selector))).forEach(closeRoot)
+      }
+    })
+    modalObserver.observe(document.body, { childList: true, subtree: true })
+    return () => { document.removeEventListener('pointerdown', closeOutsideTarget, true); document.removeEventListener('click', closeOutsideTarget); document.removeEventListener('keydown', onEscape); modalObserver.disconnect() }
   }, [])
 
   return null

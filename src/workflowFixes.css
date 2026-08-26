@@ -1,0 +1,5 @@
+.task-list footer{flex-wrap:wrap;gap:6px}
+.artwork-complete{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);color:#8f9cac;font-size:11px}
+.artwork-complete.saved span{color:#61e5ad}
+.artwork-complete button{min-width:92px;border:1px solid rgba(71,224,255,.4);background:rgba(71,224,255,.1);color:#c9f8ff;padding:9px 14px}
+.github-discovery-actions:has(> .github-import-primary:only-child){justify-content:flex-end}

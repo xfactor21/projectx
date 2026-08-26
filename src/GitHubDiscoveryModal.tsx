@@ -11,7 +11,7 @@ type StoredProject = {
   name: string
   kicker: string
   description: string
-  status: 'Live' | 'Building' | 'Concept' | 'Paused'
+  status: 'Live' | 'Ready' | 'Building' | 'Concept' | 'Paused'
   stack: string[]
   accent: 'pink' | 'cyan' | 'violet'
   updated: string
@@ -63,11 +63,12 @@ export default function GitHubDiscoveryModal() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [completed, setCompleted] = useState(false)
 
   useEffect(() => {
     const onDiscovery = (event: Event) => {
       const detail = (event as CustomEvent<GitHubRepo[]>).detail || []
-      setRepos(detail); setSelected(new Set()); setMessage(''); setBusy(false); setOpen(detail.length > 0)
+      setRepos(detail); setSelected(new Set()); setMessage(''); setBusy(false); setCompleted(false); setOpen(detail.length > 0)
     }
     window.addEventListener(GITHUB_DISCOVERY_EVENT, onDiscovery)
     return () => window.removeEventListener(GITHUB_DISCOVERY_EVENT, onDiscovery)
@@ -97,28 +98,27 @@ export default function GitHubDiscoveryModal() {
       const repo = chosen[index]
       let project = toProject(repo, index)
       if (desktop && !repo.archived) {
-        setMessage(`Installing ${index + 1}/${chosen.length}: ${repo.name} — downloading GitHub archive…`)
+        setMessage(`Importing ${index + 1}/${chosen.length}: ${repo.name} - cloning from GitHub…`)
         try {
-          const archiveUrl = `https://github.com/${repo.full_name}/archive/refs/heads/${encodeURIComponent(repo.default_branch)}.zip`
-          const zipPath = await desktop.downloadRemotePackage(archiveUrl, `${repo.name}.zip`)
-          setMessage(`Installing ${index + 1}/${chosen.length}: ${repo.name} — unpacking into project.X Workspace…`)
-          const initialized = await desktop.initializeZipProject(zipPath, false)
+          const initialized = await desktop.cloneGitHubProject(repo.html_url, repo.name)
+          setMessage(`Importing ${index + 1}/${chosen.length}: ${repo.name} - inspecting scripts and local runtime…`)
           project = {
             ...project,
             kicker: 'GitHub + local Windows project',
+            status: 'Ready',
             stack: initialized.summary.frameworkHints?.length ? initialized.summary.frameworkHints : project.stack,
-            notes: `Local GitHub archive initialized at ${initialized.summary.path}. Missing dependencies will install automatically on first Run.`,
+            notes: `GitHub repository cloned to ${initialized.summary.path}. Missing dependencies will install automatically on first Run.`,
             progress: 55,
             updated: 'Just now',
           }
-          const local: LocalSource = { projectId: project.id, kind: 'zip', label: initialized.summary.path, path: initialized.summary.path, scripts: initialized.summary.scripts || [] }
+          const local: LocalSource = { projectId: project.id, kind: 'managed', label: initialized.summary.path, path: initialized.summary.path, scripts: initialized.summary.scripts || [] }
           const existingIndex = nextSources.findIndex((item) => item.projectId === project.id)
           if (existingIndex >= 0) nextSources[existingIndex] = local
           else nextSources.push(local)
         } catch (error) {
           const reason = error instanceof Error ? error.message : 'Unknown install failure.'
           failures.push(`${repo.name}: ${reason}`)
-          project = { ...project, kicker: 'GitHub remote — local install failed', notes: `Local install failed: ${reason}` }
+          continue
         }
       } else if (!desktop) {
         project = { ...project, kicker: 'GitHub remote — open Windows app to install locally' }
@@ -132,12 +132,15 @@ export default function GitHubDiscoveryModal() {
     window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
 
     if (failures.length) {
-      setMessage(`${imported.length - failures.length}/${imported.length} installed locally. ${failures.length} remain remote. ${failures[0]}`)
+      const failedNames = new Set(failures.map((failure) => failure.split(':', 1)[0]))
+      setSelected(new Set(chosen.filter((repo) => failedNames.has(repo.name)).map((repo) => repo.id)))
+      setMessage(`${imported.length}/${chosen.length} installed locally. ${failures.length} failed and were not marked complete, so you can retry. ${failures[0]}`)
       setBusy(false)
       return
     }
-    setMessage(desktop ? `${imported.length} GitHub project${imported.length === 1 ? '' : 's'} installed locally. Dependencies will be completed automatically on first Run.` : `${imported.length} GitHub remote record${imported.length === 1 ? '' : 's'} added.`)
-    window.setTimeout(() => setOpen(false), 1000)
+    setMessage(desktop ? `${imported.length} GitHub project${imported.length === 1 ? '' : 's'} cloned and ready to run. Select Done to return to the workspace.` : `${imported.length} GitHub remote record${imported.length === 1 ? '' : 's'} added. Select Done to return to the workspace.`)
+    setSelected(new Set())
+    setCompleted(true)
     setBusy(false)
   }
 
@@ -147,7 +150,7 @@ export default function GitHubDiscoveryModal() {
     <div className="github-discovery-backdrop" role="presentation" onClick={() => !busy && setOpen(false)}>
       <section className="github-discovery-modal" role="dialog" aria-modal="true" aria-labelledby="github-discovery-title" onClick={(event) => event.stopPropagation()}>
         <header className="github-discovery-head">
-          <div><p>GITHUB / NEW REPOSITORIES</p><h2 id="github-discovery-title">Choose what belongs in project.X</h2><span>{repos.length} untracked {repos.length === 1 ? 'repository' : 'repositories'} found. {desktop ? 'Selected public repositories will be downloaded into the Windows workspace; dependencies finish on first Run.' : 'Nothing will be added until you choose it.'}</span></div>
+          <div><p>GITHUB / NEW REPOSITORIES</p><h2 id="github-discovery-title">Choose what belongs in project.X</h2><span>{repos.length} available {repos.length === 1 ? 'repository' : 'repositories'} found. {desktop ? 'A repository is marked ready only after its local clone succeeds. Dependencies finish on first Run.' : 'Nothing will be added until you choose it.'}</span></div>
           <button type="button" disabled={busy} onClick={() => setOpen(false)} aria-label="Close discovery">×</button>
         </header>
 
@@ -162,7 +165,7 @@ export default function GitHubDiscoveryModal() {
             </button>
           })}
         </div>
-        <footer className="github-discovery-actions"><button type="button" disabled={busy} onClick={() => setOpen(false)}>Not now</button><button className="github-import-primary" type="button" disabled={!selectedCount || busy} onClick={() => void importSelected()}>{busy ? 'Installing…' : `${desktop ? 'Install' : 'Add'} ${selectedCount || ''} selected ${selectedCount === 1 ? 'project' : 'projects'}`}</button></footer>
+        <footer className="github-discovery-actions">{completed ? <button className="github-import-primary" type="button" onClick={() => setOpen(false)}>Done - view projects</button> : <><button type="button" disabled={busy} onClick={() => setOpen(false)}>Not now</button><button className="github-import-primary" type="button" disabled={!selectedCount || busy} onClick={() => void importSelected()}>{busy ? 'Cloning selected projects…' : `${desktop ? 'Clone' : 'Add'} ${selectedCount || ''} selected ${selectedCount === 1 ? 'project' : 'projects'}`}</button></>}</footer>
       </section>
     </div>
   )

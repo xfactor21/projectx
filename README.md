@@ -1,6 +1,6 @@
 # project.X
 
-project.X is a standalone visual project manager built with React, TypeScript, and Vite. The current application is a browser-based, local-first manager for project records with curated public GitHub discovery, server-side Vercel status/deployment actions, optional deployment analytics, manual Supabase cloud backup/merge/restore, browser-authorized local-folder onboarding, project attention scanning, a mobile companion mode, tester diagnostics, JSON import/export, multiple visual presentation modes, and a runtime recovery screen.
+project.X is a standalone Windows project manager built with Tauri, React, TypeScript, and Vite. It manages user-selected local projects, public GitHub imports, development servers, previews, optional cloud synchronization, and deployment tooling without shipping a preconfigured user account or starter workspace.
 
 This README describes only functionality that exists in the current codebase.
 
@@ -8,14 +8,14 @@ This README describes only functionality that exists in the current codebase.
 
 - Node.js. GitHub Actions verifies the project with Node 22.
 - npm, using the checked-in `package-lock.json`.
-- A modern browser with `localStorage`.
-- Chrome/Edge or another File System Access API browser for browser-based local-folder selection.
+- Windows 10 or later for the full desktop host.
+- A modern browser for the optional hosted/companion interface.
 - Optional Supabase and Vercel configuration for cloud/deployment features.
 
 ## Install and run locally
 
 ```bash
-git clone https://github.com/xfactor21/projectx.git
+git clone <project-x-repository-url>
 cd projectx
 npm ci
 npm run dev -- --host 127.0.0.1 --port 5175
@@ -27,7 +27,6 @@ Build/lint verification:
 npm run build
 npm run lint
 ```
-
 Production preview:
 
 ```bash
@@ -41,7 +40,7 @@ Copy `.env.example` to `.env.local` for local Vite values. Never expose a Supaba
 ### Supabase
 
 ```text
-VITE_SUPABASE_URL=https://lufvkrnwqbqdaqcgljxt.supabase.co
+VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
@@ -63,6 +62,7 @@ Server-side only:
 ```text
 VERCEL_API_TOKEN=...
 VERCEL_TEAM_ID=...
+PROJECTX_ALLOWED_USER_IDS=...
 ```
 
 The browser never receives `VERCEL_API_TOKEN`. `/api/vercel-projects` fetches deployment status/history and `/api/vercel-deploy` creates explicit GitHub-backed Vercel deployments. Plain `vite` does not run these `/api` functions.
@@ -90,7 +90,10 @@ GitHub sync no longer automatically enrolls every public repository. It now:
 2. Refreshes metadata for repositories already tracked by project.X.
 3. Separates repositories that are not yet tracked.
 4. Opens a discovery/review modal for the new repositories.
-5. Adds only the repositories explicitly selected by the user.
+5. Clones only the repositories explicitly selected by the user.
+6. Marks a repository Ready only after the local clone succeeds; failed clones remain retryable and are not treated as completed imports.
+
+Ready means the project has a usable local copy. Live means project.X currently owns a running development server for that project.
 
 Current GitHub metadata includes language, stars, forks, open issues, default branch, last push, topics, homepage, archive state, repository URL, and GitHub Open Graph artwork.
 
@@ -98,9 +101,9 @@ Current limitation: public unauthenticated API only, first 100 owner repositorie
 
 ### Local project onboarding
 
-The LOCAL dock supports explicit project-folder selection.
+The Windows LOCAL dock supports explicit project-folder selection and authorizes only folders selected by the user.
 
-In a compatible browser it can inspect an authorized directory for:
+For an authorized directory it can inspect:
 
 - `package.json`
 - common framework/dependency hints
@@ -108,9 +111,11 @@ In a compatible browser it can inspect an authorized directory for:
 - `.git` presence
 - Git branch from `.git/HEAD` when readable
 
-The browser intentionally does not receive an unrestricted Windows path.
+Hosted browser sessions do not receive unrestricted Windows paths.
 
-`src/services/desktop.ts` defines the host bridge that the Windows build will implement for:
+When a local project is run, project.X manages the development-server process and exposes it in RUN / TASKS. Browser preview is opt-in and opens in the user's default browser; Stop Server terminates the managed process tree.
+
+`src/services/desktop.ts` defines the bridge implemented by the Tauri Windows host for:
 
 - folder selection/inspection
 - Explorer/terminal launch
@@ -156,6 +161,12 @@ Supabase cloud functionality supports:
 - sign-out
 
 Cloud sync is still intentionally manual; it is not a background two-way synchronization engine yet.
+
+### Local backup, restore, and device reset
+
+The DATA utility creates a versioned JSON backup containing project records, authorized local-source links, artwork, the selected workspace view, sound preference, and optional GitHub owner. Authentication sessions, passwords, access tokens, and cloud credentials are excluded.
+
+Restore validates the complete backup before replacing local data. Clear personal data removes all `projectx.*` browser storage from the device without deleting project folders or repositories from disk. A new installation starts with an empty workspace and no GitHub owner.
 
 ### Project intelligence
 
@@ -233,7 +244,8 @@ projectx.schema.v2
 │   └── capabilities.json        # Windows host permission/capability manifest
 ├── public/                      # static SVG assets
 ├── src/
-│   ├── App.tsx                  # main project manager
+│   ├── WorkspaceAppV3.tsx       # main project manager
+│   ├── DataBackupDock.tsx       # local backup, restore, and device reset
 │   ├── GitHubDiscoveryModal.tsx # curated repository import review
 │   ├── LocalProjectDock.tsx     # local folder onboarding
 │   ├── ProjectIntelDock.tsx     # deterministic attention scanner
@@ -275,19 +287,21 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
+Release packaging produces separate archives: `projectX_8-24_v1.5-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-24_v1.5-windows.zip` contains only the Windows installer.
+
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 
 ## Known limitations / remaining work
 
-- A browser cannot provide the full Windows experience. Actual Git commit/push, terminal launch, process execution, durable filesystem handles, and unrestricted path operations require the Windows host implementation of the existing bridge/permission contracts.
+- A hosted browser cannot provide the full Windows experience. Git operations, terminal launch, process execution, and unrestricted path operations require the installed Windows host.
 - Private GitHub repository authentication is not implemented.
 - `VERCEL_API_TOKEN` must be configured for Vercel status, analytics, and deploy actions to work.
 - Vercel project matching remains name-based for the existing sync surface.
 - Companion device/action tables require the companion migration to be applied before those features become durable.
-- Companion remote-action execution requires the future Windows host to poll/claim authorized actions.
+- Companion remote-action execution requires a running, signed-in Windows host to poll and claim authorized actions.
 - Cloud sync is manual and conflict resolution is merge/replace based rather than a true timestamp/tombstone two-way engine.
 - The Activity view is still local/GitHub derived rather than backed by the cloud activity table.
-- There is no automated unit/E2E suite yet; CI currently verifies install/build/lint.
+- Native timeout/deadlock tests exist; broader committed UI and installed-app automation remains future work.
 - Traffic/performance/runtime-error/cost analytics providers are not yet connected.
 - xConnect is not required. Its future adapter can implement the same capability boundaries without replacing project.X's independent GitHub/Vercel/local/companion contracts.
 
@@ -300,7 +314,3 @@ npm ci
 npm run build
 npm run lint
 ```
-
-## Repository
-
-`xfactor21/projectx`

@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
 import type { DesktopProjectSummary, ProjectInitializationResult, ZipMergePreview } from './services/desktop'
 import { fetchPublicRepos } from './services/github'
+import { isGitHubOwner } from './services/workspaceBackup'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
 const OWNER_KEY = 'projectx.github.owner.v1'
 
-type LauncherView = 'root' | 'new' | 'zip' | 'local' | 'attach' | 'result'
+type LauncherView = 'root' | 'new' | 'zip' | 'local' | 'attach' | 'github' | 'result'
 
 type LocalSource = {
   projectId: string
@@ -129,11 +130,12 @@ export default function AddProjectLauncher() {
   const [dragging, setDragging] = useState(false)
   const [attachTarget, setAttachTarget] = useState('')
   const [mergePreview, setMergePreview] = useState<ZipMergePreview | null>(null)
+  const [githubOwner, setGitHubOwner] = useState(() => localStorage.getItem(OWNER_KEY) || '')
 
-  const canRun = useMemo(() => result?.summary.scripts?.includes('dev') || result?.summary.scripts?.includes('start'), [result])
-  const localSources = useMemo(() => readArray<LocalSource>(LOCAL_KEY).filter((source) => source.path && source.kind !== 'browser'), [open, view])
-  const projects = useMemo(() => readArray<StoredProject>(PROJECTS_KEY), [open, view])
-  const attachTargets = useMemo(() => localSources.map((source) => ({ ...source, name: projects.find((project) => project.id === source.projectId)?.name || source.label || source.projectId })), [localSources, projects])
+  const canRun = Boolean(result?.summary.scripts?.includes('dev') || result?.summary.scripts?.includes('start'))
+  const localSources = readArray<LocalSource>(LOCAL_KEY).filter((source) => source.path && source.kind !== 'browser')
+  const projects = readArray<StoredProject>(PROJECTS_KEY)
+  const attachTargets = localSources.map((source) => ({ ...source, name: projects.find((project) => project.id === source.projectId)?.name || source.label || source.projectId }))
 
   useEffect(() => {
     const current = window.__TAURI__?.webview?.getCurrentWebview?.()
@@ -162,6 +164,7 @@ export default function AddProjectLauncher() {
     setMessage('Choose how project.X should bring this project to life.')
     setResult(null)
     setMergePreview(null)
+    if (next === 'github') setGitHubOwner(localStorage.getItem(OWNER_KEY) || '')
   }
 
   async function linkFolder(move: boolean) {
@@ -259,11 +262,12 @@ export default function AddProjectLauncher() {
 
   async function runInitialized() {
     if (!desktop || !result) return
-    const script = result.summary.scripts?.includes('dev') ? 'dev' : result.summary.scripts?.includes('start') ? 'start' : ''
+    const script = ['dev', 'web', 'start', 'serve'].find((candidate) => result.summary.scripts?.includes(candidate)) || ''
     if (!script) return
     setBusy(true)
     try {
       const run = await desktop.runDevProject(result.summary.path, script)
+      if (!run.ok || !run.pid) throw new Error(run.output || 'Unable to start project.')
       setMessage(run.output)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to start project.')
@@ -271,9 +275,11 @@ export default function AddProjectLauncher() {
   }
 
   async function connectGitHub() {
+    const owner = githubOwner.trim()
+    if (!isGitHubOwner(owner)) return setMessage('Enter a valid GitHub user or organization name.')
     setBusy(true)
     try {
-      const owner = localStorage.getItem(OWNER_KEY) || 'xfactor21'
+      localStorage.setItem(OWNER_KEY, owner)
       await fetchPublicRepos(owner)
       setMessage('GitHub repositories loaded. Select exactly which repositories to add in the review window.')
       setOpen(false)
@@ -287,7 +293,7 @@ export default function AddProjectLauncher() {
     document.querySelector<HTMLButtonElement>('.cloud-dock-toggle')?.click()
   }
 
-  const title = view === 'root' ? 'Bring something into project.X' : view === 'new' ? 'Create a new project' : view === 'zip' ? 'Initialize project ZIP' : view === 'local' ? 'Add an existing folder' : view === 'attach' ? 'Attach ZIP to existing project' : 'Project ready'
+  const title = view === 'root' ? 'Bring something into project.X' : view === 'new' ? 'Create a new project' : view === 'zip' ? 'Initialize project ZIP' : view === 'local' ? 'Add an existing folder' : view === 'attach' ? 'Attach ZIP to existing project' : view === 'github' ? 'Connect GitHub repositories' : 'Project ready'
 
   return <>
     {dragging && <div className="px-drop-veil"><div><span>DROP PROJECT ZIP</span><strong>Initialize with project.X</strong><small>Release anywhere in this window</small></div></div>}
@@ -301,7 +307,7 @@ export default function AddProjectLauncher() {
         <button type="button" onClick={() => reset('new')}><b>01</b><strong>New project</strong><span>Scaffold, install and initialize inside project.X.</span></button>
         <button type="button" onClick={() => reset('local')}><b>02</b><strong>Local folder</strong><span>Link it where it lives or move it into the managed workspace.</span></button>
         <button type="button" onClick={() => reset('zip')}><b>03</b><strong>Project ZIP</strong><span>Drop or choose an archive, unpack it, detect its stack and install dependencies.</span></button>
-        <button type="button" onClick={() => void connectGitHub()}><b>04</b><strong>GitHub</strong><span>Discover repositories, then select exactly which ones become projects.</span></button>
+        <button type="button" onClick={() => reset('github')}><b>04</b><strong>GitHub</strong><span>Choose a user or organization, then select exactly which repositories become projects.</span></button>
         <button type="button" onClick={openCloudRestore}><b>05</b><strong>Restore cloud workspace</strong><span>Bring project records back from your project.X account.</span></button>
         <button type="button" disabled={!desktop || attachTargets.length === 0} onClick={() => reset('attach')}><b>06</b><strong>Attach to existing</strong><span>Merge a ZIP into an authorized local project with a file-change preview and overwrite backup.</span></button>
       </div>}
@@ -329,6 +335,12 @@ export default function AddProjectLauncher() {
         <label><span>Starter</span><select value={template} onChange={(event) => setTemplate(event.target.value)}><option value="react-ts">React + TypeScript</option><option value="react">React + JavaScript</option><option value="vue-ts">Vue + TypeScript</option><option value="vue">Vue + JavaScript</option><option value="svelte-ts">Svelte + TypeScript</option><option value="svelte">Svelte + JavaScript</option><option value="vanilla-ts">Vanilla + TypeScript</option></select></label>
         <div className="launcher-plan"><span>project.X will</span><strong>Create managed folder → scaffold → npm install → scan → register project</strong></div>
         <button type="button" className="launcher-primary" disabled={!newName.trim() || busy || !desktop} onClick={() => void createProject()}>{busy ? 'Building project…' : 'Create + initialize'}</button>
+      </div>}
+
+      {view === 'github' && <div className="launcher-new-flow">
+        <label><span>GitHub user or organization</span><input autoComplete="off" value={githubOwner} onChange={(event) => setGitHubOwner(event.target.value)} placeholder="organization-or-user" /></label>
+        <div className="launcher-plan"><span>project.X will</span><strong>Load public repositories → show a selection screen → clone only what you approve</strong></div>
+        <button type="button" className="launcher-primary" disabled={busy || !isGitHubOwner(githubOwner.trim())} onClick={() => void connectGitHub()}>{busy ? 'Loading repositories…' : 'Review repositories'}</button>
       </div>}
 
       {view === 'result' && <div className="launcher-result">{result && <><div className="result-mark">✓</div><strong>{result.summary.name}</strong><span>{result.summary.frameworkHints?.join(' · ') || 'Project initialized'}</span><small>{result.summary.path}</small><div className="result-actions"><button type="button" disabled={!canRun || busy} onClick={() => void runInitialized()}>▶ Run now</button><button type="button" onClick={() => desktop?.openInExplorer(result.summary.path)}>Open folder</button><button type="button" onClick={() => desktop?.openInTerminal(result.summary.path)}>Terminal</button></div></>}{!result && <div className="result-mark">✓</div>}</div>}

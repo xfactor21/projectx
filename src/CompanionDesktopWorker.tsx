@@ -20,6 +20,13 @@ type LocalSource = {
 
 type StoredProject = Record<string, unknown> & { id: string; name?: string }
 
+function requireSuccessfulResult(result: unknown) {
+  if (typeof result === 'object' && result && 'ok' in result && (result as { ok?: unknown }).ok === false) {
+    throw new Error(String((result as { output?: unknown }).output || 'Desktop action failed.'))
+  }
+  return result
+}
+
 function desktopDeviceId() {
   try {
     const existing = localStorage.getItem(DEVICE_KEY)
@@ -125,7 +132,7 @@ async function execute(action: RemoteAction) {
         default: throw new Error(`Unsupported remote action: ${action.action_type}`)
       }
     }
-    await updateRemoteAction(action.id, 'succeeded', { result: result ?? null })
+    await updateRemoteAction(action.id, 'succeeded', { result: requireSuccessfulResult(result) ?? null })
   } catch (error) {
     await updateRemoteAction(action.id, 'failed', { error: error instanceof Error ? error.message : 'Desktop action failed.' })
   }

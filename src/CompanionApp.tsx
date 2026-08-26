@@ -61,7 +61,9 @@ export default function CompanionApp() {
         })
         const [actions, devices] = await Promise.all([listRemoteActions(50), listCompanionDevices()])
         setActionCount(actions.filter((action) => ['pending', 'approved', 'running'].includes(action.status || '')).length)
-        setWindowsDevice(devices.find((device) => device.platform === 'windows') || null)
+        const windowsHosts = devices.filter((device) => device.platform === 'windows')
+        windowsHosts.sort((a, b) => new Date(b.last_seen_at || 0).getTime() - new Date(a.last_seen_at || 0).getTime())
+        setWindowsDevice(windowsHosts.find(isFresh) || windowsHosts[0] || null)
       } catch { /* Cloud project viewing remains usable if companion services are unavailable. */ }
       setMessage(`${cloud.length} cloud project records loaded.`)
     } catch (error) {
@@ -69,13 +71,13 @@ export default function CompanionApp() {
     } finally { setBusy(false) }
   }
 
-  useEffect(() => { if (session) void refresh(session) }, [])
+  useEffect(() => { if (session) void refresh(session) }, [session])
   useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 5000); return () => window.clearInterval(timer) }, [])
 
   async function login() {
     if (!email.trim() || !password) return
     setBusy(true)
-    try { const next = await signInWithPassword(email.trim(), password); setSession(next); setPassword(''); await refresh(next) }
+    try { const next = await signInWithPassword(email.trim(), password); setSession(next); setPassword('') }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Sign in failed.'); setBusy(false) }
   }
   async function logout() { await signOut(session); setSession(null); setProjects([]) }

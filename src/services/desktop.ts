@@ -71,6 +71,8 @@ export type ZipMergeResult = {
   replacedCount: number
 }
 
+export type WorkspaceBackupFile = { path: string; content: string }
+
 export type DesktopHostBridge = {
   version: string
   selectProjectFolder(): Promise<DesktopProjectSummary | null>
@@ -80,6 +82,7 @@ export type DesktopHostBridge = {
   listProjectRelocations(): Promise<ProjectRelocation[]>
   selectZipFile(): Promise<string | null>
   initializeZipProject(zipPath: string, install: boolean): Promise<ProjectInitializationResult>
+  cloneGitHubProject(repoUrl: string, name: string): Promise<ProjectInitializationResult>
   previewZipMerge(zipPath: string, targetPath: string): Promise<ZipMergePreview>
   applyZipMerge(zipPath: string, targetPath: string): Promise<ZipMergeResult>
   createViteProject(name: string, template: string): Promise<ProjectInitializationResult>
@@ -89,14 +92,14 @@ export type DesktopHostBridge = {
   toolchainPreflight(): Promise<ToolStatus[]>
   downloadRemotePackage(url: string, fileName: string): Promise<string>
   openPreviewWindow(projectId: string, projectName: string, url: string): Promise<void>
-  reloadPreviewWindow(projectId: string): Promise<void>
-  closePreviewWindow(projectId: string): Promise<void>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
   gitCommit(path: string, message: string): Promise<{ ok: boolean; output: string }>
   gitPush(path: string): Promise<{ ok: boolean; output: string }>
   runScript(path: string, script: string): Promise<{ ok: boolean; output: string }>
+  saveWorkspaceBackup(content: string, suggestedName: string): Promise<string | null>
+  selectWorkspaceBackup(): Promise<WorkspaceBackupFile | null>
 }
 
 declare global { interface Window { projectXDesktop?: DesktopHostBridge } }

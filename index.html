@@ -9,21 +9,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      try {
-        const schemaKey = 'projectx.schema.v2'
-        // This one-time marker deliberately clears older local project/view payloads before React mounts.
-        // Doing it here prevents an incompatible persisted shape from crashing hydration before the ErrorBoundary exists.
-        if (!localStorage.getItem(schemaKey)) {
-          localStorage.removeItem('projectx.projects.v1')
-          localStorage.removeItem('projectx.view.v1')
-          localStorage.setItem(schemaKey, '1')
-        }
-      } catch (error) {
-        // Browsers that block storage should still be allowed to mount the application in non-persistent mode.
-        console.warn('project.X storage reset skipped', error)
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

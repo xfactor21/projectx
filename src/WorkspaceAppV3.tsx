@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ThemeProjectRenderer from './ThemeProjectRenderer'
 import { getDesktopHost } from './services/desktop'
 import { APP_VERSION } from './version'
+import { deleteProjectAndLocalSource, readLocalSources, readProjects } from './services/projectStorage'
 
 type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'
 type NavMode = 'Projects' | 'Favorites' | 'Activity' | 'Archive'
@@ -19,7 +20,7 @@ const themes:Array<{id:ThemeMode;label:string;sub:string}>=[
   {id:'3D',label:'Gallery',sub:'Spatial project exhibit'},
 ]
 
-function readArray<T>(key:string):T[]{try{const value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value:[]}catch{return[]}}
+function readArray<T>(key:string):T[]{return key===PROJECTS_KEY?readProjects() as T[]:key===LOCAL_KEY?readLocalSources() as T[]:[]}
 function readTheme():ThemeMode{const saved=localStorage.getItem(VIEW_KEY) as ThemeMode|null;return saved&&themes.some((item)=>item.id===saved)?saved:'Grid'}
 function sourceLabel(project:Project,source?:LocalSource){if(source?.kind==='managed')return'MANAGED LOCAL';if(source?.kind==='zip')return'INITIALIZED LOCAL';if(source?.kind==='generated')return'PROJECT.X CREATED';if(source?.kind==='desktop')return'LOCAL PROJECT';if(source?.kind==='browser')return'LOCAL BROWSER';if(project.github||project.repoUrl?.includes('github.com'))return'GITHUB REMOTE';return'CLOUD / RECORD'}
 function openLauncher(){window.dispatchEvent(new CustomEvent('projectx:open-add-project'))}
@@ -63,12 +64,18 @@ export default function WorkspaceAppV3(){
     setStatus(`Starting ${project.name} with ${script}… project.X will install missing dependencies automatically.`)
     try{
       const result=await desktop.runDevProject(source.path,script)
+      if(!result.ok||!result.pid)throw new Error(result.output||`Unable to start ${project.name}.`)
       setStatus(result.output)
       if(result.ok&&result.pid){markLive(project.id);window.dispatchEvent(new CustomEvent('projectx:run-started',{detail:{projectId:project.id,projectName:project.name,path:source.path,result}}))}
     }catch(error){setStatus(error instanceof Error?error.message:'Unable to start project.')}
   }
 
   function changeTheme(next:ThemeMode){setTheme(next);setStatus(`${themes.find((item)=>item.id===next)?.label} environment loaded`);window.dispatchEvent(new CustomEvent('projectx:theme-changed',{detail:next}))}
+
+  function deleteProject(project:Project){
+    if(!window.confirm(`Delete ${project.name} from project.X? Local files will remain on disk.`))return
+    deleteProjectAndLocalSource(project.id);setSelected(null);setStatus(`${project.name} was removed from project.X. Local files were not deleted.`)
+  }
 
   const localCount=active.filter((project)=>sourceMap.has(project.id)).length
   const repoCount=active.filter((project)=>Boolean(project.repoUrl||project.github)).length
@@ -83,6 +90,6 @@ export default function WorkspaceAppV3(){
       {nav==='Activity'?<section className="v2-activity"><div className="section-heading"><div><p className="eyebrow">RECENT STATE</p><h3>Workspace activity</h3></div></div>{active.length?active.map((project,index)=><button type="button" key={project.id} onClick={()=>setSelected(project)}><b>{String(index+1).padStart(2,'0')}</b><strong>{project.name}</strong><span>{sourceLabel(project,sourceMap.get(project.id))} · {project.updated||'Unknown update'}</span></button>):<p>No project activity yet.</p>}</section>:<><section className="section-heading v2-heading"><div><p className="eyebrow">ENVIRONMENT / {theme.toUpperCase()}</p><h3>{nav==='Archive'?'Archived projects':nav==='Favorites'?'Favorites':'Projects'}</h3></div><span className="result-count">{visible.length} SHOWN</span></section><ThemeProjectRenderer theme={theme} projects={visible} sourceMap={sourceMap} desktopOnline={Boolean(desktop)} sourceLabel={sourceLabel} onOpen={setSelected} onRun={(project)=>void runProject(project)} onAdd={openLauncher}/></>}
     </main>
 
-    {selected&&<div className="v2-detail-backdrop" onMouseDown={()=>setSelected(null)}><aside className="v2-detail" onMouseDown={(event)=>event.stopPropagation()}><button className="v2-detail-close" type="button" onClick={()=>setSelected(null)}>×</button><small>{sourceLabel(selected,sourceMap.get(selected.id))}</small><h2>{selected.name}</h2><p>{selected.description||'No description yet.'}</p><div className="v2-detail-facts"><span>Status <b>{selected.status||'Building'}</b></span><span>Local <b>{sourceMap.get(selected.id)?.path?desktop?'Available':'Host offline':'Remote only'}</b></span><span>Git <b>{sourceMap.get(selected.id)?.hasGit?'Detected':selected.repoUrl?'Remote':'None'}</b></span></div>{sourceMap.get(selected.id)?.path?<code>{sourceMap.get(selected.id)?.path}</code>:selected.repoUrl&&<p className="v2-remote-note">This project currently exists only as a remote record. Import/download a local copy before project.X can run its development server.</p>}<div className="v2-detail-actions"><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>sourceMap.get(selected.id)?.path&&desktop?.openInExplorer(sourceMap.get(selected.id)!.path!)}>Explorer</button><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>sourceMap.get(selected.id)?.path&&desktop?.openInTerminal(sourceMap.get(selected.id)!.path!)}>Terminal</button><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>void runProject(selected)}>Run project</button></div></aside></div>}
+    {selected&&<div className="v2-detail-backdrop" onMouseDown={()=>setSelected(null)}><aside className="v2-detail" onMouseDown={(event)=>event.stopPropagation()}><button className="v2-detail-close" type="button" onClick={()=>setSelected(null)}>×</button><small>{sourceLabel(selected,sourceMap.get(selected.id))}</small><h2>{selected.name}</h2><p>{selected.description||'No description yet.'}</p><div className="v2-detail-facts"><span>Status <b>{selected.status||'Building'}</b></span><span>Local <b>{sourceMap.get(selected.id)?.path?desktop?'Available':'Host offline':'Remote only'}</b></span><span>Git <b>{sourceMap.get(selected.id)?.hasGit?'Detected':selected.repoUrl?'Remote':'None'}</b></span></div>{sourceMap.get(selected.id)?.path?<code>{sourceMap.get(selected.id)?.path}</code>:selected.repoUrl&&<p className="v2-remote-note">This project currently exists only as a remote record. Import/download a local copy before project.X can run its development server.</p>}<div className="v2-detail-actions"><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>sourceMap.get(selected.id)?.path&&desktop?.openInExplorer(sourceMap.get(selected.id)!.path!)}>Explorer</button><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>sourceMap.get(selected.id)?.path&&desktop?.openInTerminal(sourceMap.get(selected.id)!.path!)}>Terminal</button><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>void runProject(selected)}>Run project</button><button className="danger" type="button" onClick={()=>deleteProject(selected)}>Delete record</button></div></aside></div>}
   </div>
 }

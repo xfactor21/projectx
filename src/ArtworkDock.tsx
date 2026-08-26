@@ -21,6 +21,7 @@ export default function ArtworkDock() {
   const [message, setMessage] = useState('Choose a project and supply its icon, cover, banner, or artwork.')
   const [candidates, setCandidates] = useState<ArtworkCandidate[]>([])
   const [scanning, setScanning] = useState(false)
+  const [saved, setSaved] = useState(false)
   const selected = useMemo(() => projects.find((project) => project.id === projectId), [projects, projectId])
   const source = useMemo(() => readArray<LocalSource>(LOCAL_KEY).find((item) => item.projectId === projectId), [projectId])
 
@@ -29,7 +30,8 @@ export default function ArtworkDock() {
     const next = readArray<Project>(PROJECTS_KEY).map((project) => project.id === projectId ? { ...project, coverUrl: dataUrl, artworkSource } : project)
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(next))
     setProjects(next)
-    setMessage(`Artwork updated for ${next.find((project) => project.id === projectId)?.name || 'project'}.`)
+    setSaved(true)
+    setMessage(`Artwork saved for ${next.find((project) => project.id === projectId)?.name || 'project'}. Select Done when finished.`)
     window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
   }
 
@@ -74,7 +76,7 @@ export default function ArtworkDock() {
       if (best?.dataUrl) {
         const next = readArray<Project>(PROJECTS_KEY).map((project) => project.id === nextId ? { ...project, coverUrl: best.dataUrl, artworkSource: best.relativePath } : project)
         localStorage.setItem(PROJECTS_KEY, JSON.stringify(next)); setProjects(next)
-        setMessage(`Automatically selected ${best.fileName}. You can choose another candidate below.`)
+        setSaved(true); setMessage(`Automatically selected and saved ${best.fileName}. You can choose another candidate below, then select Done.`)
         window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
       } else setMessage(found.length ? `Found ${found.length} candidates, but none small enough to preview automatically.` : 'No likely project artwork was found.')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Artwork scan failed.') }
@@ -90,11 +92,11 @@ export default function ArtworkDock() {
     if (!projectId) return
     const next = readArray<Project>(PROJECTS_KEY).map((project) => project.id === projectId ? { ...project, coverUrl: '', artworkSource: '' } : project)
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(next)); setProjects(next); setCandidates([])
-    setMessage('Project artwork removed.'); window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
+    setSaved(true); setMessage('Project artwork removal saved. Select Done when finished.'); window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
   }
 
   return <aside className={`artwork-dock ${open ? 'open' : ''}`} aria-label="Project artwork">
-    <button className="artwork-dock-toggle" type="button" onClick={() => { setProjects(readArray(PROJECTS_KEY)); setOpen((value) => !value) }}><strong>ART</strong><span>ICON / COVER</span></button>
+    <button className="artwork-dock-toggle" type="button" onClick={() => { setProjects(readArray(PROJECTS_KEY)); setSaved(false); setOpen((value) => !value) }}><strong>ART</strong><span>ICON / COVER</span></button>
     {open && <div className="artwork-panel">
       <header><div><small>PROJECT IDENTITY</small><strong>Artwork manager</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>
@@ -102,13 +104,14 @@ export default function ArtworkDock() {
       {selected?.coverUrl && <><div className="artwork-preview" style={{ backgroundImage: `url(${selected.coverUrl})` }} /><small>{selected.artworkSource ? `Source: ${selected.artworkSource}` : 'Current artwork'}</small></>}
       <div className="artwork-actions">
         <button type="button" disabled={!projectId || !desktop || !source?.path || scanning} onClick={() => void scanProject(false)}>{scanning ? 'Scanning…' : '⌕ Scan project artwork'}</button>
-        <label className={`artwork-upload ${projectId ? '' : 'disabled'}`}>Upload artwork<input type="file" accept="image/*,.ico,.svg" disabled={!projectId} onChange={(event) => chooseFile(event.target.files?.[0])}/></label>
+        <label className={`artwork-upload ${projectId ? '' : 'disabled'}`}>Upload + save artwork<input type="file" accept="image/*,.ico,.svg" disabled={!projectId} onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = '' }}/></label>
         <button type="button" disabled={!projectId || !selected?.coverUrl} onClick={removeArtwork}>Remove artwork</button>
       </div>
       {candidates.length > 0 && <div className="artwork-candidates"><small>RANKED PROJECT ART</small>{candidates.map((candidate) => <button key={candidate.path} type="button" className="artwork-candidate" disabled={!candidate.dataUrl} onClick={() => applyCandidate(candidate)}>
         <span className="artwork-thumb" style={candidate.dataUrl ? { backgroundImage: `url(${candidate.dataUrl})` } : undefined}>{!candidate.dataUrl && 'LARGE'}</span>
         <span><strong>{candidate.fileName}</strong><small>{candidate.kind.toUpperCase()} · SCORE {candidate.score}</small><em>{candidate.relativePath}</em></span>
       </button>)}</div>}
+      <div className={`artwork-complete ${saved ? 'saved' : ''}`}><span>{saved ? 'Changes saved' : 'Uploads save immediately'}</span><button type="button" onClick={() => setOpen(false)}>Done</button></div>
       <small className="artwork-note">Automatic scan skips build/cache/vendor folders and ranks icons/logos ahead of banners, covers, and screenshots. Manual override always wins.</small>
     </div>}
   </aside>
