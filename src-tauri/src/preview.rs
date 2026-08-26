@@ -11,6 +11,9 @@ fn validate_local_url(value: &str) -> Result<url::Url, String> {
     if !matches!(host, "localhost" | "127.0.0.1" | "::1") {
         return Err("project.X Preview only opens local development URLs.".into());
     }
+    if parsed.port().is_none() {
+        return Err("Preview URL must include a local development port.".into());
+    }
     Ok(parsed)
 }
 
@@ -43,6 +46,8 @@ mod tests {
     fn preview_accepts_only_loopback_http_urls() {
         assert!(validate_local_url("http://localhost:5173/").is_ok());
         assert!(validate_local_url("http://127.0.0.1:8081/path").is_ok());
+        assert!(validate_local_url("http://localhost:").is_err());
+        assert!(validate_local_url("http://localhost/").is_err());
         assert!(validate_local_url("https://example.com").is_err());
         assert!(validate_local_url("file:///C:/project/index.html").is_err());
     }

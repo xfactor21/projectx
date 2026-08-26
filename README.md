@@ -289,7 +289,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX_8-24_v1.6-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-24_v1.6-windows.zip` contains only the Windows installer.
+Release packaging produces separate archives: `projectX_8-26_v1.8-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-26_v1.8-windows.zip` contains only the Windows installer.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 

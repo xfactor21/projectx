@@ -67,30 +67,6 @@ fn declared(root: &Path, script: &str) -> bool {
         .map(|scripts| scripts.contains_key(script))
         .unwrap_or(false)
 }
-fn local_url(text: &str) -> Option<String> {
-    for needle in [
-        "http://localhost:",
-        "https://localhost:",
-        "http://127.0.0.1:",
-        "https://127.0.0.1:",
-    ] {
-        if let Some(start) = text.find(needle) {
-            let tail = &text[start..];
-            let end = tail
-                .find(|ch: char| {
-                    ch.is_whitespace() || matches!(ch, '\u{1b}' | '"' | '\'' | ')' | ']' | '>')
-                })
-                .unwrap_or(tail.len());
-            return Some(
-                tail[..end]
-                    .trim_end_matches(|ch: char| matches!(ch, ',' | ';'))
-                    .to_string(),
-            );
-        }
-    }
-    None
-}
-
 fn tail(text: &str, count: usize) -> String {
     text.lines()
         .rev()
@@ -244,9 +220,11 @@ pub(crate) fn run_preview_project(
     for _ in 0..240 {
         thread::sleep(Duration::from_millis(250));
         latest = fs::read_to_string(&log_path).unwrap_or_default();
-        if let Some(found) = local_url(&latest) {
-            url = Some(found);
-            break;
+        if let Some(found) = crate::local_dev_url::extract(&latest) {
+            if crate::local_dev_url::is_listening(&found) {
+                url = Some(found);
+                break;
+            }
         }
         if child
             .try_wait()

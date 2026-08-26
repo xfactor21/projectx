@@ -187,31 +187,6 @@ fn run_command(root: &Path, manager: &str, script: &str) -> Result<Command, Stri
     Ok(command)
 }
 
-fn extract_local_url(text: &str) -> Option<String> {
-    for needle in [
-        "http://localhost:",
-        "https://localhost:",
-        "http://127.0.0.1:",
-        "https://127.0.0.1:",
-    ] {
-        if let Some(start) = text.find(needle) {
-            let tail = &text[start..];
-            let end = tail
-                .find(|ch: char| {
-                    ch.is_whitespace() || matches!(ch, '\u{1b}' | '"' | '\'' | ')' | ']' | '>')
-                })
-                .unwrap_or(tail.len());
-            let url = tail[..end]
-                .trim_end_matches(|ch: char| matches!(ch, ',' | ';'))
-                .to_string();
-            if url.len() > needle.len() {
-                return Some(url);
-            }
-        }
-    }
-    None
-}
-
 fn open_external_url(url: &str) -> Result<(), String> {
     let mut command = Command::new("explorer.exe");
     command.arg(url);
@@ -598,12 +573,14 @@ pub(crate) fn run_dev_project(
     let mut url = None;
     let mut latest_log = String::new();
     let mut exited = false;
-    for _ in 0..32 {
+    for _ in 0..240 {
         thread::sleep(Duration::from_millis(250));
         latest_log = fs::read_to_string(&log_path).unwrap_or_default();
-        if let Some(found) = extract_local_url(&latest_log) {
-            url = Some(found);
-            break;
+        if let Some(found) = crate::local_dev_url::extract(&latest_log) {
+            if crate::local_dev_url::is_listening(&found) {
+                url = Some(found);
+                break;
+            }
         }
         if child
             .try_wait()
@@ -641,17 +618,32 @@ pub(crate) fn run_dev_project(
             log_path.display()
         ));
     }
+    if url.is_none() {
+        let _ = Command::new("taskkill.exe")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        running_pids()
+            .lock()
+            .map_err(|_| "Run process registry is unavailable.".to_string())?
+            .remove(&pid);
+        return Err(format!(
+            "The dev server did not expose a working local URL within 60 seconds and was stopped.\n{}\nLog: {}",
+            if last_lines.is_empty() {
+                "No console output was produced."
+            } else {
+                &last_lines
+            },
+            log_path.display()
+        ));
+    }
     Ok(ProjectRunResult {
         ok: true,
-        output: if let Some(ref local_url) = url {
-            format!("Started {manager} run {script} at {local_url}")
-        } else if last_lines.is_empty() {
-            format!(
-                "Started {manager} run {script}. Waiting for the project to expose a local URL."
-            )
-        } else {
-            format!("Started {manager} run {script}. Latest output:\n{last_lines}")
-        },
+        output: format!(
+            "Started {manager} run {script} at {}",
+            url.as_deref().unwrap_or_default()
+        ),
         pid: Some(pid),
         script,
         package_manager: manager.to_string(),

@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-25_v1.7
+  PROJECTX_BUILD_NAME: projectX_8-26_v1.8
 
 jobs:
   windows-installer:

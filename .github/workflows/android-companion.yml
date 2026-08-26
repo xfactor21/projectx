@@ -21,9 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-25_v1.7
-  PROJECTX_ANDROID_VERSION: 1.7.0
-  PROJECTX_ANDROID_VERSION_CODE: 10700
+  PROJECTX_BUILD_NAME: projectX_8-26_v1.8
+  PROJECTX_ANDROID_VERSION: 1.8.0
+  PROJECTX_ANDROID_VERSION_CODE: 10800
 
 jobs:
   android-debug:
