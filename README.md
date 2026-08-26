@@ -75,7 +75,9 @@ The browser never receives `VERCEL_API_TOKEN`. `/api/vercel-projects` fetches de
 - Search and status filtering.
 - Notes, stack, progress, repository URL, live URL, cover URL, and project status.
 - Detail drawer and workspace statistics.
-- Grid, Storefront, Vending, Comic, and 3D presentation modes.
+- Grid, Storefront, Vending, Comic, and 3D presentation modes with a compact single-row selector.
+- Vending mode uses project slot codes and only releases runnable local projects; Comic mode presents artwork as filtered portrait comic covers.
+- The artwork manager saves uploads immediately and previews the selected cover using the active presentation mode.
 - Activity view derived from local/GitHub metadata.
 - Ctrl/Cmd+K search shortcut and Escape overlay dismissal.
 - Local-first browser persistence.
@@ -287,7 +289,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX_8-24_v1.5-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-24_v1.5-windows.zip` contains only the Windows installer.
+Release packaging produces separate archives: `projectX_8-24_v1.6-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-24_v1.6-windows.zip` contains only the Windows installer.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 

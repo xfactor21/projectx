@@ -52,6 +52,7 @@ import './interactionSafety.css'
 import './stabilization.css'
 import './dataBackup.css'
 import './workflowFixes.css'
+import './v16.css'
 
 installTauriDesktopBridge()
 

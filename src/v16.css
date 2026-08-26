@@ -1,0 +1,91 @@
+/* v1.6 presentation pass: compact controls and theme-specific project objects. */
+.v2-theme-deck{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:5px;padding:4px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:rgba(4,7,11,.72)}
+.v2-theme-deck button{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:7px;min-width:0;height:38px;padding:0 10px;border:1px solid transparent;border-radius:5px;background:transparent;color:#a6afbb;box-shadow:none;text-align:left}
+.v2-theme-deck button i{color:#596371;font:700 7px/1 var(--mono,monospace);font-style:normal}
+.v2-theme-deck button strong{min-width:0;overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.v2-theme-deck button span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.v2-theme-deck button:hover{background:rgba(255,255,255,.035);color:#edf2f7}
+.v2-theme-deck button.active{border-color:rgba(41,224,255,.28);background:rgba(41,224,255,.075);box-shadow:none;color:#fff}
+.theme-comic .v2-theme-deck{border:2px solid #111;background:#f6ead1}
+.theme-comic .v2-theme-deck button{border:1px solid transparent;background:transparent;color:#111;box-shadow:none}
+.theme-comic .v2-theme-deck button i{color:#6b665b}
+.theme-comic .v2-theme-deck button.active{border-color:#111;background:#ffe663}
+
+/* Every utility remains visible in one stable row at the supported desktop width. */
+.utility-rail{display:grid!important;grid-template-columns:repeat(13,minmax(0,1fr));align-items:center;justify-content:stretch;gap:4px;padding:5px;border-radius:8px}
+.utility-rail>*{min-width:0!important}
+.utility-rail>.artwork-dock,.utility-rail>.runtime-dock,.utility-rail>.task-console,.utility-rail>.data-backup-dock,.utility-rail>.desktop-actions-dock,.utility-rail>.local-dock,.utility-rail>.cloud-dock,.utility-rail>.intel-dock,.utility-rail>.analytics-dock,.utility-rail>.deploy-dock,.utility-rail>.beta-dock{width:100%!important}
+.utility-rail>.theme-sound-toggle,.utility-rail>.project-launcher-fab,.utility-rail>aside>button:first-child{display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;width:100%!important;min-width:0!important;height:38px!important;margin:0!important;padding:4px 6px!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:6px!important;background:rgba(255,255,255,.025)!important;box-shadow:none!important;color:#aab4c1!important;overflow:hidden!important;font:700 7px/1 var(--mono,monospace)!important;letter-spacing:.04em!important;white-space:nowrap!important}
+.utility-rail>.theme-sound-toggle:hover,.utility-rail>.project-launcher-fab:hover,.utility-rail>aside>button:first-child:hover{border-color:rgba(53,231,255,.3)!important;background:rgba(53,231,255,.065)!important;color:#effcff!important}
+.utility-rail>aside.open>button:first-child{border-color:rgba(53,231,255,.4)!important;background:rgba(53,231,255,.1)!important;color:#fff!important}
+.utility-rail>.cloud-dock>.cloud-dock-toggle>span:last-child,.utility-rail>.local-dock>.local-dock-toggle>span:last-child,.utility-rail>.artwork-dock>.artwork-dock-toggle>span:last-child,.utility-rail>.task-console>.task-console-toggle>span:last-child,.utility-rail>.data-backup-dock>.data-backup-toggle>span:last-child,.utility-rail>.runtime-dock>.runtime-dock-toggle>span:last-child,.utility-rail>.desktop-actions-dock>.desktop-actions-toggle>span:last-child{display:none}
+.utility-rail .intel-toggle b{position:static!important;min-width:13px;padding:2px;border-radius:4px;background:rgba(255,255,255,.08);font-size:7px}
+
+/* Vending machine: small products behind glass, mechanical selectors and a real code flow. */
+.vending-machine{position:relative;overflow:hidden;border-radius:18px;background:linear-gradient(100deg,#111a1d,#05090b 12%,#071013 88%,#111a1d);box-shadow:inset 0 0 0 2px rgba(117,255,189,.13),inset 22px 0 34px rgba(255,255,255,.025),0 30px 90px rgba(0,0,0,.55)}
+.vending-body{grid-template-columns:minmax(0,1fr) 210px}
+.vending-slots{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px;background:linear-gradient(rgba(255,255,255,.018),transparent),#020608;box-shadow:inset 0 0 35px #000}
+.vending-slot{position:relative;display:grid;grid-template-rows:minmax(118px,1fr) 34px;min-height:0;padding:6px;border:1px solid #17272b;background:#03080a;box-shadow:inset 0 0 18px rgba(0,0,0,.8);transition:border-color .18s ease,transform .18s ease}
+.vending-slot.selected{border-color:#75ffbd;box-shadow:inset 0 0 18px rgba(117,255,189,.08),0 0 16px rgba(117,255,189,.08)}
+.vending-product{position:relative;display:grid;place-items:center;align-content:center;gap:5px;min-width:0;padding:13px 7px 8px;border:0;border-radius:2px;background:radial-gradient(circle at 50% 28%,rgba(117,255,189,.08),transparent 48%),#061014;color:#e6fff2;overflow:hidden}
+.vending-product.has-project-art{background-image:linear-gradient(rgba(2,7,9,.06),rgba(2,7,9,.68)),var(--project-art)!important;filter:saturate(.9) contrast(1.08)}
+.vending-glass{position:absolute;inset:0;z-index:2;background:linear-gradient(112deg,rgba(255,255,255,.13),transparent 24%,transparent 68%,rgba(255,255,255,.045));box-shadow:inset 0 0 0 1px rgba(180,235,238,.08);pointer-events:none}
+.vending-product::after{content:"";position:absolute;left:12%;right:12%;bottom:9px;height:8px;border:2px solid #26383d;border-radius:50%;box-shadow:0 -9px 0 -2px #26383d,0 -18px 0 -2px #26383d;opacity:.8}
+.vending-product>b{position:relative;z-index:1;font-size:28px;text-shadow:0 2px 12px #000}
+.vending-product>strong{position:relative;z-index:3;max-width:100%;overflow:hidden;font-size:9px;text-overflow:ellipsis;text-shadow:0 1px 5px #000;white-space:nowrap}
+.vending-product>small{position:relative;z-index:3;max-width:100%;overflow:hidden;color:#8fa7a1;font:700 6px var(--mono,monospace);text-overflow:ellipsis;white-space:nowrap}
+.vending-dial{display:grid;grid-template-columns:16px 1fr;align-items:center;gap:5px;margin-top:5px;padding:3px 7px;border:1px solid #203136;border-radius:3px;background:#0c1417;color:#75ffbd;font:800 8px var(--mono,monospace)}
+.vending-dial i{display:block;width:14px;height:14px;border:2px solid #65747a;border-radius:50%;background:radial-gradient(circle,#111 0 22%,#77878c 24% 34%,#202b2f 36%);box-shadow:inset 0 0 0 1px #050708}
+.vending-slot.selected .vending-dial i{transform:rotate(45deg);border-color:#75ffbd}
+.vending-console{border-color:#172328;background:linear-gradient(90deg,#10181b,#070c0e);box-shadow:inset 8px 0 18px rgba(255,255,255,.02)}
+.vending-screen{display:grid;gap:5px;min-height:94px;padding:12px;background:repeating-linear-gradient(0deg,rgba(117,255,189,.025) 0 1px,transparent 1px 3px),#00130d}
+.vending-screen>span,.vending-screen>small{color:#638c7b;font:700 6px var(--mono,monospace)}
+.vending-screen>strong{font:900 27px/1 var(--mono,monospace);letter-spacing:.08em}
+.vending-keypad{display:grid;margin:9px 0;gap:5px}
+.vending-keypad.rows{grid-template-columns:repeat(4,1fr)}
+.vending-keypad.digits{grid-template-columns:repeat(3,1fr)}
+.vending-keypad button{display:grid;place-items:center;min-width:0;height:27px;padding:0;border:1px solid #2a383d;border-radius:3px;background:#11191d;color:#d2dde0;font:800 9px var(--mono,monospace);box-shadow:0 2px 0 #020304}
+.vending-keypad button:active,.vending-keypad button.active{transform:translateY(1px);border-color:#75ffbd;color:#75ffbd;box-shadow:none}
+.vending-release{width:100%;padding:10px;border:1px solid #75ffbd;border-radius:3px;background:#092118;color:#75ffbd;font:900 8px var(--mono,monospace)}
+.vending-release:disabled{border-color:#263238;color:#5c696d;background:#0b1012}
+.vending-tray{position:relative;overflow:hidden;border:6px inset #121c20;background:#010405}
+.vending-tray span{position:relative;z-index:1}
+.vending-tray.receiving::after{content:"";position:absolute;top:3px;left:50%;width:96px;height:24px;transform:translateX(-50%);border:2px solid #75ffbd;background:#071611;animation:vending-pickup .72s ease both}
+.vending-slot.dispensing{z-index:2;animation:vending-release .72s ease both}
+@keyframes vending-release{0%{transform:none}45%{transform:translateY(8px) scale(.98)}100%{transform:translateY(44px) scale(.8);opacity:0}}
+@keyframes vending-pickup{0%{transform:translate(-50%,-30px);opacity:0}65%{opacity:1}100%{transform:translate(-50%,0)}}
+
+/* Comic theme: portrait issues line up on a shelf and artwork gets a printed-ink treatment. */
+.comic-book{padding:18px 18px 0;overflow:hidden}
+.comic-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));align-items:end;gap:20px 14px;padding:30px 12px 18px;background:linear-gradient(rgba(255,255,255,.28),transparent 35%)}
+.comic-volume{position:relative;min-width:0;transform:rotate(-1deg);transform-origin:bottom center;transition:transform .18s ease}
+.comic-volume:nth-child(even){transform:rotate(1.2deg)}
+.comic-volume:hover{z-index:3;transform:translateY(-9px) rotate(0)}
+.comic-volume::after{content:"";position:absolute;z-index:-1;left:6px;right:-5px;top:5px;bottom:30px;border:3px solid #111;background:repeating-linear-gradient(90deg,#f7f0dc 0 2px,#d6cdb8 2px 3px);transform:skewY(1deg)}
+.comic-cover{position:relative;display:grid;grid-template-rows:auto 1fr auto;align-items:start;width:100%;aspect-ratio:2/3;min-height:220px;padding:10px;border:4px solid #111;background:linear-gradient(145deg,#ff315f,#ffdf3f 52%,#087fca);color:#111;overflow:hidden;text-align:left;box-shadow:5px 5px 0 rgba(17,17,17,.25)}
+.comic-cover-art{position:absolute;inset:0;background-size:cover;background-position:center;filter:saturate(1.65) contrast(1.65) brightness(1.03);transform:scale(1.02)}
+.comic-ink-screen{position:absolute;inset:0;background:radial-gradient(circle,rgba(10,10,10,.3) 0 1px,transparent 1.4px) 0 0/5px 5px,linear-gradient(180deg,rgba(255,239,85,.08),rgba(255,49,95,.18));mix-blend-mode:multiply;pointer-events:none}
+.comic-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,rgba(255,255,255,.22),transparent 22%,transparent 72%,rgba(0,0,0,.15));pointer-events:none}
+.comic-cover>small,.comic-cover>b,.comic-cover>h3,.comic-cover>em,.comic-cover>i{position:relative;z-index:2}
+.comic-cover>small{justify-self:start;max-width:100%;padding:4px 5px;border:2px solid #111;background:#ffef55;font:900 6px var(--mono,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comic-cover>b{align-self:center;justify-self:center;font:1000 52px Impact,sans-serif;color:#fff;text-shadow:3px 3px 0 #111,-2px -2px 0 #111}
+.comic-cover>h3{align-self:end;width:100%;margin:0;padding:7px 6px;border:3px solid #111;background:#fff8e6;font:1000 18px/1 Impact,sans-serif;text-transform:uppercase;overflow-wrap:anywhere}
+.comic-cover>em{position:absolute;right:7px;top:44px;color:#ffef55;font:1000 21px Impact,sans-serif;font-style:normal;transform:rotate(9deg);text-shadow:2px 2px 0 #111,-1px -1px 0 #111}
+.comic-cover>i{position:absolute;right:8px;bottom:48px;padding:3px;background:#fff;color:#111;font:900 6px var(--mono,monospace);font-style:normal}
+.comic-volume footer{display:flex;justify-content:space-between;align-items:center;min-height:31px;margin:0 5px;padding:4px 5px;border:3px solid #111;border-top:0;background:#f7edd8;font:900 7px var(--mono,monospace)}
+.comic-volume footer button{padding:4px 7px;border:2px solid #111;background:#ff315f;color:#fff;font:900 7px var(--mono,monospace)}
+.comic-shelf-edge{height:34px;margin:0 -18px;border-top:5px solid #111;background:linear-gradient(#8b5434,#55301f);box-shadow:0 -4px 0 #d39255,0 10px 0 #111;color:#f7d99c;text-align:center}
+.comic-shelf-edge span{font:900 7px/30px var(--mono,monospace);letter-spacing:.16em}
+
+/* Artwork changes preview with the treatment used by the active environment. */
+.artwork-preview{transition:filter .18s ease,border-radius .18s ease,background-size .18s ease}
+.artwork-preview.theme-preview-storefront{border:7px solid #3d2418;border-radius:3px;filter:sepia(.12) saturate(.9)}
+.artwork-preview.theme-preview-vending{width:52%;margin-inline:auto;border:6px solid #17272b;border-radius:3px;filter:saturate(.9) contrast(1.08);box-shadow:inset 0 0 22px #000,0 0 0 1px rgba(117,255,189,.25)}
+.artwork-preview.theme-preview-comic{width:44%;height:auto;min-height:190px;margin-inline:auto;aspect-ratio:2/3;border:4px solid #111;border-radius:0;filter:saturate(1.65) contrast(1.65) brightness(1.03);box-shadow:5px 5px 0 #111}
+.artwork-preview.theme-preview-3d{width:58%;height:auto;min-height:190px;margin-inline:auto;border:11px solid #171121;border-radius:0;filter:saturate(.75) contrast(1.08);box-shadow:0 16px 35px rgba(0,0,0,.5)}
+
+@media(max-width:1000px){.v2-theme-deck button{justify-content:center;padding-inline:6px}.v2-theme-deck button i{display:none}.vending-slots{grid-template-columns:repeat(3,minmax(0,1fr))}.comic-shelf{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}}
+@media(max-width:800px){.vending-body{grid-template-columns:1fr}.vending-slots{grid-template-columns:repeat(3,minmax(0,1fr))}.vending-console{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vending-screen{grid-row:1/3}.vending-keypad{margin:0}.vending-release{grid-column:1/-1}}
+@media(max-width:720px){.utility-rail{gap:2px;padding:3px}.utility-rail>.theme-sound-toggle,.utility-rail>.project-launcher-fab,.utility-rail>aside>button:first-child{height:34px!important;padding:0!important}.utility-rail button>*{display:none!important}.utility-rail>.theme-sound-toggle::after{content:"S"}.utility-rail>.project-launcher-fab::after{content:"+"}.utility-rail>.cloud-dock>button::after{content:"C"}.utility-rail>.local-dock>button::after{content:"L"}.utility-rail>.artwork-dock>button::after{content:"A"}.utility-rail>.task-console>button::after{content:"R"}.utility-rail>.data-backup-dock>button::after{content:"D"}.utility-rail>.runtime-dock>button::after{content:"E"}.utility-rail>.desktop-actions-dock>button::after{content:"W"}.utility-rail>.intel-dock>button::after{content:"!"}.utility-rail>.analytics-dock>button::after{content:"N"}.utility-rail>.deploy-dock>button::after{content:"P"}.utility-rail>.beta-dock>button::after{content:"B"}}
+@media(max-width:560px){.v2-theme-deck button{height:34px;padding:0 3px}.v2-theme-deck button strong{font-size:8px}.vending-slots{grid-template-columns:repeat(2,minmax(0,1fr))}.comic-shelf{grid-template-columns:repeat(2,minmax(0,1fr));padding-inline:0}}
+@media(prefers-reduced-motion:reduce){.vending-slot,.comic-volume{transition:none}.vending-slot.dispensing,.vending-tray.receiving::after{animation:none}}

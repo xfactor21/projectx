@@ -24,6 +24,7 @@ export default function ArtworkDock() {
   const [saved, setSaved] = useState(false)
   const selected = useMemo(() => projects.find((project) => project.id === projectId), [projects, projectId])
   const source = useMemo(() => readArray<LocalSource>(LOCAL_KEY).find((item) => item.projectId === projectId), [projectId])
+  const previewTheme = (localStorage.getItem('projectx.view.v1') || 'Grid').toLowerCase()
 
   function saveCover(dataUrl: string, artworkSource = 'manual upload') {
     if (!projectId) return
@@ -101,7 +102,7 @@ export default function ArtworkDock() {
       <header><div><small>PROJECT IDENTITY</small><strong>Artwork manager</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>
       <label>Project<select value={projectId} onChange={(event) => void selectProject(event.target.value)}><option value="">Choose project…</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
-      {selected?.coverUrl && <><div className="artwork-preview" style={{ backgroundImage: `url(${selected.coverUrl})` }} /><small>{selected.artworkSource ? `Source: ${selected.artworkSource}` : 'Current artwork'}</small></>}
+      {selected?.coverUrl && <><div className={`artwork-preview theme-preview-${previewTheme}`} style={{ backgroundImage: `url(${selected.coverUrl})` }} /><small>{selected.artworkSource ? `Source: ${selected.artworkSource} · ${previewTheme} preview` : `Current artwork · ${previewTheme} preview`}</small></>}
       <div className="artwork-actions">
         <button type="button" disabled={!projectId || !desktop || !source?.path || scanning} onClick={() => void scanProject(false)}>{scanning ? 'Scanning…' : '⌕ Scan project artwork'}</button>
         <label className={`artwork-upload ${projectId ? '' : 'disabled'}`}>Upload + save artwork<input type="file" accept="image/*,.ico,.svg" disabled={!projectId} onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = '' }}/></label>

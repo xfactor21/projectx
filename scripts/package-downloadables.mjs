@@ -3,18 +3,19 @@ import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const root = resolve(import.meta.dirname, '..')
-const basename = 'projectX_8-24_v1.5'
-const bundleDir = join(root, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
+const basename = 'projectX_8-24_v1.6'
+const targetDir = process.env.CARGO_TARGET_DIR ? resolve(process.env.CARGO_TARGET_DIR) : join(root, 'src-tauri', 'target')
+const bundleDir = join(targetDir, 'release', 'bundle', 'nsis')
 const artifactsDir = join(root, 'artifacts')
 const stagingDir = join(root, '.artifact-staging', basename)
 const outputExe = join(artifactsDir, `${basename}.exe`)
 const outputZip = join(artifactsDir, `${basename}-windows.zip`)
 
-if (!existsSync(bundleDir)) throw new Error('The NSIS bundle directory does not exist. Build the v1.5 installer first.')
+if (!existsSync(bundleDir)) throw new Error('The NSIS bundle directory does not exist. Build the v1.6 installer first.')
 const installers = readdirSync(bundleDir)
-  .filter((name) => /^project\.X_1\.5\.0_x64-setup\.exe$/i.test(name))
+  .filter((name) => /^project\.X_1\.6\.0_x64-setup\.exe$/i.test(name))
   .map((name) => join(bundleDir, name))
-if (installers.length !== 1) throw new Error(`Expected exactly one project.X 1.5.0 NSIS installer, found ${installers.length}.`)
+if (installers.length !== 1) throw new Error(`Expected exactly one project.X 1.6.0 NSIS installer, found ${installers.length}.`)
 if (statSync(installers[0]).size < 1_000_000) throw new Error('The NSIS installer is unexpectedly small and will not be packaged.')
 
 rmSync(stagingDir, { recursive: true, force: true })
