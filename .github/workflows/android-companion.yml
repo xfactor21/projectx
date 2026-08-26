@@ -4,7 +4,14 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - develop
       - mobile/android-companion-build
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/android-companion.yml'
   pull_request:
     branches:
       - develop
@@ -14,7 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-24_v1.1
+  PROJECTX_BUILD_NAME: projectX_8-25_v1.7
+  PROJECTX_ANDROID_VERSION: 1.7.0
+  PROJECTX_ANDROID_VERSION_CODE: 10700
 
 jobs:
   android-debug:
@@ -54,6 +63,13 @@ jobs:
       - name: Sync Companion bundle
         run: npx cap sync android
 
+      - name: Set Android app version
+        shell: bash
+        run: |
+          sed -i -E "s/versionCode [0-9]+/versionCode ${PROJECTX_ANDROID_VERSION_CODE}/" android/app/build.gradle
+          sed -i -E "s/versionName \"[^\"]+\"/versionName \"${PROJECTX_ANDROID_VERSION}\"/" android/app/build.gradle
+          grep -E 'versionCode|versionName' android/app/build.gradle
+
       - name: Build debug APK
         working-directory: android
         run: |
@@ -67,5 +83,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}-android
-          path: projectX_8-24_v1.1.apk
+          path: ${{ env.PROJECTX_BUILD_NAME }}.apk
           if-no-files-found: error
