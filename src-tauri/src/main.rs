@@ -651,8 +651,16 @@ fn main() {
             workspace_backup::save_workspace_backup,
             workspace_backup::select_workspace_backup
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running project.X desktop");
+        .build(tauri::generate_context!())
+        .expect("error while building project.X desktop")
+        .run(|_app, event| {
+            if matches!(
+                event,
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+            ) {
+                dev_preview::stop_all_preview_processes();
+            }
+        });
 }
 
 #[cfg(test)]

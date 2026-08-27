@@ -1,6 +1,9 @@
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+const BUILD_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
+const BUILD_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+const CONFIG_KEY = 'projectx.supabase.config.v1'
 const SESSION_KEY = 'projectx.supabase.session.v1'
+
+export type SupabaseConfig = { url: string; publishableKey: string; source: 'runtime' | 'build' | 'none' }
 
 export type SupabaseUser = { id: string; email?: string }
 export type SupabaseSession = { access_token: string; refresh_token?: string; expires_in?: number; expires_at?: number; token_type?: string; user: SupabaseUser }
@@ -8,7 +11,8 @@ export type CloudProject = { id?: string; user_id: string; client_id: string; na
 export type CloudActivity = { id?: string; user_id: string; project_client_id?: string | null; event_type: string; message: string; metadata?: Record<string, unknown>; created_at?: string }
 
 function headers(accessToken?: string, extra?: HeadersInit): HeadersInit {
-  return { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', ...extra }
+  const key = getSupabasePublishableKey()
+  return { apikey: key, Authorization: `Bearer ${accessToken || key}`, 'Content-Type': 'application/json', ...extra }
 }
 
 function friendlyError(status: number, body: string): string {
@@ -27,7 +31,7 @@ function friendlyError(status: number, body: string): string {
 
 async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY).')
-  const response = await fetch(`${SUPABASE_URL}${path}`, { ...init, headers: headers(accessToken, init.headers) })
+  const response = await fetch(`${getSupabaseUrl()}${path}`, { ...init, headers: headers(accessToken, init.headers) })
   if (!response.ok) {
     const body = await response.text()
     throw new Error(friendlyError(response.status, body))
@@ -37,9 +41,43 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   return text ? (JSON.parse(text) as T) : (undefined as T)
 }
 
-export function isSupabaseConfigured(): boolean { return Boolean(SUPABASE_URL && SUPABASE_KEY) }
-export function getSupabaseUrl(): string { return SUPABASE_URL }
-export function getSupabasePublishableKey(): string { return SUPABASE_KEY }
+export function getSupabaseConfig(): SupabaseConfig {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null') as { url?: unknown; publishableKey?: unknown } | null
+    if (saved && typeof saved.url === 'string' && typeof saved.publishableKey === 'string' && saved.url && saved.publishableKey) {
+      return { url: saved.url.replace(/\/$/, ''), publishableKey: saved.publishableKey, source: 'runtime' }
+    }
+  } catch { /* Ignore malformed runtime config and fall back to build defaults. */ }
+  if (BUILD_SUPABASE_URL && BUILD_SUPABASE_KEY) return { url: BUILD_SUPABASE_URL, publishableKey: BUILD_SUPABASE_KEY, source: 'build' }
+  return { url: '', publishableKey: '', source: 'none' }
+}
+export function saveSupabaseConfig(url: string, publishableKey: string): SupabaseConfig {
+  const normalizedUrl = url.trim().replace(/\/$/, '')
+  const key = publishableKey.trim()
+  let parsed: URL
+  try { parsed = new URL(normalizedUrl) } catch { throw new Error('Enter a valid Supabase project URL.') }
+  const local = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)
+  if (parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) throw new Error('Supabase must use HTTPS unless it is a local development instance.')
+  if (key.length < 20) throw new Error('The Supabase publishable key appears incomplete.')
+  localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: normalizedUrl, publishableKey: key }))
+  saveSession(null)
+  window.dispatchEvent(new CustomEvent('projectx:supabase-config-changed'))
+  return { url: normalizedUrl, publishableKey: key, source: 'runtime' }
+}
+export function clearSupabaseConfig(): void {
+  localStorage.removeItem(CONFIG_KEY)
+  saveSession(null)
+  window.dispatchEvent(new CustomEvent('projectx:supabase-config-changed'))
+}
+export async function testSupabaseConfig(url: string, publishableKey: string): Promise<void> {
+  const normalizedUrl = url.trim().replace(/\/$/, '')
+  const key = publishableKey.trim()
+  const response = await fetch(`${normalizedUrl}/auth/v1/settings`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
+  if (!response.ok) throw new Error(`Supabase connection failed (${response.status}). Check the URL and publishable key.`)
+}
+export function isSupabaseConfigured(): boolean { const config = getSupabaseConfig(); return Boolean(config.url && config.publishableKey) }
+export function getSupabaseUrl(): string { return getSupabaseConfig().url }
+export function getSupabasePublishableKey(): string { return getSupabaseConfig().publishableKey }
 export function loadSession(): SupabaseSession | null { try { const raw = localStorage.getItem(SESSION_KEY); if (!raw) return null; const session = JSON.parse(raw) as SupabaseSession; return session?.access_token && session?.user?.id ? session : null } catch { return null } }
 export function saveSession(session: SupabaseSession | null): void { if (!session) localStorage.removeItem(SESSION_KEY); else localStorage.setItem(SESSION_KEY, JSON.stringify(session)) }
 

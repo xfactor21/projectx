@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   fetchCloudProjects,
   isSupabaseConfigured,
@@ -69,8 +69,14 @@ export default function CloudSyncDock() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'Add Supabase publishable key in Vercel')
-  const configured = useMemo(() => isSupabaseConfigured(), [])
+  const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'Open Settings to connect Supabase on this device.')
+  const [configured, setConfigured] = useState(isSupabaseConfigured)
+
+  useEffect(() => {
+    const changed = () => { const ready = isSupabaseConfigured(); setConfigured(ready); setSession(loadSession()); setMessage(ready ? 'Supabase connection saved. Sign in to sync.' : 'Open Settings to connect Supabase on this device.') }
+    window.addEventListener('projectx:supabase-config-changed', changed)
+    return () => window.removeEventListener('projectx:supabase-config-changed', changed)
+  }, [])
 
   async function getFreshSession(): Promise<SupabaseSession | null> {
     const current = session || loadSession()

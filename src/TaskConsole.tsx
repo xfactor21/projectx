@@ -1,31 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
-import type { ProjectRunResult } from './services/desktop'
+import { persistRunTasks, readRunTasks } from './services/runTasks'
+import type { RunStartedDetail, RunTask } from './services/runTasks'
 
-const KEY = 'projectx.running.tasks.v1'
 const PROJECTS_KEY = 'projectx.projects.v1'
-
-type RunTask = {
-  id: string
-  projectId: string
-  projectName: string
-  path: string
-  pid: number
-  script: string
-  packageManager?: string
-  url?: string
-  logPath?: string
-  output?: string
-  startedAt: string
-}
-
-type RunStartedDetail = { projectId: string; projectName: string; path: string; result: ProjectRunResult }
-
-function readTasks(): RunTask[] {
-  try { const value = JSON.parse(sessionStorage.getItem(KEY) || '[]'); return Array.isArray(value) ? value : [] }
-  catch { return [] }
-}
-function persist(tasks: RunTask[]) { sessionStorage.setItem(KEY, JSON.stringify(tasks)) }
 function markProjectReady(projectId: string) {
   try {
     const projects = JSON.parse(localStorage.getItem(PROJECTS_KEY) || '[]')
@@ -38,7 +16,7 @@ function markProjectReady(projectId: string) {
 export default function TaskConsole() {
   const desktop = getDesktopHost()
   const [open, setOpen] = useState(false)
-  const [tasks, setTasks] = useState<RunTask[]>(readTasks)
+  const [tasks, setTasks] = useState<RunTask[]>(readRunTasks)
   const [message, setMessage] = useState('Processes started by project.X appear here.')
   const running = useMemo(() => tasks.filter((task) => task.pid > 0), [tasks])
 
@@ -46,23 +24,7 @@ export default function TaskConsole() {
     const onStarted = (event: Event) => {
       const detail = (event as CustomEvent<RunStartedDetail>).detail
       if (!detail?.result?.pid) return
-      const task: RunTask = {
-        id: `${detail.projectId}-${detail.result.pid}`,
-        projectId: detail.projectId,
-        projectName: detail.projectName,
-        path: detail.path,
-        pid: detail.result.pid,
-        script: detail.result.script,
-        packageManager: detail.result.packageManager,
-        url: detail.result.url,
-        logPath: detail.result.logPath,
-        output: detail.result.output,
-        startedAt: new Date().toISOString(),
-      }
-      setTasks((current) => {
-        const next = [task, ...current.filter((item) => item.projectId !== task.projectId)].slice(0, 20)
-        persist(next); return next
-      })
+      setTasks(readRunTasks())
       setOpen(true)
       setMessage(`${detail.projectName} is running under project.X process control. Open Preview when you are ready.`)
     }
@@ -78,7 +40,7 @@ export default function TaskConsole() {
       if (!result.ok) throw new Error(result.output || `Unable to stop ${task.projectName}.`)
       setTasks((current) => {
         const next = current.filter((item) => item.pid !== task.pid)
-        persist(next); return next
+        persistRunTasks(next); return next
       })
       markProjectReady(task.projectId)
       setMessage(result.output || `${task.projectName} stopped.`)
@@ -96,7 +58,7 @@ export default function TaskConsole() {
       const nextTask: RunTask = { ...task, id: `${task.projectId}-${result.pid}`, pid: result.pid || 0, url: result.url, logPath: result.logPath, output: result.output, packageManager: result.packageManager, startedAt: new Date().toISOString() }
       setTasks((current) => {
         const next = [nextTask, ...current.filter((item) => item.projectId !== task.projectId)].slice(0, 20)
-        persist(next); return next
+        persistRunTasks(next); return next
       })
       setMessage(`${task.projectName} restarted. Open its browser preview when you are ready.`)
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to restart project.') }
@@ -108,7 +70,7 @@ export default function TaskConsole() {
     catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to open the browser preview.') }
   }
 
-  function clearHistory() { setTasks([]); persist([]); setMessage('Task console cleared.') }
+  function clearHistory() { setTasks([]); persistRunTasks([]); setMessage('Task console cleared.') }
 
   return <aside className={`task-console ${open ? 'open' : ''}`} aria-label="Running project processes">
     <button className="task-console-toggle" type="button" onClick={() => setOpen((value) => !value)}><strong>RUN</strong><span>{running.length ? `${running.length} ACTIVE` : 'TASKS'}</span></button>

@@ -61,6 +61,8 @@ fn classify(name: &str, relative: &str) -> (String, i32) {
     let rel = relative.to_ascii_lowercase();
     let mut score = 0;
     let kind = if lower.contains("app-icon")
+        || lower.contains("adaptive-icon")
+        || lower.contains("launcher")
         || lower == "icon.png"
         || lower == "icon.ico"
         || lower.starts_with("icon-")
@@ -70,14 +72,14 @@ fn classify(name: &str, relative: &str) -> (String, i32) {
     } else if lower.contains("logo") || lower.contains("brand") {
         score += 90;
         "logo"
-    } else if lower.contains("banner") || lower.contains("hero") {
+    } else if lower.contains("banner") || lower.contains("hero") || lower.contains("splash") {
         score += 72;
         "banner"
-    } else if lower.contains("cover") || lower.contains("poster") {
+    } else if lower.contains("cover") || lower.contains("poster") || lower.contains("thumbnail") {
         score += 68;
         "cover"
     } else if lower.contains("favicon") {
-        score += 55;
+        score += 18;
         "icon"
     } else if lower.contains("screenshot")
         || lower.contains("screen-shot")
@@ -91,7 +93,7 @@ fn classify(name: &str, relative: &str) -> (String, i32) {
     };
 
     if rel.starts_with("public/") || rel.contains("/public/") {
-        score += 12;
+        score += 16;
     }
     if rel.starts_with("assets/") || rel.contains("/assets/") {
         score += 10;
@@ -106,7 +108,10 @@ fn classify(name: &str, relative: &str) -> (String, i32) {
         score += 4;
     }
     if lower.contains("16") || lower.contains("32") {
-        score -= 3;
+        score -= 12;
+    }
+    if lower.contains("favicon") || lower.contains("maskable") {
+        score -= 16;
     }
     (kind.to_string(), score)
 }
@@ -117,7 +122,7 @@ fn walk(
     depth: usize,
     output: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
-    if depth > 7 || output.len() >= 300 {
+    if depth > 9 || output.len() >= 500 {
         return Ok(());
     }
     let entries = match fs::read_dir(current) {
@@ -136,7 +141,7 @@ fn walk(
                 output.push(path);
             }
         }
-        if output.len() >= 300 {
+        if output.len() >= 500 {
             break;
         }
     }
@@ -145,7 +150,7 @@ fn walk(
 
 fn preview(path: &Path, mime: &str, bytes: u64) -> Option<String> {
     // Keep localStorage/UI pressure bounded. Very large artwork can still be manually selected.
-    if bytes > 2_500_000 {
+    if bytes > 5_000_000 {
         return None;
     }
     let data = fs::read(path).ok()?;

@@ -2,9 +2,9 @@ use crate::{ensure_authorized, DesktopState, ExecResult};
 use serde::Serialize;
 use serde_json::Value;
 use std::{
-    collections::BTreeSet,
+    collections::BTreeMap,
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{Mutex, OnceLock},
     thread,
@@ -12,9 +12,44 @@ use std::{
 };
 use tauri::State;
 
-static PREVIEW_PIDS: OnceLock<Mutex<BTreeSet<u32>>> = OnceLock::new();
-fn pids() -> &'static Mutex<BTreeSet<u32>> {
-    PREVIEW_PIDS.get_or_init(|| Mutex::new(BTreeSet::new()))
+static PREVIEW_PROCESSES: OnceLock<Mutex<BTreeMap<u32, PathBuf>>> = OnceLock::new();
+fn processes() -> &'static Mutex<BTreeMap<u32, PathBuf>> {
+    PREVIEW_PROCESSES.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+fn stop_pid(pid: u32) -> std::io::Result<std::process::Output> {
+    Command::new("taskkill.exe")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .output()
+}
+
+fn stop_existing_for_path(path: &Path) -> Result<(), String> {
+    let existing = processes()
+        .lock()
+        .map_err(|_| "Preview process registry is unavailable.".to_string())?
+        .iter()
+        .find_map(|(pid, root)| (root == path).then_some(*pid));
+    if let Some(pid) = existing {
+        let _ = stop_pid(pid);
+        processes()
+            .lock()
+            .map_err(|_| "Preview process registry is unavailable.".to_string())?
+            .remove(&pid);
+    }
+    Ok(())
+}
+
+pub(crate) fn stop_all_preview_processes() {
+    let ids = processes()
+        .lock()
+        .map(|items| items.keys().copied().collect::<Vec<_>>())
+        .unwrap_or_default();
+    for pid in ids {
+        let _ = stop_pid(pid);
+    }
+    if let Ok(mut items) = processes().lock() {
+        items.clear();
+    }
 }
 fn stamp() -> u64 {
     SystemTime::now()
@@ -178,6 +213,7 @@ pub(crate) fn run_preview_project(
         return Err(format!("{manager} is required but is not available on this PC. Open ENV / Runtimes to review the toolchain."));
     }
     let install_note = ensure_dependencies(&root, manager)?;
+    stop_existing_for_path(&root)?;
 
     let logs = std::env::temp_dir().join("projectx-runs");
     fs::create_dir_all(&logs)
@@ -209,10 +245,10 @@ pub(crate) fn run_preview_project(
         .spawn()
         .map_err(|error| format!("Unable to start {manager} run {script}: {error}"))?;
     let pid = child.id();
-    pids()
+    processes()
         .lock()
         .map_err(|_| "Preview process registry is unavailable.".to_string())?
-        .insert(pid);
+        .insert(pid, root.clone());
     let mut url = None;
     let mut latest = String::new();
     let mut exited = false;
@@ -231,7 +267,7 @@ pub(crate) fn run_preview_project(
             .map_err(|error| format!("Unable to inspect project process: {error}"))?
             .is_some()
         {
-            pids()
+            processes()
                 .lock()
                 .map_err(|_| "Preview process registry is unavailable.".to_string())?
                 .remove(&pid);
@@ -255,7 +291,7 @@ pub(crate) fn run_preview_project(
 
     if url.is_none() {
         terminate_process_tree(&mut child);
-        pids()
+        processes()
             .lock()
             .map_err(|_| "Preview process registry is unavailable.".to_string())?
             .remove(&pid);
@@ -291,19 +327,17 @@ pub(crate) fn run_preview_project(
 
 #[tauri::command]
 pub(crate) fn stop_preview_project(pid: u32) -> Result<ExecResult, String> {
-    if !pids()
+    if processes()
         .lock()
         .map_err(|_| "Preview process registry is unavailable.".to_string())?
         .remove(&pid)
+        .is_none()
     {
         return Err(
             "project.X can only stop Preview processes it started during this session.".into(),
         );
     }
-    let output = Command::new("taskkill.exe")
-        .args(["/PID", &pid.to_string(), "/T", "/F"])
-        .output()
-        .map_err(|error| format!("Unable to stop project: {error}"))?;
+    let output = stop_pid(pid).map_err(|error| format!("Unable to stop project: {error}"))?;
     let mut text = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if !err.is_empty() {

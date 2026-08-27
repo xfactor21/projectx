@@ -1,6 +1,4 @@
-import { getSupabaseUrl, loadSession } from './supabase'
-
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+import { getSupabasePublishableKey, getSupabaseUrl, loadSession } from './supabase'
 
 export type CompanionDevice = {
   id?: string
@@ -33,18 +31,25 @@ export type RemoteAction = {
 async function companionRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = loadSession()
   const base = getSupabaseUrl()
-  if (!session || !base || !SUPABASE_KEY) throw new Error('Sign in and configure Supabase before using companion features.')
+  const key = getSupabasePublishableKey()
+  if (!session || !base || !key) throw new Error('Sign in and configure Supabase before using companion features.')
   const response = await fetch(`${base}${path}`, {
     ...init,
     headers: {
-      apikey: SUPABASE_KEY,
+      apikey: key,
       Authorization: `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
       ...init.headers,
     },
   })
   const text = await response.text()
-  if (!response.ok) throw new Error(text || `Companion request failed (${response.status}).`)
+  if (!response.ok) {
+    const normalized = text.toLowerCase()
+    if (normalized.includes('projectx_devices') || normalized.includes('projectx_remote_actions') || normalized.includes('schema cache')) {
+      throw new Error('Companion tables are not installed in this Supabase project. Apply the project.X companion migrations, then retry.')
+    }
+    throw new Error(text || `Companion request failed (${response.status}).`)
+  }
   return text ? JSON.parse(text) as T : undefined as T
 }
 

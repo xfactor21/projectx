@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchCloudProjects, loadSession, signInWithPassword, signOut } from './services/supabase'
+import { fetchCloudProjects, isSupabaseConfigured, loadSession, signInWithPassword, signOut } from './services/supabase'
 import { listCompanionDevices, listRemoteActions, queueRemoteAction, registerCompanionDevice, updateRemoteAction } from './services/companion'
 import { uploadCompanionZip } from './services/companionPackages'
 import { APP_VERSION } from './version'
 import type { CloudProject, SupabaseSession } from './services/supabase'
 import type { CompanionDevice, RemoteAction } from './services/companion'
+import SupabaseSetup from './SupabaseSetup'
+import appIcon from './assets/brand/app-icon.png'
 
 const DEVICE_KEY = 'projectx.companion.device.v1'
 const HOST_FRESH_MS = 30_000
@@ -89,6 +91,7 @@ export default function CompanionApp() {
   const [packageTarget, setPackageTarget] = useState('')
   const [packageFile, setPackageFile] = useState<File | null>(null)
   const [installDeps, setInstallDeps] = useState(true)
+  const [configured, setConfigured] = useState(isSupabaseConfigured)
   const refreshLock = useRef(false)
 
   async function refresh(current = session, quiet = false) {
@@ -122,6 +125,12 @@ export default function CompanionApp() {
       if (!quiet) setRefreshing(false)
     }
   }
+
+  useEffect(() => {
+    const changed = () => setConfigured(isSupabaseConfigured())
+    window.addEventListener('projectx:supabase-config-changed', changed)
+    return () => window.removeEventListener('projectx:supabase-config-changed', changed)
+  }, [])
 
   useEffect(() => {
     if (!session) return
@@ -231,12 +240,13 @@ export default function CompanionApp() {
 
   if (!session) return <main className="companion-shell companion-auth">
     <div className="companion-auth-card">
-      <div className="companion-brand"><span>X</span><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div></div>
+      <div className="companion-brand"><img src={appIcon} alt=""/><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div></div>
+      {!configured && <SupabaseSetup compact onSaved={() => setConfigured(isSupabaseConfigured())} />}
       <section className="companion-login">
         <div><small>REMOTE DEV CONTROL</small><h1>Your projects.<br/><em>With you.</em></h1><p>Sign in with the same project.X account used on your Windows host.</p></div>
         <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
-        <button type="button" disabled={busy} onClick={() => void login()}>{busy ? 'Connecting…' : 'Connect companion'}</button>
+        <button type="button" disabled={busy || !configured} onClick={() => void login()}>{busy ? 'Connecting…' : configured ? 'Connect companion' : 'Configure Supabase first'}</button>
         <small className="companion-auth-message">{message}</small>
       </section>
     </div>
@@ -245,7 +255,7 @@ export default function CompanionApp() {
   return <main className="companion-shell companion-v17">
     <header className="companion-header">
       <button className="companion-brand companion-brand-button" type="button" onClick={() => setTab('projects')} aria-label="Open projects">
-        <span>X</span><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div>
+        <img src={appIcon} alt=""/><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div>
       </button>
       <button className={hostOnline ? 'companion-host-chip online' : 'companion-host-chip offline'} type="button" onClick={() => setTab('settings')}>
         <i /> <span>{hostOnline ? 'PC ONLINE' : 'PC OFFLINE'}</span>

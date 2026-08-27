@@ -16,6 +16,15 @@ function baseHeaders() {
   }
 }
 
+async function storageError(response: Response, fallback: string): Promise<Error> {
+  const detail = await response.text()
+  const normalized = detail.toLowerCase()
+  if (normalized.includes('bucket') || normalized.includes('not found')) {
+    return new Error('Companion package storage is not installed in this Supabase project. Apply the project.X companion-package migration, then retry.')
+  }
+  return new Error(detail || `${fallback} (${response.status}).`)
+}
+
 export async function uploadCompanionZip(file: File): Promise<{ storagePath: string; fileName: string; bytes: number }> {
   if (!file.name.toLowerCase().endsWith('.zip')) throw new Error('Choose a .zip project archive.')
   if (file.size > 100 * 1024 * 1024) throw new Error('Companion ZIP uploads are limited to 100 MB.')
@@ -31,7 +40,7 @@ export async function uploadCompanionZip(file: File): Promise<{ storagePath: str
     },
     body: file,
   })
-  if (!response.ok) throw new Error((await response.text()) || `Project upload failed (${response.status}).`)
+  if (!response.ok) throw await storageError(response, 'Project upload failed')
   return { storagePath, fileName: file.name, bytes: file.size }
 }
 
@@ -41,7 +50,7 @@ export async function createCompanionZipSignedUrl(storagePath: string, expiresIn
     headers: { ...baseHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ expiresIn }),
   })
-  if (!response.ok) throw new Error((await response.text()) || `Unable to prepare project package (${response.status}).`)
+  if (!response.ok) throw await storageError(response, 'Unable to prepare project package')
   const body = await response.json() as { signedURL?: string; signedUrl?: string }
   const signed = body.signedURL || body.signedUrl
   if (!signed) throw new Error('Supabase did not return a signed package URL.')
@@ -54,5 +63,5 @@ export async function deleteCompanionZip(storagePath: string): Promise<void> {
     headers: { ...baseHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ prefixes: [storagePath] }),
   })
-  if (!response.ok) throw new Error((await response.text()) || `Unable to remove project package (${response.status}).`)
+  if (!response.ok) throw await storageError(response, 'Unable to remove project package')
 }

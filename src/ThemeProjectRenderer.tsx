@@ -98,7 +98,7 @@ function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOp
       const projectCode = slotCode(index)
       return <article className={`vending-slot ${code === projectCode ? 'selected' : ''} ${dispensing === project.id ? 'dispensing' : ''}`} key={project.id}>
         <button type="button" className={`vending-product project-art-surface ${project.coverUrl ? 'has-project-art' : ''}`} style={artStyle(project)} onClick={() => onOpen(project)} aria-label={`Open ${project.name}`}>
-          <span className="vending-glass"/><b>{monogram(project.name)}</b><strong>{project.name}</strong><small>{sourceLabel(project, source)}</small>
+          <span className="vending-glass"/>{!project.coverUrl && <b>{monogram(project.name)}</b>}<strong>{project.name}</strong><small>{sourceLabel(project, source)}</small>
         </button>
         <button type="button" className="vending-dial" onClick={() => setCode(projectCode)} aria-label={`Enter code ${projectCode} for ${project.name}`}><i/><span>{projectCode}</span></button>
       </article>
@@ -122,7 +122,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
       return <article className={`store-unit ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}>
         <div className="store-awning"><span>{String(index + 1).padStart(2, '0')}</span><strong>{project.name}</strong></div>
         <button className="store-window project-art-surface" type="button" onClick={() => onOpen(project)}>
-          <span className="store-neon">{sourceLabel(project, source)}</span><b>{monogram(project.name)}</b><small>{project.description || 'Open project'}</small>
+          <span className="store-neon">{sourceLabel(project, source)}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{project.description || 'Open project'}</small>
         </button>
         <div className="store-door"><span>{project.status || 'Building'}</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Enter / Run</button></div>
       </article>
@@ -140,7 +140,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
       return <article className={`comic-volume volume-${(index % 4) + 1} ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id}>
         <button type="button" className="comic-cover" onClick={() => onOpen(project)} aria-label={`Open ${project.name}`}>
           <span className="comic-cover-art" style={coverStyle}/><span className="comic-ink-screen"/>
-          <small>{sourceLabel(project, source)}</small><b>{monogram(project.name)}</b><h3>{project.name}</h3><em>{index % 2 ? 'ZAP!' : 'BUILD!'}</em><i>NO. {String(index + 1).padStart(2, '0')}</i>
+          <small>{sourceLabel(project, source)}</small>{!project.coverUrl && <b>{monogram(project.name)}</b>}<h3>{project.name}</h3><em>{index % 2 ? 'ZAP!' : 'BUILD!'}</em><i>NO. {String(index + 1).padStart(2, '0')}</i>
         </button>
         <footer><span>{project.status || 'Building'}</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>RUN</button></footer>
       </article>
@@ -153,7 +153,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
       const source = sourceMap.get(project.id)
       const depthStyle = { '--gallery-depth': `${index % 3}`, ...(artStyle(project) || {}) } as CSSProperties
       return <article className={`gallery-exhibit ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={depthStyle}>
-        <div className="gallery-light"/><button type="button" className="gallery-frame project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span><b>{monogram(project.name)}</b></button>
+        <div className="gallery-light"/><button type="button" className="gallery-frame project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}</button>
         <div className="gallery-plaque"><strong>{project.name}</strong><span>{sourceLabel(project, source)}</span><small>{(project.stack || []).slice(0, 3).join(' · ') || project.status || 'Project'}</small><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Launch exhibit</button></div>
       </article>
     })}</div>
@@ -161,6 +161,6 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
 
   return <section className="command-project-grid" aria-label="Project command grid">{projects.map((project, index) => {
     const source = sourceMap.get(project.id)
-    return <article className={`command-project ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}><button type="button" className="command-visual project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span><b>{monogram(project.name)}</b><small>{sourceLabel(project, source)}</small></button><div><h3>{project.name}</h3><p>{project.description || 'No description yet.'}</p><div className="command-meta"><span>{project.status || 'Building'}</span><span>{source?.gitBranch || 'NO BRANCH'}</span><span>{source?.path && desktopOnline ? 'LOCAL READY' : 'REMOTE'}</span></div><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Run</button><button type="button" disabled={!project.repoUrl} onClick={() => project.repoUrl && window.open(project.repoUrl, '_blank', 'noopener')}>Repo</button><button type="button" onClick={() => onOpen(project)}>Open</button></footer></div></article>
+    return <article className={`command-project ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}><button type="button" className="command-visual project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{sourceLabel(project, source)}</small></button><div><h3>{project.name}</h3><p>{project.description || 'No description yet.'}</p><div className="command-meta"><span>{project.status || 'Building'}</span><span>{source?.gitBranch || 'NO BRANCH'}</span><span>{source?.path && desktopOnline ? 'LOCAL READY' : 'REMOTE'}</span></div><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Run</button><button type="button" disabled={!project.repoUrl} onClick={() => project.repoUrl && window.open(project.repoUrl, '_blank', 'noopener')}>Repo</button><button type="button" onClick={() => onOpen(project)}>Open</button></footer></div></article>
   })}</section>
 }

@@ -33,9 +33,27 @@ Production preview:
 npm run preview
 ```
 
+### Android Companion build
+
+The Android shell is generated from the same Companion interface. `resources/logo.png` is the checked-in source for the native launcher icon and Android launch surface; the in-app launch then displays the branded project.X splash used by Windows.
+
+```bash
+npm install --no-save @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
+npm run build
+npx cap add android
+npx capacitor-assets generate --android --assetPath resources --iconBackgroundColor '#05060a' --splashBackgroundColor '#05060a'
+npx cap sync android
+cd android
+./gradlew assembleDebug
+```
+
+The GitHub Android workflow runs these steps with Node 22 and publishes a versioned debug APK artifact. Supabase starts blank on a new device and is configured by each user from the Companion setup screen.
+
 ## Environment configuration
 
 Copy `.env.example` to `.env.local` for local Vite values. Never expose a Supabase service-role key or a Vercel API token to browser code.
+
+Production installers do not ship with an account, workspace, URL, key, token, or local path. Each user can configure their own optional cloud connection from **Settings > Cloud** after installation. Build-time values remain available for organizations that manage one shared deployment.
 
 ### Supabase
 
@@ -51,9 +69,10 @@ Required migrations:
 ```text
 supabase/migrations/20260818_projectx_phase4.sql
 supabase/migrations/20260821_projectx_companion.sql
+supabase/migrations/20260824_projectx_companion_packages.sql
 ```
 
-The first migration creates the cloud project/activity model with RLS. The companion migration adds per-user device registration and the remote-action queue used by the mobile/Windows-host contract.
+Apply all three migrations in order. They create the cloud project/activity model, per-user device/action tables, and private per-user package storage with row-level policies. Only enter a Supabase publishable/anonymous client key in the app; never use a service-role key.
 
 ### Vercel
 
@@ -76,6 +95,7 @@ The browser never receives `VERCEL_API_TOKEN`. `/api/vercel-projects` fetches de
 - Notes, stack, progress, repository URL, live URL, cover URL, and project status.
 - Detail drawer and workspace statistics.
 - Grid, Storefront, Vending, Comic, and 3D presentation modes with a compact single-row selector.
+- A categorized Control Center replaces the crowded bottom rail with Projects, Cloud, and System groups; Settings provides General, Cloud, Runtime, Data, and About sections.
 - Vending mode uses project slot codes and only releases runnable local projects; Comic mode presents artwork as filtered portrait comic covers.
 - The artwork manager saves uploads immediately and previews the selected cover using the active presentation mode.
 - Activity view derived from local/GitHub metadata.
@@ -115,7 +135,7 @@ For an authorized directory it can inspect:
 
 Hosted browser sessions do not receive unrestricted Windows paths.
 
-When a local project is run, project.X manages the development-server process and exposes it in RUN / TASKS. Browser preview is opt-in and opens in the user's default browser; Stop Server terminates the managed process tree.
+When a local project is run, project.X manages the development-server process and exposes it in RUN / TASKS. Verified previews can open automatically according to Settings; Stop Server terminates the managed process tree. Starting the same project again replaces the prior project.X-owned process, and exiting the desktop app stops all development servers owned by that session.
 
 `src/services/desktop.ts` defines the bridge implemented by the Tauri Windows host for:
 
@@ -230,6 +250,8 @@ projectx.view.v1
 projectx.github.owner.v1
 projectx.local.sources.v1
 projectx.supabase.session.v1
+projectx.supabase.config.v1
+projectx.settings.v1
 projectx.projects.pre-restore.v1
 projectx.companion.device.v1
 projectx.schema.v2
@@ -247,6 +269,10 @@ projectx.schema.v2
 ├── public/                      # static SVG assets
 ├── src/
 │   ├── WorkspaceAppV3.tsx       # main project manager
+│   ├── UtilityHub.tsx            # categorized project/cloud/system controls
+│   ├── SettingsPanel.tsx         # general/cloud/runtime/data/about settings
+│   ├── SupabaseSetup.tsx         # device-local cloud configuration
+│   ├── AppSplash.tsx             # branded launch surface
 │   ├── DataBackupDock.tsx       # local backup, restore, and device reset
 │   ├── GitHubDiscoveryModal.tsx # curated repository import review
 │   ├── LocalProjectDock.tsx     # local folder onboarding
@@ -289,7 +315,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX_8-26_v1.8-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-26_v1.8-windows.zip` contains only the Windows installer.
+Release packaging produces separate archives: `projectX_8-26_v1.9-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-26_v1.9-windows.zip` contains only the Windows installer.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 
@@ -299,7 +325,7 @@ GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor Java
 - Private GitHub repository authentication is not implemented.
 - `VERCEL_API_TOKEN` must be configured for Vercel status, analytics, and deploy actions to work.
 - Vercel project matching remains name-based for the existing sync surface.
-- Companion device/action tables require the companion migration to be applied before those features become durable.
+- Companion device/action tables and private package storage require all three Supabase migrations before those features become durable.
 - Companion remote-action execution requires a running, signed-in Windows host to poll and claim authorized actions.
 - Cloud sync is manual and conflict resolution is merge/replace based rather than a true timestamp/tombstone two-way engine.
 - The Activity view is still local/GitHub derived rather than backed by the cloud activity table.

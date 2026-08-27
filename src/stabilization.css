@@ -1,6 +1,8 @@
 /* v1 stabilization pass: keep functional UI readable while the visual system is refined. */
-.command-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;position:relative;z-index:1;min-width:0}
-.command-project{grid-template-columns:minmax(86px,112px) minmax(0,1fr);min-width:0;overflow:hidden}
+.command-project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px;position:relative;z-index:1;min-width:0}
+.command-project{grid-template-columns:220px minmax(0,1fr);min-height:220px;min-width:0;overflow:hidden}
+.command-visual{position:relative;display:grid;grid-template-rows:auto 1fr auto;aspect-ratio:1/1;min-height:220px;align-content:stretch}
+.command-visual>b{place-self:center;font-size:62px;line-height:1}
 .command-project>div{min-width:0}
 .command-project h3,.command-project p{overflow-wrap:anywhere}
 .command-project footer{flex-wrap:wrap}
@@ -30,4 +32,5 @@
 .github-install-message{margin:10px 0;padding:10px 12px;border:1px solid rgba(53,231,255,.15);border-radius:9px;background:rgba(53,231,255,.045);color:#aeeef7;font-size:11px;line-height:1.45}
 
 @media(max-width:720px){.utility-rail{left:6px;right:6px;bottom:6px;max-width:calc(100vw - 12px);justify-content:flex-start}.artwork-panel,.runtime-panel,.task-console-panel,.data-backup-panel,.desktop-actions-panel,.local-dock-panel,.cloud-dock-panel,.intel-panel,.analytics-panel,.deploy-panel,.beta-panel{bottom:106px!important}}
-@media(max-width:520px){.command-project{grid-template-columns:1fr}.command-visual{min-height:110px;border-right:0!important;border-bottom:1px solid rgba(41,224,255,.14)}}
+@media(max-width:720px){.command-project{grid-template-columns:160px minmax(0,1fr);min-height:160px}.command-visual{min-height:160px}}
+@media(max-width:520px){.command-project{grid-template-columns:1fr}.command-visual{width:100%;min-height:0;border-right:0!important;border-bottom:1px solid rgba(41,224,255,.14)}}
