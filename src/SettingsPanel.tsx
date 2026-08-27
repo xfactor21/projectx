@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import SupabaseSetup from './SupabaseSetup'
 import { APP_VERSION } from './version'
-import { isSupabaseConfigured, loadSession } from './services/supabase'
+import { getSupabaseConfig, isSelfHostingEnabled, isSupabaseConfigured, loadSession, setSelfHostingEnabled } from './services/supabase'
 import { readSettings, saveSettings } from './services/settings'
 import { getDesktopHost } from './services/desktop'
 import type { AppSettings } from './services/settings'
@@ -18,6 +18,7 @@ export default function SettingsPanel() {
   const [tab, setTab] = useState<Tab>('general')
   const [settings, setSettings] = useState<AppSettings>(readSettings)
   const [, refresh] = useState(0)
+  const cloudConfig = getSupabaseConfig()
 
   useEffect(() => {
     const show = () => { setSettings(readSettings()); setOpen(true) }
@@ -48,10 +49,14 @@ export default function SettingsPanel() {
           <label className="settings-toggle"><span><strong>Show launch splash</strong><small>Display project.X branding while the desktop UI initializes.</small></span><input type="checkbox" checked={settings.showLaunchSplash} onChange={(event) => update('showLaunchSplash', event.target.checked)} /></label>
           <label className="settings-toggle"><span><strong>Reduce motion</strong><small>Disable nonessential interface transitions and animation.</small></span><input type="checkbox" checked={settings.reduceMotion} onChange={(event) => update('reduceMotion', event.target.checked)} /></label>
         </>}
-        {tab === 'cloud' && <><div className="settings-heading"><small>INTEGRATIONS</small><h2>Cloud and Companion</h2><p>{isSupabaseConfigured() ? loadSession() ? 'Supabase configured and signed in.' : 'Supabase configured. Sign in from Cloud.' : 'Cloud is not configured on this device.'}</p></div><SupabaseSetup onSaved={() => refresh((value) => value + 1)} /><button className="settings-command" type="button" onClick={() => { setOpen(false); openUtility('cloud', '.cloud-dock-toggle') }}>Open Cloud account</button></>}
+        {tab === 'cloud' && <><div className="settings-heading"><small>PROJECT.X ACCOUNT</small><h2>Cloud and Companion</h2><p>{cloudConfig.source === 'managed' ? loadSession() ? 'Connected to project.X Cloud and signed in.' : 'project.X Cloud is ready. Sign in to sync your workspace.' : cloudConfig.source === 'self-hosted' ? 'Using a self-hosted cloud connection on this device.' : 'Cloud service is unavailable in this development build.'}</p></div>
+          <div className={`managed-cloud-status ${isSupabaseConfigured() ? 'ready' : ''}`}><i/><span><strong>{cloudConfig.source === 'managed' ? 'Managed project.X Cloud' : cloudConfig.source === 'self-hosted' ? 'Self-hosted cloud' : 'Cloud unavailable'}</strong><small>{cloudConfig.source === 'managed' ? 'No backend setup is required.' : cloudConfig.source === 'self-hosted' ? 'This device is using a custom backend.' : 'Production builds require managed cloud configuration.'}</small></span></div>
+          <button className="settings-command" type="button" disabled={!isSupabaseConfigured()} onClick={() => { setOpen(false); openUtility('cloud', '.cloud-dock-toggle') }}>Open account and cloud sync</button>
+          <details className="self-hosting-settings" open={isSelfHostingEnabled()}><summary>Advanced self-hosting</summary><p>Use a custom Supabase project instead of the managed project.X service.</p><label className="settings-toggle"><span><strong>Use a self-hosted backend</strong><small>For administrators and source deployments only.</small></span><input type="checkbox" checked={isSelfHostingEnabled()} onChange={(event) => { setSelfHostingEnabled(event.target.checked); refresh((value) => value + 1) }} /></label>{isSelfHostingEnabled() && <SupabaseSetup onSaved={() => refresh((value) => value + 1)} />}</details>
+        </>}
         {tab === 'runtime' && <><div className="settings-heading"><small>LOCAL DEVELOPMENT</small><h2>Run environment</h2><p>project.X stops duplicate project servers before starting a new run and closes owned servers when the Windows app exits.</p></div><button className="settings-command" type="button" onClick={() => { setOpen(false); openUtility('system', '.runtime-dock-toggle') }}>Inspect runtimes</button><button className="settings-command" type="button" onClick={() => { setOpen(false); openUtility('projects', '.task-console-toggle') }}>Open task console</button></>}
         {tab === 'data' && <><div className="settings-heading"><small>PORTABILITY</small><h2>Workspace data</h2><p>Manual backup, restore, and personal-data cleanup are available without cloud access.</p></div><button className="settings-command" type="button" onClick={() => { setOpen(false); openUtility('system', '.data-backup-toggle') }}>Backup and restore</button><button className="settings-command" type="button" onClick={() => { setOpen(false); openUtility('system', '.beta-toggle') }}>Run diagnostics</button></>}
-        {tab === 'about' && <><div className="settings-heading"><small>RELEASE</small><h2>project.X v{APP_VERSION}</h2><p>Windows application manager and Companion control surface.</p></div><div className="settings-about-grid"><span>Desktop host <b>{getDesktopHost() ? 'ONLINE' : 'WEB MODE'}</b></span><span>Supabase <b>{isSupabaseConfigured() ? 'CONFIGURED' : 'SETUP NEEDED'}</b></span><span>Session <b>{loadSession() ? 'SIGNED IN' : 'SIGNED OUT'}</b></span></div></>}
+        {tab === 'about' && <><div className="settings-heading"><small>RELEASE</small><h2>project.X v{APP_VERSION}</h2><p>Windows application manager and Companion control surface.</p></div><div className="settings-about-grid"><span>Desktop host <b>{getDesktopHost() ? 'ONLINE' : 'WEB MODE'}</b></span><span>Cloud <b>{isSupabaseConfigured() ? cloudConfig.source === 'managed' ? 'MANAGED' : 'SELF-HOSTED' : 'UNAVAILABLE'}</b></span><span>Session <b>{loadSession() ? 'SIGNED IN' : 'SIGNED OUT'}</b></span></div></>}
       </div>
     </section>
   </div>

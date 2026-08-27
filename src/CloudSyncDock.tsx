@@ -69,11 +69,11 @@ export default function CloudSyncDock() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'Open Settings to connect Supabase on this device.')
+  const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'project.X Cloud is unavailable in this build.')
   const [configured, setConfigured] = useState(isSupabaseConfigured)
 
   useEffect(() => {
-    const changed = () => { const ready = isSupabaseConfigured(); setConfigured(ready); setSession(loadSession()); setMessage(ready ? 'Supabase connection saved. Sign in to sync.' : 'Open Settings to connect Supabase on this device.') }
+    const changed = () => { const ready = isSupabaseConfigured(); setConfigured(ready); setSession(loadSession()); setMessage(ready ? 'Cloud connection ready. Sign in to sync.' : 'project.X Cloud is unavailable in this build.') }
     window.addEventListener('projectx:supabase-config-changed', changed)
     return () => window.removeEventListener('projectx:supabase-config-changed', changed)
   }, [])
@@ -179,10 +179,10 @@ export default function CloudSyncDock() {
       <button className="cloud-dock-toggle" type="button" onClick={() => setExpanded((value) => !value)}>
         <span className={configured ? 'cloud-dot online' : 'cloud-dot'} />
         <strong>CLOUD</strong>
-        <span>{session ? 'SIGNED IN' : configured ? 'READY' : 'SETUP'}</span>
+        <span>{session ? 'SIGNED IN' : configured ? 'READY' : 'OFFLINE'}</span>
       </button>
       {expanded && <div className="cloud-dock-panel">
-        <div className="cloud-dock-head"><div><small>PHASE 4</small><strong>Supabase Cloud</strong></div><button type="button" onClick={() => setExpanded(false)}>×</button></div>
+        <div className="cloud-dock-head"><div><small>PROJECT.X ACCOUNT</small><strong>Cloud Sync</strong></div><button type="button" onClick={() => setExpanded(false)}>×</button></div>
         <p className="cloud-message">{message}</p>
         {!session ? <>
           <label><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>

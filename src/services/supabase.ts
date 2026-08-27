@@ -1,9 +1,10 @@
 const BUILD_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
 const BUILD_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
 const CONFIG_KEY = 'projectx.supabase.config.v1'
+const SELF_HOSTING_KEY = 'projectx.supabase.self-hosting.v1'
 const SESSION_KEY = 'projectx.supabase.session.v1'
 
-export type SupabaseConfig = { url: string; publishableKey: string; source: 'runtime' | 'build' | 'none' }
+export type SupabaseConfig = { url: string; publishableKey: string; source: 'self-hosted' | 'managed' | 'none' }
 
 export type SupabaseUser = { id: string; email?: string }
 export type SupabaseSession = { access_token: string; refresh_token?: string; expires_in?: number; expires_at?: number; token_type?: string; user: SupabaseUser }
@@ -30,7 +31,7 @@ function friendlyError(status: number, body: string): string {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY).')
+  if (!isSupabaseConfigured()) throw new Error('project.X Cloud is unavailable in this build. Contact support or enable self-hosting in Advanced Settings.')
   const response = await fetch(`${getSupabaseUrl()}${path}`, { ...init, headers: headers(accessToken, init.headers) })
   if (!response.ok) {
     const body = await response.text()
@@ -42,15 +43,33 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null') as { url?: unknown; publishableKey?: unknown } | null
-    if (saved && typeof saved.url === 'string' && typeof saved.publishableKey === 'string' && saved.url && saved.publishableKey) {
-      return { url: saved.url.replace(/\/$/, ''), publishableKey: saved.publishableKey, source: 'runtime' }
-    }
-  } catch { /* Ignore malformed runtime config and fall back to build defaults. */ }
-  if (BUILD_SUPABASE_URL && BUILD_SUPABASE_KEY) return { url: BUILD_SUPABASE_URL, publishableKey: BUILD_SUPABASE_KEY, source: 'build' }
+  if (!isSelfHostingEnabled() && BUILD_SUPABASE_URL && BUILD_SUPABASE_KEY) {
+    return { url: BUILD_SUPABASE_URL, publishableKey: BUILD_SUPABASE_KEY, source: 'managed' }
+  }
+  if (isSelfHostingEnabled()) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null') as { url?: unknown; publishableKey?: unknown } | null
+      if (saved && typeof saved.url === 'string' && typeof saved.publishableKey === 'string' && saved.url && saved.publishableKey) {
+        return { url: saved.url.replace(/\/$/, ''), publishableKey: saved.publishableKey, source: 'self-hosted' }
+      }
+    } catch { /* Ignore malformed self-hosted configuration. */ }
+  }
   return { url: '', publishableKey: '', source: 'none' }
 }
+
+function rejectPrivilegedKey(key: string): void {
+  if (/^(sb_secret_|.*service[_-]?role)/i.test(key)) throw new Error('Secret and service-role keys cannot be used in project.X.')
+  const parts = key.split('.')
+  if (parts.length !== 3) return
+  try {
+    const encoded = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '='))) as { role?: string }
+    if (payload.role === 'service_role') throw new Error('Service-role keys cannot be used in project.X.')
+  } catch (error) {
+    if (error instanceof Error && /service-role/i.test(error.message)) throw error
+  }
+}
+
 export function saveSupabaseConfig(url: string, publishableKey: string): SupabaseConfig {
   const normalizedUrl = url.trim().replace(/\/$/, '')
   const key = publishableKey.trim()
@@ -59,19 +78,31 @@ export function saveSupabaseConfig(url: string, publishableKey: string): Supabas
   const local = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)
   if (parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) throw new Error('Supabase must use HTTPS unless it is a local development instance.')
   if (key.length < 20) throw new Error('The Supabase publishable key appears incomplete.')
+  rejectPrivilegedKey(key)
   localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: normalizedUrl, publishableKey: key }))
+  localStorage.setItem(SELF_HOSTING_KEY, 'on')
   saveSession(null)
   window.dispatchEvent(new CustomEvent('projectx:supabase-config-changed'))
-  return { url: normalizedUrl, publishableKey: key, source: 'runtime' }
+  return { url: normalizedUrl, publishableKey: key, source: 'self-hosted' }
 }
 export function clearSupabaseConfig(): void {
   localStorage.removeItem(CONFIG_KEY)
+  localStorage.removeItem(SELF_HOSTING_KEY)
+  saveSession(null)
+  window.dispatchEvent(new CustomEvent('projectx:supabase-config-changed'))
+}
+export function isManagedSupabaseConfigured(): boolean { return Boolean(BUILD_SUPABASE_URL && BUILD_SUPABASE_KEY) }
+export function isSelfHostingEnabled(): boolean { return localStorage.getItem(SELF_HOSTING_KEY) === 'on' }
+export function setSelfHostingEnabled(enabled: boolean): void {
+  if (enabled) localStorage.setItem(SELF_HOSTING_KEY, 'on')
+  else localStorage.removeItem(SELF_HOSTING_KEY)
   saveSession(null)
   window.dispatchEvent(new CustomEvent('projectx:supabase-config-changed'))
 }
 export async function testSupabaseConfig(url: string, publishableKey: string): Promise<void> {
   const normalizedUrl = url.trim().replace(/\/$/, '')
   const key = publishableKey.trim()
+  rejectPrivilegedKey(key)
   const response = await fetch(`${normalizedUrl}/auth/v1/settings`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
   if (!response.ok) throw new Error(`Supabase connection failed (${response.status}). Check the URL and publishable key.`)
 }

@@ -44,7 +44,7 @@ function analyze(projects: Project[]): Finding[] {
 
 export default function ProjectIntelDock() {
   const [open, setOpen] = useState(false)
-  const projects = useMemo(loadProjects, [open])
+  const projects = loadProjects()
   const findings = useMemo(() => analyze(projects), [projects])
 
   return <aside className={`intel-dock ${open ? 'open' : ''}`} aria-label="Project intelligence">

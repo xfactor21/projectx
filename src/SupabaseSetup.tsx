@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { clearSupabaseConfig, getSupabaseConfig, saveSupabaseConfig, testSupabaseConfig } from './services/supabase'
 
-export default function SupabaseSetup({ compact = false, onSaved }: { compact?: boolean; onSaved?: () => void }) {
+export default function SupabaseSetup({ onSaved }: { onSaved?: () => void }) {
   const initial = getSupabaseConfig()
   const [url, setUrl] = useState(initial.url)
   const [key, setKey] = useState(initial.publishableKey)
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState(initial.source === 'none' ? 'Connect a Supabase project to enable cloud sync and Companion.' : `Configuration loaded from ${initial.source}.`)
+  const [message, setMessage] = useState(initial.source === 'self-hosted' ? 'Self-hosted configuration loaded on this device.' : 'Enter your own Supabase project only when operating a self-hosted deployment.')
 
   async function verifyAndSave() {
     setBusy(true)
@@ -23,12 +23,12 @@ export default function SupabaseSetup({ compact = false, onSaved }: { compact?: 
     clearSupabaseConfig(); setUrl(''); setKey(''); setMessage('Supabase configuration cleared from this device.'); onSaved?.()
   }
 
-  return <section className={`supabase-setup ${compact ? 'compact' : ''}`}>
-    <div><small>SUPABASE CONNECTION</small><strong>Cloud and Companion</strong></div>
+  return <section className="supabase-setup">
+    <div><small>ADVANCED / SELF-HOSTING</small><strong>Custom Supabase backend</strong></div>
     <p>{message}</p>
     <label><span>Project URL</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://your-project.supabase.co" autoComplete="url" /></label>
     <label><span>Publishable key</span><input type="password" value={key} onChange={(event) => setKey(event.target.value)} placeholder="sb_publishable_..." autoComplete="off" /></label>
     <div className="supabase-setup-actions"><button type="button" disabled={busy || !url.trim() || !key.trim()} onClick={() => void verifyAndSave()}>{busy ? 'Testing...' : 'Test and save'}</button><button type="button" disabled={busy || (!url && !key)} onClick={clear}>Clear</button></div>
-    <small className="supabase-setup-note">Use a browser-safe publishable key. Service-role and secret keys are rejected from production documentation and must never be entered here.</small>
+    <small className="supabase-setup-note">This is not required for normal project.X accounts. Only browser-safe publishable keys are accepted; secret and service-role keys are rejected.</small>
   </section>
 }

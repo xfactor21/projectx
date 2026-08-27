@@ -22,9 +22,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-26_v1.9
-  PROJECTX_ANDROID_VERSION: 1.9.0
-  PROJECTX_ANDROID_VERSION_CODE: 10900
+  PROJECTX_BUILD_NAME: projectX_8-27_v2.0
+  PROJECTX_ANDROID_VERSION: 2.0.0
+  PROJECTX_ANDROID_VERSION_CODE: 20000
 
 jobs:
   android-debug:
@@ -51,6 +51,15 @@ jobs:
 
       - name: Install Capacitor build tools
         run: npm install --no-save @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest @capacitor/assets@latest
+
+      - name: Validate managed cloud configuration
+        if: github.event_name != 'pull_request'
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo 'Missing VITE_SUPABASE_URL repository secret.'; exit 1; }
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || { echo 'Missing VITE_SUPABASE_PUBLISHABLE_KEY repository secret.'; exit 1; }
 
       - name: Build Companion web bundle
         env:
@@ -84,6 +93,7 @@ jobs:
         run: cp android/app/build/outputs/apk/debug/app-debug.apk "${PROJECTX_BUILD_NAME}.apk"
 
       - name: Upload Companion APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}-android

@@ -47,13 +47,13 @@ cd android
 ./gradlew assembleDebug
 ```
 
-The GitHub Android workflow runs these steps with Node 22 and publishes a versioned debug APK artifact. Supabase starts blank on a new device and is configured by each user from the Companion setup screen.
+The GitHub Android workflow runs these steps with Node 22 and publishes a versioned debug APK artifact. Production APKs include the managed project.X Cloud URL and browser-safe publishable key at build time; users only create an account or sign in.
 
 ## Environment configuration
 
 Copy `.env.example` to `.env.local` for local Vite values. Never expose a Supabase service-role key or a Vercel API token to browser code.
 
-Production installers do not ship with an account, workspace, URL, key, token, or local path. Each user can configure their own optional cloud connection from **Settings > Cloud** after installation. Build-time values remain available for organizations that manage one shared deployment.
+Production installers do not ship with an account, workspace, private token, or local path. They do include the project.X Cloud URL and browser-safe publishable key, which are public client configuration rather than user credentials. Each user's access is controlled by Supabase Auth and row-level security. Secret and service-role keys are never included.
 
 ### Supabase
 
@@ -62,7 +62,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
-The client also accepts `VITE_SUPABASE_ANON_KEY` as a legacy fallback.
+The client also accepts `VITE_SUPABASE_ANON_KEY` as a legacy fallback. Release workflows refuse to publish consumer artifacts when the managed URL or publishable key is missing.
 
 Required migrations:
 
@@ -72,7 +72,7 @@ supabase/migrations/20260821_projectx_companion.sql
 supabase/migrations/20260824_projectx_companion_packages.sql
 ```
 
-Apply all three migrations in order. They create the cloud project/activity model, per-user device/action tables, and private per-user package storage with row-level policies. Only enter a Supabase publishable/anonymous client key in the app; never use a service-role key.
+Apply all three migrations in order. They create the cloud project/activity model, per-user device/action tables, and private per-user package storage with row-level policies. Normal users never enter Supabase configuration. Administrators running their own deployment can opt into **Settings > Cloud > Advanced self-hosting** and provide a browser-safe publishable key; privileged keys are rejected.
 
 ### Vercel
 
@@ -251,6 +251,7 @@ projectx.github.owner.v1
 projectx.local.sources.v1
 projectx.supabase.session.v1
 projectx.supabase.config.v1
+projectx.supabase.self-hosting.v1
 projectx.settings.v1
 projectx.projects.pre-restore.v1
 projectx.companion.device.v1
@@ -271,7 +272,7 @@ projectx.schema.v2
 │   ├── WorkspaceAppV3.tsx       # main project manager
 │   ├── UtilityHub.tsx            # categorized project/cloud/system controls
 │   ├── SettingsPanel.tsx         # general/cloud/runtime/data/about settings
-│   ├── SupabaseSetup.tsx         # device-local cloud configuration
+│   ├── SupabaseSetup.tsx         # advanced self-hosted cloud configuration
 │   ├── AppSplash.tsx             # branded launch surface
 │   ├── DataBackupDock.tsx       # local backup, restore, and device reset
 │   ├── GitHubDiscoveryModal.tsx # curated repository import review
@@ -315,7 +316,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX_8-26_v1.9-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-26_v1.9-windows.zip` contains only the Windows installer.
+Release packaging produces separate archives: `projectX_8-27_v2.0-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-27_v2.0-windows.zip` contains only the Windows installer.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 
@@ -323,6 +324,7 @@ GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor Java
 
 - A hosted browser cannot provide the full Windows experience. Git operations, terminal launch, process execution, and unrestricted path operations require the installed Windows host.
 - Private GitHub repository authentication is not implemented.
+- Production Windows and Android packaging requires the managed project.X Supabase URL and publishable key in repository secrets.
 - `VERCEL_API_TOKEN` must be configured for Vercel status, analytics, and deploy actions to work.
 - Vercel project matching remains name-based for the existing sync surface.
 - Companion device/action tables and private package storage require all three Supabase migrations before those features become durable.

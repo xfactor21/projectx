@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
 import type { ToolStatus } from './services/desktop'
 
@@ -21,10 +21,14 @@ export default function RuntimeDock() {
     finally { setBusy(false) }
   }, [desktop])
 
-  useEffect(() => { if (open && desktop && tools.length === 0) void scan() }, [open, desktop, tools.length, scan])
+  function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next && desktop && tools.length === 0) void scan()
+  }
 
   return <aside className={`runtime-dock ${open ? 'open' : ''}`} aria-label="Runtime toolchain status">
-    <button className="runtime-dock-toggle" type="button" onClick={() => setOpen((value) => !value)}><strong>ENV</strong><span>RUNTIMES</span></button>
+    <button className="runtime-dock-toggle" type="button" onClick={toggle}><strong>ENV</strong><span>RUNTIMES</span></button>
     {open && <div className="runtime-panel">
       <header><div><small>LOCAL TOOLCHAIN</small><strong>Environment preflight</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>

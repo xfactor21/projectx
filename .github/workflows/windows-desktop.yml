@@ -2,6 +2,8 @@ name: project.X Windows Desktop
 
 on:
   workflow_dispatch:
+  push:
+    branches: [develop]
   pull_request:
     branches: [main]
     paths:
@@ -16,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-26_v1.9
+  PROJECTX_BUILD_NAME: projectX_8-27_v2.0
 
 jobs:
   windows-installer:
@@ -38,6 +40,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Validate managed cloud configuration
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if (-not $env:VITE_SUPABASE_URL -or -not $env:VITE_SUPABASE_PUBLISHABLE_KEY) {
+            throw 'Production packaging requires VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY repository secrets.'
+          }
+
       - name: Build Windows installer
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -55,6 +68,7 @@ jobs:
           Write-Host "Installer: $target"
 
       - name: Upload installer
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}

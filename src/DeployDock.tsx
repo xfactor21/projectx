@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { deployGitHubProject } from './services/vercelDeploy'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
@@ -23,7 +23,7 @@ export default function DeployDock() {
   const [target, setTarget] = useState<'preview' | 'production'>('preview')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('Deploy a tracked GitHub project through project.X.')
-  const projects = useMemo(loadDeployableProjects, [open])
+  const projects = loadDeployableProjects()
   const selected = projects.find((project) => project.id === selectedId) || projects[0]
 
   async function deploy() {

@@ -5,7 +5,6 @@ import { uploadCompanionZip } from './services/companionPackages'
 import { APP_VERSION } from './version'
 import type { CloudProject, SupabaseSession } from './services/supabase'
 import type { CompanionDevice, RemoteAction } from './services/companion'
-import SupabaseSetup from './SupabaseSetup'
 import appIcon from './assets/brand/app-icon.png'
 
 const DEVICE_KEY = 'projectx.companion.device.v1'
@@ -80,11 +79,11 @@ export default function CompanionApp() {
   const [projects, setProjects] = useState<CloudProject[]>([])
   const [actions, setActions] = useState<RemoteAction[]>([])
   const [query, setQuery] = useState('')
-  const [message, setMessage] = useState('Companion ready.')
+  const [message, setMessage] = useState(isSupabaseConfigured() ? 'Companion ready.' : 'project.X Cloud is unavailable in this build.')
   const [busy, setBusy] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [windowsDevice, setWindowsDevice] = useState<CompanionDevice | null>(null)
-  const [clock, setClock] = useState(Date.now())
+  const [clock, setClock] = useState(() => Date.now())
   const [tab, setTab] = useState<CompanionTab>('projects')
   const [packageOpen, setPackageOpen] = useState(false)
   const [packageMode, setPackageMode] = useState<PackageMode>('create')
@@ -134,9 +133,9 @@ export default function CompanionApp() {
 
   useEffect(() => {
     if (!session) return
-    void refresh(session)
+    const initial = window.setTimeout(() => void refresh(session), 0)
     const timer = window.setInterval(() => void refresh(session, true), REFRESH_MS)
-    return () => window.clearInterval(timer)
+    return () => { window.clearTimeout(initial); window.clearInterval(timer) }
   }, [session])
 
   useEffect(() => {
@@ -241,12 +240,11 @@ export default function CompanionApp() {
   if (!session) return <main className="companion-shell companion-auth">
     <div className="companion-auth-card">
       <div className="companion-brand"><img src={appIcon} alt=""/><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div></div>
-      {!configured && <SupabaseSetup compact onSaved={() => setConfigured(isSupabaseConfigured())} />}
       <section className="companion-login">
         <div><small>REMOTE DEV CONTROL</small><h1>Your projects.<br/><em>With you.</em></h1><p>Sign in with the same project.X account used on your Windows host.</p></div>
         <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
-        <button type="button" disabled={busy || !configured} onClick={() => void login()}>{busy ? 'Connecting…' : configured ? 'Connect companion' : 'Configure Supabase first'}</button>
+        <button type="button" disabled={busy || !configured} onClick={() => void login()}>{busy ? 'Connecting…' : configured ? 'Connect companion' : 'Cloud service unavailable'}</button>
         <small className="companion-auth-message">{message}</small>
       </section>
     </div>
