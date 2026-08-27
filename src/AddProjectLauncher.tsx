@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getDesktopHost } from './services/desktop'
 import type { DesktopProjectSummary, ProjectInitializationResult, ZipMergePreview } from './services/desktop'
 import { fetchPublicRepos } from './services/github'
@@ -299,7 +300,7 @@ export default function AddProjectLauncher() {
     {dragging && <div className="px-drop-veil"><div><span>DROP PROJECT ZIP</span><strong>Initialize with project.X</strong><small>Release anywhere in this window</small></div></div>}
     <button className="project-launcher-fab" type="button" onClick={() => { reset(); setOpen(true) }} aria-label="Add or initialize project"><span>+</span><strong>ADD / IMPORT</strong></button>
 
-    {open && <div className="project-launcher-backdrop" onMouseDown={() => setOpen(false)}><section className="project-launcher" onMouseDown={(event) => event.stopPropagation()}>
+    {open && createPortal(<div className="project-launcher-backdrop" onMouseDown={() => setOpen(false)}><section className="project-launcher" onMouseDown={(event) => event.stopPropagation()}>
       <header><div><small>PROJECT LIFECYCLE</small><h2>{title}</h2></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p className="launcher-message">{message}</p>
 
@@ -346,6 +347,6 @@ export default function AddProjectLauncher() {
       {view === 'result' && <div className="launcher-result">{result && <><div className="result-mark">✓</div><strong>{result.summary.name}</strong><span>{result.summary.frameworkHints?.join(' · ') || 'Project initialized'}</span><small>{result.summary.path}</small><div className="result-actions"><button type="button" disabled={!canRun || busy} onClick={() => void runInitialized()}>▶ Run now</button><button type="button" onClick={() => desktop?.openInExplorer(result.summary.path)}>Open folder</button><button type="button" onClick={() => desktop?.openInTerminal(result.summary.path)}>Terminal</button></div></>}{!result && <div className="result-mark">✓</div>}</div>}
 
       {view !== 'root' && <footer><button type="button" onClick={() => reset('root')}>← All import options</button></footer>}
-    </section></div>}
+    </section></div>, document.body)}
   </>
 }

@@ -28,6 +28,7 @@ export default function SurfaceCoordinator() {
     const closeOutsideTarget = (event: Event) => {
       const target = event.target instanceof Element ? event.target : null
       if (!target) return
+      if (target.closest('[data-projectx-utility-panel="true"]')) return
       const roots = ROOTS.flatMap((selector) => Array.from(document.querySelectorAll(selector)))
       const clickedRoot = roots.find((root) => root.contains(target))
 

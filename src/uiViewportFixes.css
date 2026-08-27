@@ -1,0 +1,26 @@
+/* Viewport constraints for dialog content rendered from the draggable Control Center. */
+.project-launcher-backdrop {
+  box-sizing: border-box;
+  padding: clamp(12px, 3vw, 34px);
+  overflow: hidden;
+}
+
+.project-launcher {
+  box-sizing: border-box;
+  width: min(980px, calc(100vw - 24px));
+  max-width: 100%;
+  max-height: calc(100vh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.project-launcher * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.launcher-option-grid span,
+.launcher-choice-stack span,
+.launcher-message {
+  overflow-wrap: anywhere;
+}

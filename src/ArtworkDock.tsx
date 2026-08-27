@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getDesktopHost } from './services/desktop'
 import type { ArtworkCandidate } from './services/desktop'
 
@@ -98,7 +99,7 @@ export default function ArtworkDock() {
 
   return <aside className={`artwork-dock ${open ? 'open' : ''}`} aria-label="Project artwork">
     <button className="artwork-dock-toggle" type="button" onClick={() => { setProjects(readArray(PROJECTS_KEY)); setSaved(false); setOpen((value) => !value) }}><strong>ART</strong><span>ICON / COVER</span></button>
-    {open && <div className="artwork-panel">
+    {open && createPortal(<div className="artwork-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="Artwork manager">
       <header><div><small>PROJECT IDENTITY</small><strong>Artwork manager</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>
       <label>Project<select value={projectId} onChange={(event) => void selectProject(event.target.value)}><option value="">Choose project…</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
@@ -114,6 +115,6 @@ export default function ArtworkDock() {
       </button>)}</div>}
       <div className={`artwork-complete ${saved ? 'saved' : ''}`}><span>{saved ? 'Changes saved' : 'Uploads save immediately'}</span><button type="button" onClick={() => setOpen(false)}>Done</button></div>
       <small className="artwork-note">Automatic scan skips build/cache/vendor folders and ranks icons/logos ahead of banners, covers, and screenshots. Manual override always wins.</small>
-    </div>}
+    </div>, document.body)}
   </aside>
 }

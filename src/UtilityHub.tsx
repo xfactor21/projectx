@@ -71,8 +71,9 @@ export default function UtilityHub() {
     if (!open) return
     const close = (event: PointerEvent) => {
       const target = event.target
-      const activePanel = document.querySelector('.open [class$="-panel"]')
-      if (target instanceof Node && !root.current?.contains(target) && !activePanel?.contains(target)) setOpen(false)
+      const activePanel = document.querySelector('[data-projectx-utility-panel="true"]')
+      const modal = target instanceof Element ? target.closest('.project-launcher-backdrop,.github-discovery-backdrop,.modal-backdrop') : null
+      if (target instanceof Node && !root.current?.contains(target) && !activePanel?.contains(target) && !modal) setOpen(false)
     }
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
