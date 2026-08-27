@@ -57,6 +57,17 @@ export function getSupabaseConfig(): SupabaseConfig {
   return { url: '', publishableKey: '', source: 'none' }
 }
 
+function parseSession(value: unknown): SupabaseSession | null {
+  if (!value || typeof value !== 'object') return null
+  const candidate = value as { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown; expires_at?: unknown; token_type?: unknown; user?: unknown }
+  if (typeof candidate.access_token !== 'string' || !candidate.access_token) return null
+  if (!candidate.user || typeof candidate.user !== 'object') return null
+  const user = candidate.user as { id?: unknown; email?: unknown }
+  if (typeof user.id !== 'string' || !user.id) return null
+  if (user.email !== undefined && typeof user.email !== 'string') return null
+  return value as SupabaseSession
+}
+
 function rejectPrivilegedKey(key: string): void {
   if (/^(sb_secret_|.*service[_-]?role)/i.test(key)) throw new Error('Secret and service-role keys cannot be used in project.X.')
   const parts = key.split('.')
@@ -109,17 +120,18 @@ export async function testSupabaseConfig(url: string, publishableKey: string): P
 export function isSupabaseConfigured(): boolean { const config = getSupabaseConfig(); return Boolean(config.url && config.publishableKey) }
 export function getSupabaseUrl(): string { return getSupabaseConfig().url }
 export function getSupabasePublishableKey(): string { return getSupabaseConfig().publishableKey }
-export function loadSession(): SupabaseSession | null { try { const raw = localStorage.getItem(SESSION_KEY); if (!raw) return null; const session = JSON.parse(raw) as SupabaseSession; return session?.access_token && session?.user?.id ? session : null } catch { return null } }
+export function loadSession(): SupabaseSession | null { try { const raw = localStorage.getItem(SESSION_KEY); return raw ? parseSession(JSON.parse(raw)) : null } catch { return null } }
 export function saveSession(session: SupabaseSession | null): void { if (!session) localStorage.removeItem(SESSION_KEY); else localStorage.setItem(SESSION_KEY, JSON.stringify(session)) }
 
 export async function signUpWithPassword(email: string, password: string): Promise<SupabaseSession | null> {
-  const result = await request<SupabaseSession | { user: SupabaseUser; session: SupabaseSession | null }>('/auth/v1/signup', { method: 'POST', body: JSON.stringify({ email, password }) })
-  const session = 'session' in result ? result.session : result
-  if (session?.access_token) saveSession(session)
-  return session || null
+  const result = await request<unknown>('/auth/v1/signup', { method: 'POST', body: JSON.stringify({ email, password }) })
+  const nested = result && typeof result === 'object' && 'session' in result ? (result as { session?: unknown }).session : result
+  const session = parseSession(nested)
+  if (session) saveSession(session)
+  return session
 }
-export async function signInWithPassword(email: string, password: string): Promise<SupabaseSession> { const session = await request<SupabaseSession>('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) }); saveSession(session); return session }
-export async function refreshSession(session = loadSession()): Promise<SupabaseSession | null> { if (!session?.refresh_token) return session; const refreshed = await request<SupabaseSession>('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: JSON.stringify({ refresh_token: session.refresh_token }) }); saveSession(refreshed); return refreshed }
+export async function signInWithPassword(email: string, password: string): Promise<SupabaseSession> { const result = await request<unknown>('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) }); const session = parseSession(result); if (!session) throw new Error('Cloud sign-in returned an invalid session. Try again or contact support.'); saveSession(session); return session }
+export async function refreshSession(session = loadSession()): Promise<SupabaseSession | null> { if (!session?.refresh_token) return session; const result = await request<unknown>('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: JSON.stringify({ refresh_token: session.refresh_token }) }); const refreshed = parseSession(result); if (!refreshed) throw new Error('Cloud session refresh returned an invalid response. Sign in again.'); saveSession(refreshed); return refreshed }
 export async function signOut(session = loadSession()): Promise<void> { if (session?.access_token) { try { await request<void>('/auth/v1/logout', { method: 'POST' }, session.access_token) } catch { /* clear local session regardless */ } } saveSession(null) }
 
 export async function fetchCloudProjects(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
