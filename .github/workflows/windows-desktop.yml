@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-27_v2.4
+  PROJECTX_BUILD_NAME: projectX_8-27_v2.5
 
 jobs:
   windows-installer:
@@ -68,7 +68,6 @@ jobs:
           Write-Host "Installer: $target"
 
       - name: Upload installer
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}

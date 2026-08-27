@@ -99,7 +99,7 @@ export default function ArtworkDock() {
 
   return <aside className={`artwork-dock ${open ? 'open' : ''}`} aria-label="Project artwork">
     <button className="artwork-dock-toggle" type="button" onClick={() => { setProjects(readArray(PROJECTS_KEY)); setSaved(false); setOpen((value) => !value) }}><strong>ART</strong><span>ICON / COVER</span></button>
-    {open && createPortal(<div className="artwork-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="Artwork manager">
+    {open && createPortal(<div className="utility-modal-layer" onPointerDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}><div className="artwork-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="Artwork manager">
       <header><div><small>PROJECT IDENTITY</small><strong>Artwork manager</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>
       <label>Project<select value={projectId} onChange={(event) => void selectProject(event.target.value)}><option value="">Choose project…</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
@@ -113,8 +113,8 @@ export default function ArtworkDock() {
         <span className="artwork-thumb" style={candidate.dataUrl ? { backgroundImage: `url(${candidate.dataUrl})` } : undefined}>{!candidate.dataUrl && 'LARGE'}</span>
         <span><strong>{candidate.fileName}</strong><small>{candidate.kind.toUpperCase()} · SCORE {candidate.score}</small><em>{candidate.relativePath}</em></span>
       </button>)}</div>}
-      <div className={`artwork-complete ${saved ? 'saved' : ''}`}><span>{saved ? 'Changes saved' : 'Uploads save immediately'}</span><button type="button" onClick={() => setOpen(false)}>Done</button></div>
+      <div className={`artwork-complete ${saved ? 'saved' : ''}`}><span>{saved ? 'Changes saved' : 'Uploads save immediately'}</span><button type="button" onClick={() => setOpen(false)}>{saved ? 'Done · saved' : 'Done'}</button></div>
       <small className="artwork-note">Automatic scan skips build/cache/vendor folders and ranks icons/logos ahead of banners, covers, and screenshots. Manual override always wins.</small>
-    </div>, document.body)}
+    </div></div>, document.body)}
   </aside>
 }

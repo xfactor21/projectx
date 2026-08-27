@@ -138,7 +138,7 @@ export default function GitHubDiscoveryModal() {
       setBusy(false)
       return
     }
-    setMessage(desktop ? `${imported.length} GitHub project${imported.length === 1 ? '' : 's'} cloned and ready to run. Select Done to return to the workspace.` : `${imported.length} GitHub remote record${imported.length === 1 ? '' : 's'} added. Select Done to return to the workspace.`)
+    setMessage(desktop ? `${imported.length} GitHub project${imported.length === 1 ? '' : 's'} cloned and Ready. A project becomes Live only after Run confirms its local dev server is healthy. Select Done to return to the workspace.` : `${imported.length} GitHub remote record${imported.length === 1 ? '' : 's'} added. Select Done to return to the workspace.`)
     setSelected(new Set())
     setCompleted(true)
     setBusy(false)
@@ -150,7 +150,7 @@ export default function GitHubDiscoveryModal() {
     <div className="github-discovery-backdrop" role="presentation" onClick={() => !busy && setOpen(false)}>
       <section className="github-discovery-modal" role="dialog" aria-modal="true" aria-labelledby="github-discovery-title" onClick={(event) => event.stopPropagation()}>
         <header className="github-discovery-head">
-          <div><p>GITHUB / NEW REPOSITORIES</p><h2 id="github-discovery-title">Choose what belongs in project.X</h2><span>{repos.length} available {repos.length === 1 ? 'repository' : 'repositories'} found. {desktop ? 'A repository is marked ready only after its local clone succeeds. Dependencies finish on first Run.' : 'Nothing will be added until you choose it.'}</span></div>
+          <div><p>GITHUB / NEW REPOSITORIES</p><h2 id="github-discovery-title">Choose what belongs in project.X</h2><span>{repos.length} available {repos.length === 1 ? 'repository' : 'repositories'} found. {desktop ? 'A repository is marked Ready only after its local clone succeeds. It becomes Live only after Run confirms a healthy dev server.' : 'Nothing will be added until you choose it.'}</span></div>
           <button type="button" disabled={busy} onClick={() => setOpen(false)} aria-label="Close discovery">×</button>
         </header>
 

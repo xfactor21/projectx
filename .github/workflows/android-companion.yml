@@ -15,6 +15,7 @@ on:
       - '.github/workflows/android-companion.yml'
   pull_request:
     branches:
+      - main
       - develop
 
 concurrency:
@@ -22,9 +23,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_8-27_v2.4
-  PROJECTX_ANDROID_VERSION: 2.4.0
-  PROJECTX_ANDROID_VERSION_CODE: 20400
+  PROJECTX_BUILD_NAME: projectX_8-27_v2.5
+  PROJECTX_ANDROID_VERSION: 2.5.0
+  PROJECTX_ANDROID_VERSION_CODE: 20500
 
 jobs:
   android-debug:
@@ -93,7 +94,6 @@ jobs:
         run: cp android/app/build/outputs/apk/debug/app-debug.apk "${PROJECTX_BUILD_NAME}.apk"
 
       - name: Upload Companion APK
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}-android
