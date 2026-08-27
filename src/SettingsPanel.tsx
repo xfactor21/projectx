@@ -21,7 +21,12 @@ export default function SettingsPanel() {
   const cloudConfig = getSupabaseConfig()
 
   useEffect(() => {
-    const show = () => { setSettings(readSettings()); setOpen(true) }
+    const show = (event: Event) => {
+      const requestedTab = (event as CustomEvent<{ tab?: Tab }>).detail?.tab
+      setSettings(readSettings())
+      if (requestedTab) setTab(requestedTab)
+      setOpen(true)
+    }
     window.addEventListener('projectx:open-settings', show)
     return () => window.removeEventListener('projectx:open-settings', show)
   }, [])

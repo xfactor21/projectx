@@ -20,7 +20,7 @@ type LocalProject = {
   name: string
   kicker?: string
   description?: string
-  status?: 'Live' | 'Building' | 'Concept' | 'Paused'
+  status?: 'Live' | 'Ready' | 'Building' | 'Concept' | 'Paused'
   stack?: string[]
   accent?: 'pink' | 'cyan' | 'violet'
   progress?: number
@@ -32,6 +32,10 @@ type LocalProject = {
   notes?: string
   github?: unknown
   updated?: string
+}
+
+function toCloudLifecycleStatus(status: LocalProject['status']): 'Live' | 'Building' | 'Concept' | 'Paused' {
+  return status === 'Live' || status === 'Concept' || status === 'Paused' ? status : 'Building'
 }
 
 function readLocalProjects(): LocalProject[] {
@@ -64,7 +68,7 @@ function cloudRowsToProjects(rows: Awaited<ReturnType<typeof fetchCloudProjects>
   }))
 }
 
-export default function CloudSyncDock() {
+export default function CloudSyncDock({ openRequest = 0 }: { openRequest?: number }) {
   const [session, setSession] = useState(loadSession)
   const [email, setEmail] = useState(session?.user?.email || '')
   const [password, setPassword] = useState('')
@@ -78,6 +82,7 @@ export default function CloudSyncDock() {
     window.addEventListener('projectx:supabase-config-changed', changed)
     return () => window.removeEventListener('projectx:supabase-config-changed', changed)
   }, [])
+  useEffect(() => { if (openRequest > 0) setExpanded(true) }, [openRequest])
 
   async function getFreshSession(): Promise<SupabaseSession | null> {
     const current = session || loadSession()
@@ -118,7 +123,7 @@ export default function CloudSyncDock() {
         name: project.name,
         kicker: project.kicker || '',
         description: project.description || '',
-        status: project.status || 'Building',
+        status: toCloudLifecycleStatus(project.status),
         stack: project.stack || [],
         accent: project.accent || 'pink',
         progress: project.progress || 0,
@@ -131,7 +136,7 @@ export default function CloudSyncDock() {
         github: project.github || null,
         sort_order: index,
       })), activeSession)
-      setMessage(`Cloud backup complete: ${projects.length} projects.`)
+      setMessage(`Cloud backup complete: ${projects.length} project${projects.length === 1 ? '' : 's'}.`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cloud backup failed.')
     } finally { setBusy(false) }
@@ -182,10 +187,11 @@ export default function CloudSyncDock() {
         <strong>CLOUD</strong>
         <span>{session ? 'SIGNED IN' : configured ? 'READY' : 'OFFLINE'}</span>
       </button>
-      {expanded && createPortal(<div className="cloud-dock-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="project.X Cloud Sign In">
+      {expanded && createPortal(<div className="utility-modal-layer" onPointerDown={(event) => { if (event.target === event.currentTarget) setExpanded(false) }}><div className="cloud-dock-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="project.X Cloud Sign In">
         <div className="cloud-dock-head"><div><small>PROJECT.X ACCOUNT</small><strong>Cloud Sync</strong></div><button type="button" onClick={() => setExpanded(false)}>×</button></div>
         <p className="cloud-message">{message}</p>
         {!session ? <>
+          {!configured && <button className="cloud-configure" type="button" onClick={() => window.dispatchEvent(new CustomEvent('projectx:open-settings', { detail: { tab: 'cloud' } }))}>Open Cloud settings</button>}
           <label><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
           <label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></label>
           <div className="cloud-actions"><button type="button" onClick={() => authenticate('signin')} disabled={!configured || busy}>Sign in</button><button type="button" onClick={() => authenticate('signup')} disabled={!configured || busy}>Create account</button></div>
@@ -195,7 +201,7 @@ export default function CloudSyncDock() {
           <button className="cloud-signout" type="button" onClick={() => void pullCloud('replace')} disabled={busy}>Replace from cloud</button>
           <button className="cloud-signout" type="button" onClick={logOut} disabled={busy}>Sign out</button>
         </>}
-      </div>, document.body)}
+      </div></div>, document.body)}
     </aside>
   )
 }

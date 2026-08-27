@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { deployGitHubProject } from './services/vercelDeploy'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
@@ -46,12 +47,12 @@ export default function DeployDock() {
 
   return <aside className={`deploy-dock ${open ? 'open' : ''}`} aria-label="Deploy project">
     <button className="deploy-toggle" type="button" onClick={() => setOpen((value) => !value)}><span>△</span><strong>DEPLOY</strong></button>
-    {open && <div className="deploy-panel"><div className="deploy-head"><div><small>VERCEL ACTION</small><strong>Deploy project</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></div>
+    {open && createPortal(<div className="utility-modal-layer" onPointerDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}><div className="deploy-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="Deploy project"><div className="deploy-head"><div><small>VERCEL ACTION</small><strong>Deploy project</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></div>
       <p>{message}</p>
       <label><span>Project</span><select value={selected?.id || ''} onChange={(event) => setSelectedId(event.target.value)}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
       <label><span>Target</span><select value={target} onChange={(event) => setTarget(event.target.value as 'preview' | 'production')}><option value="preview">Preview</option><option value="production">Production</option></select></label>
       <button className="deploy-primary" type="button" onClick={() => void deploy()} disabled={busy || !selected}>{busy ? 'Deploying…' : `Deploy ${target}`}</button>
       <small className="deploy-note">The Vercel token remains server-side. Production deploys are explicit; project.X never promotes a build merely because GitHub metadata changed.</small>
-    </div>}
+    </div></div>, document.body)}
   </aside>
 }

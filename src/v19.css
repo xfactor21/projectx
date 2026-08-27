@@ -1,10 +1,16 @@
-/* v2.3 control center, settings workspace and production branding. */
+/* v2.4 cloud recovery, contained utility panels and sidebar account state. */
 .px-shell .workspace{padding-bottom:42px}
 .brand-lockup .brand-mark{width:52px;height:52px;object-fit:cover;padding:0;border-radius:6px;background:#05060a!important;box-shadow:0 0 18px rgba(255,45,174,.2)}
 .v2-sidebar-controls{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 14px 10px}
 .v2-sidebar-controls button{min-width:0;height:38px;padding:0 8px;border:1px solid rgba(255,255,255,.09);border-radius:5px;background:rgba(255,255,255,.025);color:#aeb9c8;font:800 9px/1 var(--mono,monospace);text-transform:uppercase}
 .v2-sidebar-controls button:first-child{border-color:rgba(53,231,255,.23);color:#dffbff}
 .v2-sidebar-controls button:hover{border-color:rgba(255,62,191,.4);color:#fff}
+.v2-cloud-entry{display:flex;align-items:center;gap:10px;margin:9px 14px 0;padding:11px 12px;border:1px solid rgba(255,255,255,.085);border-radius:5px;background:rgba(255,255,255,.018);color:#d6dee8;text-align:left}
+.v2-cloud-entry>i{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:#687587}
+.v2-cloud-entry>span{display:grid;min-width:0;gap:4px}.v2-cloud-entry strong{font:800 9px/1 var(--mono,monospace);text-transform:uppercase}.v2-cloud-entry small{overflow:hidden;color:#748196;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.v2-cloud-entry.ready{border-color:rgba(53,231,255,.18)}.v2-cloud-entry.ready>i{background:#35e7ff;box-shadow:0 0 12px rgba(53,231,255,.5)}
+.v2-cloud-entry.connected{border-color:rgba(85,245,154,.25);background:rgba(85,245,154,.035)}.v2-cloud-entry.connected>i{background:#55f59a;box-shadow:0 0 14px rgba(85,245,154,.58)}
+.v2-cloud-entry:hover{border-color:rgba(255,62,191,.38);color:#fff}
 .workspace-brand-banner{display:flex;align-items:center;height:clamp(126px,11vw,174px);margin:-12px 0 18px;overflow:visible;background:transparent}
 .workspace-brand-banner img{display:block;width:auto;max-width:min(100%,980px);height:100%;object-fit:contain;object-position:left center;filter:drop-shadow(0 12px 26px rgba(0,0,0,.34))}
 
@@ -16,7 +22,7 @@
 .utility-hub.open .utility-fab{border-color:rgba(255,62,191,.58);box-shadow:0 18px 48px rgba(0,0,0,.6),0 0 28px rgba(255,62,191,.16)}
 .utility-hub.open .utility-fab img{filter:invert(1);transform:scale(.96)}
 .utility-menu{max-height:calc(100vh - 24px);overflow:auto;padding:12px;border:1px solid rgba(110,142,178,.26);border-radius:7px;background:rgba(5,8,13,.985);box-shadow:0 26px 80px rgba(0,0,0,.68);backdrop-filter:blur(22px);box-sizing:border-box}
-.utility-menu:has(.artwork-dock.open)::after,.utility-menu:has(.cloud-dock.open)::after{content:"";position:fixed;z-index:350;inset:0;background:rgba(1,3,6,.74);backdrop-filter:blur(12px)}
+.utility-menu:has(.artwork-dock.open)::after{content:"";position:fixed;z-index:350;inset:0;background:rgba(1,3,6,.82);backdrop-filter:blur(12px)}
 .utility-menu>header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:3px 4px 12px;border-bottom:1px solid rgba(255,255,255,.07)}
 .utility-menu>header div{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:4px 10px}
 .utility-menu>header small{grid-column:1/-1;color:#718098;font:800 8px/1 var(--mono,monospace);letter-spacing:.15em}
@@ -38,6 +44,11 @@
 .utility-actions .artwork-panel{width:min(520px,calc(100vw - 32px))!important;max-height:calc(100vh - 48px)!important;overflow:auto!important;border-radius:7px!important;box-sizing:border-box}
 [data-projectx-utility-panel="true"].artwork-panel{position:fixed!important;z-index:360!important;right:24px!important;bottom:24px!important;left:auto!important;top:auto!important;transform:none!important;width:min(520px,calc(100vw - 32px))!important;max-height:calc(100vh - 48px)!important;overflow:auto!important;border-radius:7px!important;box-sizing:border-box}
 [data-projectx-utility-panel="true"].cloud-dock-panel{position:fixed!important;z-index:360!important;right:24px!important;bottom:24px!important;left:auto!important;top:auto!important;transform:none!important;width:min(420px,calc(100vw - 32px))!important;max-height:calc(100vh - 48px)!important;overflow:auto!important;border-radius:7px!important;box-sizing:border-box}
+.utility-modal-layer{position:fixed;z-index:355;inset:0;display:grid;place-items:end;padding:24px;box-sizing:border-box;background:rgba(1,3,6,.88);backdrop-filter:blur(14px)}
+.utility-modal-layer>[data-projectx-utility-panel="true"]{position:relative!important;z-index:1!important;inset:auto!important;transform:none!important;box-sizing:border-box;max-width:100%;max-height:calc(100vh - 48px);overflow:auto;background:#080c12!important}
+.utility-modal-layer>.cloud-dock-panel{width:min(420px,calc(100vw - 48px))!important}
+.utility-modal-layer>.analytics-panel{width:min(650px,calc(100vw - 48px))!important}
+.utility-modal-layer>.deploy-panel{width:min(440px,calc(100vw - 48px))!important}
 
 .settings-backdrop{position:fixed;z-index:500;inset:0;display:grid;place-items:center;padding:22px;background:rgba(1,3,6,.76);backdrop-filter:blur(14px)}
 .settings-workspace{width:min(880px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));overflow:auto;border:1px solid rgba(105,143,180,.25);border-radius:7px;background:#080c12;box-shadow:0 34px 100px rgba(0,0,0,.72)}

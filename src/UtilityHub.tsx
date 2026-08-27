@@ -43,6 +43,7 @@ export default function UtilityHub() {
   const [open, setOpen] = useState(false)
   const [category, setCategory] = useState<UtilityCategory>(() => readSettings().utilityCategory)
   const [position, setPosition] = useState(() => clampPosition(readSettings().utilityPosition || defaultPosition()))
+  const [cloudOpenRequest, setCloudOpenRequest] = useState(0)
   const root = useRef<HTMLDivElement>(null)
   const drag = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
@@ -60,8 +61,10 @@ export default function UtilityHub() {
 
   useEffect(() => {
     const show = (event: Event) => {
-      const requested = (event as CustomEvent<{ category?: UtilityCategory }>).detail?.category
+      const detail = (event as CustomEvent<{ category?: UtilityCategory; openCloud?: boolean }>).detail
+      const requested = detail?.category
       if (requested && categoryCopy[requested]) setCategory(requested)
+      if (requested === 'cloud' && detail?.openCloud) setCloudOpenRequest((value) => value + 1)
       setOpen(true)
     }
     window.addEventListener('projectx:open-utility', show)
@@ -145,7 +148,7 @@ export default function UtilityHub() {
         <nav>{(Object.keys(categoryCopy) as UtilityCategory[]).map((item) => <button key={item} className={category === item ? 'active' : ''} type="button" onClick={() => select(item)}><strong>{categoryCopy[item].label}</strong><span>{categoryCopy[item].description}</span></button>)}</nav>
         <div className="utility-actions">
           {category === 'projects' && <><AddProjectLauncher/><LocalProjectDock/><ArtworkDock/><TaskConsole/><DesktopActionsDock/></>}
-          {category === 'cloud' && <><CloudSyncDock/><DeploymentAnalyticsDock/><DeployDock/></>}
+          {category === 'cloud' && <><CloudSyncDock openRequest={cloudOpenRequest}/><DeploymentAnalyticsDock/><DeployDock/></>}
           {category === 'system' && <><ThemeSensoryLayer/><DataBackupDock/><RuntimeDock/><ProjectIntelDock/><BetaDiagnosticsDock/></>}
         </div>
       </div>

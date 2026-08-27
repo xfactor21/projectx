@@ -121,7 +121,11 @@ export function isSupabaseConfigured(): boolean { const config = getSupabaseConf
 export function getSupabaseUrl(): string { return getSupabaseConfig().url }
 export function getSupabasePublishableKey(): string { return getSupabaseConfig().publishableKey }
 export function loadSession(): SupabaseSession | null { try { const raw = localStorage.getItem(SESSION_KEY); return raw ? parseSession(JSON.parse(raw)) : null } catch { return null } }
-export function saveSession(session: SupabaseSession | null): void { if (!session) localStorage.removeItem(SESSION_KEY); else localStorage.setItem(SESSION_KEY, JSON.stringify(session)) }
+export function saveSession(session: SupabaseSession | null): void {
+  if (!session) localStorage.removeItem(SESSION_KEY)
+  else localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+}
 
 export async function signUpWithPassword(email: string, password: string): Promise<SupabaseSession | null> {
   const result = await request<unknown>('/auth/v1/signup', { method: 'POST', body: JSON.stringify({ email, password }) })
