@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   fetchCloudProjects,
   isSupabaseConfigured,
@@ -181,7 +182,7 @@ export default function CloudSyncDock() {
         <strong>CLOUD</strong>
         <span>{session ? 'SIGNED IN' : configured ? 'READY' : 'OFFLINE'}</span>
       </button>
-      {expanded && <div className="cloud-dock-panel">
+      {expanded && createPortal(<div className="cloud-dock-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="project.X Cloud Sign In">
         <div className="cloud-dock-head"><div><small>PROJECT.X ACCOUNT</small><strong>Cloud Sync</strong></div><button type="button" onClick={() => setExpanded(false)}>×</button></div>
         <p className="cloud-message">{message}</p>
         {!session ? <>
@@ -194,7 +195,7 @@ export default function CloudSyncDock() {
           <button className="cloud-signout" type="button" onClick={() => void pullCloud('replace')} disabled={busy}>Replace from cloud</button>
           <button className="cloud-signout" type="button" onClick={logOut} disabled={busy}>Sign out</button>
         </>}
-      </div>}
+      </div>, document.body)}
     </aside>
   )
 }
