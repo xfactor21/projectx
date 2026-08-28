@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getDesktopHost } from './services/desktop'
 import { persistRunTasks, readRunTasks } from './services/runTasks'
 import type { RunStartedDetail, RunTask } from './services/runTasks'
+import { errorMessage } from './services/errors'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
 function markProjectReady(projectId: string) {
@@ -44,7 +45,7 @@ export default function TaskConsole() {
       })
       markProjectReady(task.projectId)
       setMessage(result.output || `${task.projectName} stopped.`)
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to stop that process.') }
+    } catch (error) { setMessage(errorMessage(error, 'Unable to stop that process.')) }
   }
 
   async function restart(task: RunTask) {
@@ -61,13 +62,13 @@ export default function TaskConsole() {
         persistRunTasks(next); return next
       })
       setMessage(`${task.projectName} restarted. Open its browser preview when you are ready.`)
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to restart project.') }
+    } catch (error) { setMessage(errorMessage(error, 'Unable to restart project.')) }
   }
 
   async function preview(task: RunTask) {
     if (!desktop || !task.url) return
-    try { await desktop.openPreviewWindow(task.projectId, task.projectName, task.url); setMessage(`${task.projectName} opened in your default browser.`) }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to open the browser preview.') }
+    try { await desktop.openPreviewWindow(task.projectId, task.projectName, task.url, task.pid); setMessage(`${task.projectName} opened in project.X Preview.`) }
+    catch (error) { setMessage(errorMessage(error, 'Unable to open project.X Preview.')) }
   }
 
   function clearHistory() { setTasks([]); persistRunTasks([]); setMessage('Task console cleared.') }
@@ -83,13 +84,13 @@ export default function TaskConsole() {
         {task.output && <pre>{task.output}</pre>}
         {task.logPath && <code>{task.logPath}</code>}
         <footer>
-          <button type="button" disabled={!desktop || !task.url} onClick={() => void preview(task)}>▣ Open Browser</button>
+          <button type="button" disabled={!desktop || !task.url} onClick={() => void preview(task)}>▣ Open Preview</button>
           <button type="button" disabled={!desktop} onClick={() => void restart(task)}>↺ Restart</button>
           <button type="button" disabled={!desktop} onClick={() => void stop(task)}>■ Stop Server</button>
         </footer>
       </article>)}</div>}
       <button className="task-clear" type="button" disabled={!tasks.length} onClick={clearHistory}>Clear console</button>
-      <small className="task-note">project.X owns the dev server. Preview opens in your default browser, where normal close and reload controls remain available.</small>
+      <small className="task-note">project.X owns the dev server. Preview stays inside project.X with reload, external browser and stop controls.</small>
     </div>}
   </aside>
 }

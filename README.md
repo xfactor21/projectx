@@ -135,7 +135,7 @@ For an authorized directory it can inspect:
 
 Hosted browser sessions do not receive unrestricted Windows paths.
 
-When a local project is run, project.X manages the development-server process and exposes it in RUN / TASKS. Verified previews can open automatically according to Settings; Stop Server terminates the managed process tree. Starting the same project again replaces the prior project.X-owned process, and exiting the desktop app stops all development servers owned by that session.
+When a local project is run, project.X manages the development-server process and exposes it in RUN / TASKS. Verified previews open inside the project.X WebView frame with reload, external-browser, stop, and close controls. Stop Server terminates the managed process tree. Starting the same project again replaces the prior project.X-owned process, and exiting the desktop app stops all development servers owned by that session.
 
 `src/services/desktop.ts` defines the bridge implemented by the Tauri Windows host for:
 
@@ -316,7 +316,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX_8-27_v2.4-source.zip` contains the committed project tree under one top-level folder, while `projectX_8-27_v2.4-windows.zip` contains only the Windows installer.
+Release packaging produces separate archives: `projectX-08.28-v2.6-companion-launch-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.28-v2.6-companion-launch-windows.zip` contains only the Windows installer.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 
@@ -328,7 +328,8 @@ GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor Java
 - `VERCEL_API_TOKEN` must be configured for Vercel status, analytics, and deploy actions to work.
 - Vercel project matching remains name-based for the existing sync surface.
 - Companion device/action tables and private package storage require all three Supabase migrations before those features become durable.
-- Companion remote-action execution requires a running, signed-in Windows host to poll and claim authorized actions.
+- Companion remote-action execution requires a running, signed-in Windows host to poll and claim authorized actions. ZIP handoff reports download/import/install stages and keeps packages private to the signed-in user.
+- Companion Launch can open an embedded preview on the PC or a LAN preview on the phone. Mobile LAN preview requires the phone and PC to share a private network; off-network live development requires an independently configured authenticated HTTPS tunnel. A project's Published link remains available for deployed builds.
 - Cloud sync is manual and conflict resolution is merge/replace based rather than a true timestamp/tombstone two-way engine.
 - The Activity view is still local/GitHub derived rather than backed by the cloud activity table.
 - Native timeout/deadlock tests exist; broader committed UI and installed-app automation remains future work.

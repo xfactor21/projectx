@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::{
     collections::BTreeMap,
     fs,
+    net::UdpSocket,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{Mutex, OnceLock},
@@ -67,6 +68,7 @@ pub(crate) struct PreviewRunResult {
     script: String,
     package_manager: String,
     url: Option<String>,
+    lan_url: Option<String>,
     log_path: String,
 }
 
@@ -101,6 +103,40 @@ fn declared(root: &Path, script: &str) -> bool {
         .and_then(Value::as_object)
         .map(|scripts| scripts.contains_key(script))
         .unwrap_or(false)
+}
+
+fn package_uses(root: &Path, dependency: &str) -> bool {
+    let Ok(text) = fs::read_to_string(root.join("package.json")) else { return false };
+    let Ok(value) = serde_json::from_str::<Value>(&text) else { return false };
+    ["dependencies", "devDependencies"].iter().any(|section| {
+        value.get(section).and_then(Value::as_object).map(|items| items.contains_key(dependency)).unwrap_or(false)
+    })
+}
+
+fn local_ipv4() -> Option<String> {
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    let address = socket.local_addr().ok()?;
+    address.ip().is_ipv4().then(|| address.ip().to_string())
+}
+
+fn lan_url(local_url: &str) -> Option<String> {
+    let mut parsed = url::Url::parse(local_url).ok()?;
+    let host = parsed.host_str()?;
+    if !matches!(host, "localhost" | "127.0.0.1" | "0.0.0.0" | "::1") { return Some(local_url.to_string()); }
+    parsed.set_host(Some(&local_ipv4()?)).ok()?;
+    Some(parsed.to_string())
+}
+
+fn enable_network_access(command: &mut Command, root: &Path) {
+    command.env("HOST", "0.0.0.0");
+    if package_uses(root, "expo") {
+        command.args(["--", "--lan"]);
+    } else if package_uses(root, "next") {
+        command.args(["--", "--hostname", "0.0.0.0"]);
+    } else if package_uses(root, "vite") {
+        command.args(["--", "--host", "0.0.0.0"]);
+    }
 }
 fn tail(text: &str, count: usize) -> String {
     text.lines()
@@ -201,6 +237,7 @@ fn ensure_dependencies(root: &Path, manager: &str) -> Result<Option<String>, Str
 pub(crate) fn run_preview_project(
     path: String,
     script: String,
+    network_access: Option<bool>,
     state: State<'_, DesktopState>,
 ) -> Result<PreviewRunResult, String> {
     let root = ensure_authorized(&state, &path)?;
@@ -234,8 +271,12 @@ pub(crate) fn run_preview_project(
         .current_dir(&root)
         .args(["run", &script])
         .env("CI", "false")
+        .env("BROWSER", "none")
         .stdout(Stdio::from(stdout))
         .stderr(Stdio::from(stderr));
+    if network_access.unwrap_or(false) {
+        enable_network_access(&mut command, &root);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -314,6 +355,7 @@ pub(crate) fn run_preview_project(
         output = format!("{note}\n{output}");
     }
 
+    let network_url = if network_access.unwrap_or(false) { url.as_deref().and_then(lan_url) } else { None };
     Ok(PreviewRunResult {
         ok: true,
         output,
@@ -321,6 +363,7 @@ pub(crate) fn run_preview_project(
         script,
         package_manager: manager.into(),
         url,
+        lan_url: network_url,
         log_path: log_path.to_string_lossy().into_owned(),
     })
 }
@@ -350,4 +393,14 @@ pub(crate) fn stop_preview_project(pid: u32) -> Result<ExecResult, String> {
         ok: output.status.success(),
         output: text,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn external_preview_urls_remain_unchanged() {
+        assert_eq!(lan_url("https://preview.example.com/app").as_deref(), Some("https://preview.example.com/app"));
+    }
 }

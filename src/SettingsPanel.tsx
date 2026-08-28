@@ -50,7 +50,7 @@ export default function SettingsPanel() {
       <nav aria-label="Settings sections">{(['general','cloud','runtime','data','about'] as Tab[]).map((item) => <button key={item} className={tab === item ? 'active' : ''} type="button" onClick={() => setTab(item)}>{item}</button>)}</nav>
       <div className="settings-content">
         {tab === 'general' && <><div className="settings-heading"><small>APPLICATION</small><h2>Workspace behavior</h2></div>
-          <label className="settings-toggle"><span><strong>Open preview after Run</strong><small>Launch the verified local URL in your default browser.</small></span><input type="checkbox" checked={settings.autoOpenPreview} onChange={(event) => update('autoOpenPreview', event.target.checked)} /></label>
+          <label className="settings-toggle"><span><strong>Open preview after Run</strong><small>Load the verified local URL inside project.X Preview.</small></span><input type="checkbox" checked={settings.autoOpenPreview} onChange={(event) => update('autoOpenPreview', event.target.checked)} /></label>
           <label className="settings-toggle"><span><strong>Show launch splash</strong><small>Display project.X branding while the desktop UI initializes.</small></span><input type="checkbox" checked={settings.showLaunchSplash} onChange={(event) => update('showLaunchSplash', event.target.checked)} /></label>
           <label className="settings-toggle"><span><strong>Reduce motion</strong><small>Disable nonessential interface transitions and animation.</small></span><input type="checkbox" checked={settings.reduceMotion} onChange={(event) => update('reduceMotion', event.target.checked)} /></label>
         </>}

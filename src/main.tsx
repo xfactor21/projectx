@@ -14,6 +14,7 @@ import SurfaceCoordinator from './SurfaceCoordinator.tsx'
 import UtilityHub from './UtilityHub.tsx'
 import SettingsPanel from './SettingsPanel.tsx'
 import AppSplash from './AppSplash.tsx'
+import EmbeddedPreview from './EmbeddedPreview.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import { applySettings } from './services/settings'
 import './viewModes.css'
@@ -34,6 +35,7 @@ import './companion.css'
 import './companionV2.css'
 import './companionBrand.css'
 import './companionV17.css'
+import './companionLaunch.css'
 import './desktopActions.css'
 import './addProjectLauncher.css'
 import './themeSensory.css'
@@ -48,6 +50,7 @@ import './v16.css'
 import './v18.css'
 import './v19.css'
 import './uiViewportFixes.css'
+import './embeddedPreview.css'
 
 installTauriDesktopBridge()
 applySettings()
@@ -70,6 +73,7 @@ createRoot(document.getElementById('root')!).render(
         <SurfaceCoordinator />
         <ArtworkAutoDiscovery />
         <CompanionDesktopWorker />
+        <EmbeddedPreview />
         <UtilityHub />
         <SettingsPanel />
         <GitHubDiscoveryModal />

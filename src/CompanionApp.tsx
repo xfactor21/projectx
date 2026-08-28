@@ -10,6 +10,7 @@ import appIcon from './assets/brand/app-icon.png'
 const DEVICE_KEY = 'projectx.companion.device.v1'
 const HOST_FRESH_MS = 30_000
 const REFRESH_MS = 15_000
+const PENDING_MOBILE_LAUNCH_KEY = 'projectx.companion.pending-mobile-launch.v1'
 
 type PackageMode = 'create' | 'update'
 type CompanionTab = 'projects' | 'actions' | 'activity' | 'settings'
@@ -55,6 +56,7 @@ function actionLabel(action: RemoteAction) {
     'script.run': `Run ${String(action.payload?.script || 'script')}`,
     'package.create_project': 'Create project from ZIP',
     'package.update_project': 'Update project from ZIP',
+    'project.launch': `Launch on ${String(action.payload?.destination || 'PC')}`,
   }
   return labels[action.action_type] || action.action_type.replace(/[._]/g, ' ')
 }
@@ -70,6 +72,15 @@ function relativeTime(value?: string) {
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}h ago`
   return `${Math.floor(hours / 24)}d ago`
+}
+
+function usableMobileUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  try {
+    const parsed = new URL(value)
+    if (!['http:', 'https:'].includes(parsed.protocol) || ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(parsed.hostname)) return null
+    return parsed.toString()
+  } catch { return null }
 }
 
 export default function CompanionApp() {
@@ -91,6 +102,8 @@ export default function CompanionApp() {
   const [packageFile, setPackageFile] = useState<File | null>(null)
   const [installDeps, setInstallDeps] = useState(true)
   const [configured, setConfigured] = useState(isSupabaseConfigured)
+  const [launchProject, setLaunchProject] = useState<CloudProject | null>(null)
+  const [mobilePreview, setMobilePreview] = useState<{ name: string; url: string; revision: number } | null>(null)
   const refreshLock = useRef(false)
 
   async function refresh(current = session, quiet = false) {
@@ -110,6 +123,20 @@ export default function CompanionApp() {
         })
         const [nextActions, devices] = await Promise.all([listRemoteActions(100), listCompanionDevices()])
         setActions(nextActions)
+        const pendingMobileId = localStorage.getItem(PENDING_MOBILE_LAUNCH_KEY)
+        const pendingMobile = pendingMobileId ? nextActions.find((action) => action.id === pendingMobileId) : null
+        if (pendingMobile?.status === 'succeeded') {
+          const url = usableMobileUrl(pendingMobile.result?.mobileUrl)
+          localStorage.removeItem(PENDING_MOBILE_LAUNCH_KEY)
+          if (url) {
+            const name = cloud.find((project) => project.client_id === pendingMobile.project_client_id)?.name || 'Project preview'
+            setMobilePreview({ name, url, revision: Date.now() })
+            setMessage(`${name} is running from your Windows host.`)
+          } else setMessage('The Windows host completed the launch but did not return a mobile-safe URL.')
+        } else if (pendingMobile?.status === 'failed') {
+          localStorage.removeItem(PENDING_MOBILE_LAUNCH_KEY)
+          setMessage(String(pendingMobile.result?.error || 'Mobile launch failed on the Windows host.'))
+        }
         const windowsHosts = devices.filter((device) => device.platform === 'windows')
         windowsHosts.sort((a, b) => new Date(b.last_seen_at || 0).getTime() - new Date(a.last_seen_at || 0).getTime())
         setWindowsDevice(windowsHosts.find(isFresh) || windowsHosts[0] || null)
@@ -226,6 +253,32 @@ export default function CompanionApp() {
     }
   }
 
+  async function launch(destination: 'pc' | 'mobile') {
+    const project = launchProject
+    if (!project || !windowsDevice?.device_id || !isFresh(windowsDevice)) return setMessage('Your project.X Windows host is offline.')
+    if (!projectIsOnDevice(project, windowsDevice)) return setMessage(`${project.name} is not linked to a local folder on this PC.`)
+    setBusy(true)
+    try {
+      const rows = await queueRemoteAction({
+        project_client_id: project.client_id,
+        target_device_id: windowsDevice.device_id,
+        action_type: 'project.launch',
+        payload: { destination },
+        requested_by_device_id: deviceId(),
+      })
+      const action = rows[0]
+      if (!action?.id) throw new Error('The launch request could not be created.')
+      await updateRemoteAction(action.id, 'approved')
+      if (destination === 'mobile') localStorage.setItem(PENDING_MOBILE_LAUNCH_KEY, action.id)
+      setLaunchProject(null)
+      setMessage(destination === 'mobile' ? `Starting ${project.name} on the PC. The preview will open here when its LAN address is ready.` : `Starting ${project.name} in project.X Preview on the PC.`)
+      setTab('actions')
+      await refresh(session, true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error || 'Unable to launch project.'))
+    } finally { setBusy(false) }
+  }
+
   const visible = useMemo(() => projects.filter((project) => {
     const haystack = `${project.name} ${project.kicker || ''} ${project.description || ''}`.toLowerCase()
     return haystack.includes(query.trim().toLowerCase()) && !project.archived
@@ -294,7 +347,8 @@ export default function CompanionApp() {
             <div className="companion-stack">{Array.isArray(project.stack) && project.stack.slice(0, 4).map((item) => <span key={String(item)}>{String(item)}</span>)}</div>
             <div className="companion-actions companion-project-links">
               <button type="button" disabled={!project.repo_url} onClick={() => safeOpen(project.repo_url)}>Repo</button>
-              <button type="button" disabled={!project.live_url} onClick={() => safeOpen(project.live_url)}>Launch</button>
+              <button type="button" disabled={!onPc} onClick={() => setLaunchProject(project)}>Launch</button>
+              <button type="button" disabled={!project.live_url} onClick={() => safeOpen(project.live_url)}>Published</button>
             </div>
             <div className="companion-action-grid">
               <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'project.open_explorer')}>Open on PC</button>
@@ -315,7 +369,9 @@ export default function CompanionApp() {
           <div><span className={`companion-action-state ${action.status || 'pending'}`}>{action.status || 'pending'}</span><small>{relativeTime(action.updated_at || action.created_at)}</small></div>
           <strong>{actionLabel(action)}</strong>
           <p>{action.project_client_id ? projects.find((project) => project.client_id === action.project_client_id)?.name || action.project_client_id : 'Workspace action'}</p>
+          {action.status === 'running' && Boolean(action.result?.stage) && <code>{String(action.result?.stage)}</code>}
           {action.status === 'failed' && <code>{String((action.result as { error?: unknown } | null)?.error || 'Action failed on the Windows host.')}</code>}
+          {action.status === 'succeeded' && usableMobileUrl(action.result?.mobileUrl) && <button className="companion-open-result" type="button" onClick={() => setMobilePreview({ name: projects.find((project) => project.client_id === action.project_client_id)?.name || 'Project preview', url: usableMobileUrl(action.result?.mobileUrl)!, revision: Date.now() })}>Open mobile preview</button>}
         </article>) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>No remote actions yet.</h2></div>}</div>
       </section>}
 
@@ -366,6 +422,18 @@ export default function CompanionApp() {
         <p>{windowsDevice ? `${hostOnline ? 'Online' : 'Offline queue'} → ${windowsDevice.name}` : 'Open project.X Windows once to register a target PC.'}</p>
         <button className="companion-package-send" type="button" disabled={busy || !packageFile || !windowsDevice || (packageMode === 'update' && !packageTarget)} onClick={() => void sendPackage()}>{busy ? 'Uploading…' : packageMode === 'create' ? 'Upload + create on PC' : 'Upload + update on PC'}</button>
       </section>
+    </div>}
+    {launchProject && <div className="companion-package-backdrop" onMouseDown={() => !busy && setLaunchProject(null)}>
+      <section className="companion-package-sheet companion-launch-sheet" role="dialog" aria-modal="true" aria-label={`Launch ${launchProject.name}`} onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><small>RUN DESTINATION</small><strong>Launch {launchProject.name}</strong></div><button type="button" disabled={busy} onClick={() => setLaunchProject(null)} aria-label="Close">×</button></header>
+        <button className="companion-launch-choice" type="button" disabled={busy} onClick={() => void launch('pc')}><b>PC</b><span>Start the local dev server and open it inside project.X Preview on Windows.</span></button>
+        <button className="companion-launch-choice" type="button" disabled={busy} onClick={() => void launch('mobile')}><b>Mobile device</b><span>Start a LAN-accessible dev server and load it in this companion. Phone and PC must be on the same private network.</span></button>
+        <p>For off-network access, use the project’s Published link or configure an authenticated HTTPS tunnel outside project.X.</p>
+      </section>
+    </div>}
+    {mobilePreview && <div className="companion-mobile-preview">
+      <header><div><small>LIVE FROM PC</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Reload preview" onClick={() => setMobilePreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
+      <iframe key={mobilePreview.revision} src={mobilePreview.url} title={`${mobilePreview.name} mobile preview`} allow="clipboard-read; clipboard-write; fullscreen"/>
     </div>}
   </main>
 }

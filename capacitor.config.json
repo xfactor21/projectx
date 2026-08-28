@@ -3,6 +3,6 @@
   "appName": "project.X Companion",
   "webDir": "dist",
   "android": {
-    "allowMixedContent": false
+    "allowMixedContent": true
   }
 }

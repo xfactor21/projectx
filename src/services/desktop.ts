@@ -35,6 +35,7 @@ export type ProjectRunResult = {
   script: string
   packageManager?: string
   url?: string
+  lanUrl?: string
   logPath?: string
 }
 
@@ -86,12 +87,14 @@ export type DesktopHostBridge = {
   previewZipMerge(zipPath: string, targetPath: string): Promise<ZipMergePreview>
   applyZipMerge(zipPath: string, targetPath: string): Promise<ZipMergeResult>
   createViteProject(name: string, template: string): Promise<ProjectInitializationResult>
-  runDevProject(path: string, script: string): Promise<ProjectRunResult>
+  runDevProject(path: string, script: string, networkAccess?: boolean): Promise<ProjectRunResult>
   stopDevProject(pid: number): Promise<{ ok: boolean; output: string }>
   discoverProjectArtwork(path: string): Promise<ArtworkCandidate[]>
   toolchainPreflight(): Promise<ToolStatus[]>
   downloadRemotePackage(url: string, fileName: string): Promise<string>
-  openPreviewWindow(projectId: string, projectName: string, url: string): Promise<void>
+  removeRemotePackage(path: string): Promise<void>
+  openPreviewWindow(projectId: string, projectName: string, url: string, pid?: number): Promise<void>
+  openExternalPreview(url: string): Promise<void>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>

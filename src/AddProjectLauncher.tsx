@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getDesktopHost } from './services/desktop'
 import type { DesktopProjectSummary, ProjectInitializationResult, ZipMergePreview } from './services/desktop'
+import { errorMessage } from './services/errors'
 import { fetchPublicRepos } from './services/github'
 import { isGitHubOwner } from './services/workspaceBackup'
 
@@ -271,7 +272,7 @@ export default function AddProjectLauncher() {
       if (!run.ok || !run.pid) throw new Error(run.output || 'Unable to start project.')
       setMessage(run.output)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to start project.')
+      setMessage(errorMessage(error, 'Unable to start project.'))
     } finally { setBusy(false) }
   }
 

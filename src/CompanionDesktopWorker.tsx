@@ -5,6 +5,7 @@ import { createCompanionZipSignedUrl, deleteCompanionZip } from './services/comp
 import { loadSession, upsertCloudProjects } from './services/supabase'
 import type { RemoteAction } from './services/companion'
 import type { DesktopProjectSummary } from './services/desktop'
+import { recordRunTask } from './services/runTasks'
 
 const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
@@ -25,6 +26,16 @@ function requireSuccessfulResult(result: unknown) {
     throw new Error(String((result as { output?: unknown }).output || 'Desktop action failed.'))
   }
   return result
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  try { return JSON.stringify(error) || 'Desktop action failed.' } catch { return 'Desktop action failed.' }
+}
+
+function preferredRunScript(scripts: string[] = []) {
+  return ['dev', 'web', 'start', 'serve'].find((script) => scripts.includes(script)) || ''
 }
 
 function desktopDeviceId() {
@@ -98,16 +109,23 @@ async function execute(action: RemoteAction) {
       const fileName = String(action.payload?.fileName || 'companion-project.zip')
       if (!storagePath) throw new Error('Companion package storage path is missing.')
       if (action.action_type === 'package.update_project' && !source?.path) throw new Error('The target project is not linked to an authorized folder on this Windows device.')
+      await updateRemoteAction(action.id, 'running', { stage: 'Preparing secure package download.' })
       const signedUrl = await createCompanionZipSignedUrl(storagePath, 600)
       const localZip = await desktop.downloadRemotePackage(signedUrl, fileName)
-      if (action.action_type === 'package.create_project') {
-        const initialized = await desktop.initializeZipProject(localZip, action.payload?.installDeps !== false)
-        const createdProjectId = await registerInitializedProject(initialized.summary)
-        result = { createdProjectId, summary: initialized.summary, install: initialized.install || null }
-      } else {
-        const merged = await desktop.applyZipMerge(localZip, source!.path!)
-        refreshUpdatedProject(action.project_client_id!, merged.summary)
-        result = { summary: merged.summary, addedCount: merged.addedCount, replacedCount: merged.replacedCount, backupPath: merged.backupPath }
+      try {
+        if (action.action_type === 'package.create_project') {
+          await updateRemoteAction(action.id, 'running', { stage: action.payload?.installDeps === false ? 'Validating and importing project files.' : 'Importing project and installing detected dependencies.' })
+          const initialized = await desktop.initializeZipProject(localZip, action.payload?.installDeps !== false)
+          const createdProjectId = await registerInitializedProject(initialized.summary)
+          result = { createdProjectId, summary: initialized.summary, install: initialized.install || null }
+        } else {
+          await updateRemoteAction(action.id, 'running', { stage: 'Validating and merging project files.' })
+          const merged = await desktop.applyZipMerge(localZip, source!.path!)
+          refreshUpdatedProject(action.project_client_id!, merged.summary)
+          result = { summary: merged.summary, addedCount: merged.addedCount, replacedCount: merged.replacedCount, backupPath: merged.backupPath }
+        }
+      } finally {
+        await desktop.removeRemotePackage(localZip).catch(() => undefined)
       }
       await deleteCompanionZip(storagePath).catch(() => undefined)
     } else {
@@ -129,12 +147,27 @@ async function execute(action: RemoteAction) {
           result = await desktop.runScript(source.path, script)
           break
         }
+        case 'project.launch': {
+          const destination = String(action.payload?.destination || 'pc')
+          const script = preferredRunScript(source.scripts)
+          if (!script) throw new Error('This project has no supported dev, web, start or serve script.')
+          await updateRemoteAction(action.id, 'running', { stage: destination === 'mobile' ? 'Starting a LAN-accessible dev server.' : 'Starting the project.X dev server.' })
+          const run = await desktop.runDevProject(source.path, script, destination === 'mobile')
+          requireSuccessfulResult(run)
+          if (!run.pid || !run.url) throw new Error('The dev server started without a usable preview URL.')
+          const project = readArray<StoredProject>(PROJECTS_KEY).find((item) => item.id === action.project_client_id)
+          recordRunTask({ projectId: action.project_client_id!, projectName: String(project?.name || 'Project'), path: source.path, result: run })
+          if (destination === 'pc') await desktop.openPreviewWindow(action.project_client_id!, String(project?.name || 'Project'), run.url, run.pid)
+          if (destination === 'mobile' && !run.lanUrl) throw new Error('The Windows host could not determine a LAN preview address. Check that the PC has an active private network connection.')
+          result = { pid: run.pid, url: run.url, mobileUrl: run.lanUrl || null, destination, script }
+          break
+        }
         default: throw new Error(`Unsupported remote action: ${action.action_type}`)
       }
     }
     await updateRemoteAction(action.id, 'succeeded', { result: requireSuccessfulResult(result) ?? null })
   } catch (error) {
-    await updateRemoteAction(action.id, 'failed', { error: error instanceof Error ? error.message : 'Desktop action failed.' })
+    await updateRemoteAction(action.id, 'failed', { error: errorMessage(error) })
   }
 }
 
@@ -159,7 +192,7 @@ export default function CompanionDesktopWorker() {
           platform: 'windows',
           app_version: hostVersion,
           capabilities: [
-            'project.open', 'git.status', 'git.commit', 'git.push', 'script.run', 'package.create', 'package.update',
+            'project.open', 'project.launch', 'git.status', 'git.commit', 'git.push', 'script.run', 'package.create', 'package.update',
             ...sources.slice(0, 200).map((source) => `project:${source.projectId}`),
           ],
         })

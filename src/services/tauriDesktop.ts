@@ -36,12 +36,16 @@ export function installTauriDesktopBridge(): boolean {
     previewZipMerge: (zipPath, targetPath) => invoke<ZipMergePreview>('preview_zip_merge', { zipPath, targetPath }),
     applyZipMerge: (zipPath, targetPath) => invoke<ZipMergeResult>('apply_zip_merge', { zipPath, targetPath }),
     createViteProject: (name, template) => invoke<ProjectInitializationResult>('create_vite_project', { name, template }),
-    runDevProject: (path, script) => invoke<ProjectRunResult>('run_preview_project', { path, script }),
+    runDevProject: (path, script, networkAccess = false) => invoke<ProjectRunResult>('run_preview_project', { path, script, networkAccess }),
     stopDevProject: (pid) => invoke<{ ok: boolean; output: string }>('stop_preview_project', { pid }),
     discoverProjectArtwork: (path) => invoke<ArtworkCandidate[]>('discover_project_artwork', { path }),
     toolchainPreflight: () => invoke<ToolStatus[]>('toolchain_preflight'),
     downloadRemotePackage: (url, fileName) => invoke<string>('download_remote_package', { url, fileName }),
-    openPreviewWindow: (projectId, projectName, url) => invoke<void>('open_preview_window', { projectId, projectName, url }),
+    removeRemotePackage: (path) => invoke<void>('remove_remote_package', { path }),
+    openPreviewWindow: async (projectId, projectName, url, pid) => {
+      window.dispatchEvent(new CustomEvent('projectx:open-preview', { detail: { projectId, projectName, url, pid } }))
+    },
+    openExternalPreview: (url) => invoke<void>('open_preview_window', { projectId: 'external', projectName: 'Preview', url }),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
     openInTerminal: (path) => invoke<void>('open_in_terminal', { path }),
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),

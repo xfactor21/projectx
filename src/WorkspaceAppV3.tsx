@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ThemeProjectRenderer from './ThemeProjectRenderer'
 import { getDesktopHost } from './services/desktop'
 import { APP_VERSION } from './version'
+import { errorMessage } from './services/errors'
 import { deleteProjectAndLocalSource, readLocalSources, readProjects } from './services/projectStorage'
 import { readSettings } from './services/settings'
 import appIcon from './assets/brand/app-icon.png'
@@ -73,8 +74,8 @@ export default function WorkspaceAppV3(){
       const result=await desktop.runDevProject(source.path,script)
       if(!result.ok||!result.pid)throw new Error(result.output||`Unable to start ${project.name}.`)
       setStatus(result.output)
-      if(result.ok&&result.pid){markLive(project.id);recordRunTask({projectId:project.id,projectName:project.name,path:source.path,result});if(readSettings().autoOpenPreview&&result.url)await desktop.openPreviewWindow(project.id,project.name,result.url)}
-    }catch(error){setStatus(error instanceof Error?error.message:'Unable to start project.')}
+      if(result.ok&&result.pid){markLive(project.id);recordRunTask({projectId:project.id,projectName:project.name,path:source.path,result});if(readSettings().autoOpenPreview&&result.url)await desktop.openPreviewWindow(project.id,project.name,result.url,result.pid)}
+    }catch(error){setStatus(errorMessage(error,'Unable to start project.'))}
   }
 
   function changeTheme(next:ThemeMode){setTheme(next);setStatus(`${themes.find((item)=>item.id===next)?.label} environment loaded`);window.dispatchEvent(new CustomEvent('projectx:theme-changed',{detail:next}))}

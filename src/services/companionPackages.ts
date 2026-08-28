@@ -31,20 +31,31 @@ export async function uploadCompanionZip(file: File): Promise<{ storagePath: str
   const session = requireSession()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project.zip'
   const storagePath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`
-  const response = await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}/${storagePath}`, {
-    method: 'POST',
-    headers: {
-      ...baseHeaders(),
-      'Content-Type': file.type || 'application/zip',
-      'x-upsert': 'false',
-    },
-    body: file,
-  })
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 180_000)
+  let response: Response
+  try {
+    response = await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}/${storagePath}`, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders(),
+        'Content-Type': file.type || 'application/zip',
+        'x-upsert': 'false',
+      },
+      body: file,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('Project upload timed out after 3 minutes. Check the phone connection and try again.')
+    throw error
+  } finally { window.clearTimeout(timeout) }
   if (!response.ok) throw await storageError(response, 'Project upload failed')
   return { storagePath, fileName: file.name, bytes: file.size }
 }
 
 export async function createCompanionZipSignedUrl(storagePath: string, expiresIn = 600): Promise<string> {
+  const session = requireSession()
+  if (!storagePath.startsWith(`${session.user.id}/`) || storagePath.includes('..')) throw new Error('Companion package path was rejected.')
   const response = await fetch(`${getSupabaseUrl()}/storage/v1/object/sign/${BUCKET}/${storagePath}`, {
     method: 'POST',
     headers: { ...baseHeaders(), 'Content-Type': 'application/json' },
@@ -58,6 +69,8 @@ export async function createCompanionZipSignedUrl(storagePath: string, expiresIn
 }
 
 export async function deleteCompanionZip(storagePath: string): Promise<void> {
+  const session = requireSession()
+  if (!storagePath.startsWith(`${session.user.id}/`) || storagePath.includes('..')) throw new Error('Companion package path was rejected.')
   const response = await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}`, {
     method: 'DELETE',
     headers: { ...baseHeaders(), 'Content-Type': 'application/json' },
