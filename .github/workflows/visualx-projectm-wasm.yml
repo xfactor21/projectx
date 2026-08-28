@@ -1,0 +1,68 @@
+name: Visual.X projectM WASM build
+
+on:
+  push:
+    branches:
+      - visualx-projectm-wasm-build
+    paths:
+      - '.github/workflows/visualx-projectm-wasm.yml'
+      - 'tools/visualx-projectm/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.53
+          actions-cache-folder: emsdk-cache
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build git libgl1-mesa-dev mesa-common-dev
+
+      - name: Fetch projectM 4.1.7
+        run: |
+          git clone --branch v4.1.7 --depth 1 --recurse-submodules https://github.com/projectM-visualizer/projectm.git projectm-src
+
+      - name: Build projectM for Emscripten
+        run: |
+          emcmake cmake -S projectm-src -B projectm-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/projectm-install" \
+            -DBUILD_TESTING=OFF
+          emmake cmake --build projectm-build --parallel
+          emmake cmake --install projectm-build
+
+      - name: Build browser wrapper
+        run: |
+          mkdir -p visualx-projectm-dist
+          em++ tools/visualx-projectm/bridge.cpp \
+            projectm-install/lib/libprojectM-4.a \
+            -Iprojectm-install/include \
+            -O3 \
+            -o visualx-projectm-dist/projectm.js \
+            -sMODULARIZE=1 \
+            -sEXPORT_NAME=ProjectMModule \
+            -sENVIRONMENT=web \
+            -sUSE_WEBGL2=1 \
+            -sFULL_ES3=1 \
+            -sMIN_WEBGL_VERSION=2 \
+            -sMAX_WEBGL_VERSION=2 \
+            -sALLOW_MEMORY_GROWTH=1 \
+            -sNO_EXIT_RUNTIME=1 \
+            -sEXPORTED_FUNCTIONS='["_pm_create","_pm_destroy","_pm_resize","_pm_load_preset","_pm_feed_audio","_pm_render","_pm_max_samples","_malloc","_free"]' \
+            -sEXPORTED_RUNTIME_METHODS='["cwrap","ccall","UTF8ToString","stringToUTF8","lengthBytesUTF8","HEAPF32"]'
+          cp projectm-src/LICENSE.txt visualx-projectm-dist/projectM-LICENSE.txt
+
+      - name: Upload browser bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualx-projectm-wasm
+          path: visualx-projectm-dist/*
+          if-no-files-found: error
