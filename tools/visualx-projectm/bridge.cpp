@@ -1,7 +1,13 @@
 #include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 #include <projectM-4/projectM.h>
 
 static projectm_handle g_instance = nullptr;
+static EMSCRIPTEN_WEBGL_CONTEXT_HANDLE g_context = 0;
+
+static bool make_current() {
+    return g_context > 0 && emscripten_webgl_make_context_current(g_context) == EMSCRIPTEN_RESULT_SUCCESS;
+}
 
 extern "C" {
 EMSCRIPTEN_KEEPALIVE int pm_create(int width, int height) {
@@ -9,6 +15,22 @@ EMSCRIPTEN_KEEPALIVE int pm_create(int width, int height) {
         projectm_destroy(g_instance);
         g_instance = nullptr;
     }
+    if (g_context > 0) {
+        emscripten_webgl_destroy_context(g_context);
+        g_context = 0;
+    }
+    EmscriptenWebGLContextAttributes attrs;
+    emscripten_webgl_init_context_attributes(&attrs);
+    attrs.alpha = EM_TRUE;
+    attrs.depth = EM_TRUE;
+    attrs.stencil = EM_FALSE;
+    attrs.antialias = EM_FALSE;
+    attrs.premultipliedAlpha = EM_TRUE;
+    attrs.preserveDrawingBuffer = EM_TRUE;
+    attrs.majorVersion = 2;
+    attrs.minorVersion = 0;
+    g_context = emscripten_webgl_create_context("#projectm-wasm-canvas", &attrs);
+    if (g_context <= 0 || !make_current()) return 0;
     g_instance = projectm_create();
     if (!g_instance) return 0;
     projectm_set_window_size(g_instance, width > 0 ? width : 512, height > 0 ? height : 512);
@@ -23,18 +45,22 @@ EMSCRIPTEN_KEEPALIVE int pm_create(int width, int height) {
 
 EMSCRIPTEN_KEEPALIVE void pm_destroy() {
     if (g_instance) {
-        projectm_destroy(g_instance);
+        if (make_current()) projectm_destroy(g_instance);
         g_instance = nullptr;
+    }
+    if (g_context > 0) {
+        emscripten_webgl_destroy_context(g_context);
+        g_context = 0;
     }
 }
 
 EMSCRIPTEN_KEEPALIVE void pm_resize(int width, int height) {
-    if (!g_instance) return;
+    if (!g_instance || !make_current()) return;
     projectm_set_window_size(g_instance, width > 0 ? width : 512, height > 0 ? height : 512);
 }
 
 EMSCRIPTEN_KEEPALIVE void pm_load_preset(const char* data, int smooth) {
-    if (!g_instance || !data) return;
+    if (!g_instance || !data || !make_current()) return;
     projectm_load_preset_data(g_instance, data, smooth != 0);
 }
 
@@ -44,7 +70,7 @@ EMSCRIPTEN_KEEPALIVE void pm_feed_audio(const float* samples, int frames, int ch
 }
 
 EMSCRIPTEN_KEEPALIVE void pm_render() {
-    if (!g_instance) return;
+    if (!g_instance || !make_current()) return;
     projectm_opengl_render_frame(g_instance);
 }
 
