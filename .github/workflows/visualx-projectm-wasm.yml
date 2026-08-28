@@ -9,6 +9,9 @@ on:
       - 'tools/visualx-projectm/**'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -66,3 +69,19 @@ jobs:
           name: visualx-projectm-wasm
           path: visualx-projectm-dist/*
           if-no-files-found: error
+
+      - name: Publish browser runtime on isolated branch
+        run: |
+          mkdir -p public-projectm
+          cp visualx-projectm-dist/projectm.js public-projectm/projectm.js
+          cp visualx-projectm-dist/projectm.wasm public-projectm/projectm.wasm
+          cp visualx-projectm-dist/projectM-LICENSE.txt public-projectm/projectM-LICENSE.txt
+          git config user.name "Visual.X Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public-projectm
+          if git diff --cached --quiet; then
+            echo "Runtime unchanged"
+          else
+            git commit -m "Publish Visual.X projectM WASM runtime"
+            git push origin HEAD:visualx-projectm-wasm-build
+          fi
