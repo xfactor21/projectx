@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import ComicProjectArt from './ComicProjectArt'
+import ProjectStatusBar from './ProjectStatusBar'
+import { healthFor, type ProjectHealth } from './services/projectHealth'
 
 type Project = {
   id: string
@@ -29,7 +31,9 @@ type Props = {
   sourceLabel(project: Project, source?: LocalSource): string
   onOpen(project: Project): void
   onRun(project: Project): void
+  onDeployment(project: Project): void
   onAdd(): void
+  healthMap: Record<string, ProjectHealth>
 }
 
 function monogram(name: string) {
@@ -67,7 +71,7 @@ function slotCode(index: number) {
   return `${String.fromCharCode(65 + Math.floor(index / 9))}${(index % 9) + 1}`
 }
 
-function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOpen, onRun }: Omit<Props, 'theme' | 'onAdd'>) {
+function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOpen, onRun, onDeployment, healthMap }: Omit<Props, 'theme' | 'onAdd'>) {
   const [code, setCode] = useState('')
   const [dispensing, setDispensing] = useState('')
   const releaseTimer = useRef<number | null>(null)
@@ -104,6 +108,7 @@ function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOp
           <span className="vending-glass"/>{!project.coverUrl && <b>{monogram(project.name)}</b>}<strong>{project.name}</strong><small>{sourceLabel(project, source)}</small>
         </button>
         <button type="button" className="vending-dial" onClick={() => setCode(projectCode)} aria-label={`Enter code ${projectCode} for ${project.name}`}><i/><span>{projectCode}</span></button>
+        <ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/>
       </article>
     })}</div><aside className="vending-console">
       <div className="vending-screen"><span>ENTER SLOT CODE</span><strong>{code || '--'}</strong><small>{selected ? selected.name : 'Choose a letter and number'}</small></div>
@@ -115,7 +120,7 @@ function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOp
   </section>
 }
 
-export default function ThemeProjectRenderer({ theme, projects, sourceMap, desktopOnline, sourceLabel, onOpen, onRun, onAdd }: Props) {
+export default function ThemeProjectRenderer({ theme, projects, sourceMap, desktopOnline, sourceLabel, onOpen, onRun, onDeployment, onAdd, healthMap }: Props) {
   if (!projects.length) return empty(onAdd)
 
   if (theme === 'Storefront') return <section className="storefront-street" aria-label="Project storefront">
@@ -127,13 +132,14 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
         <button className="store-window project-art-surface" type="button" onClick={() => onOpen(project)}>
           <span className="store-neon">{sourceLabel(project, source)}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{project.description || 'Open project'}</small>
         </button>
-        <div className="store-door"><span>{project.status || 'Building'}</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Enter / Run</button></div>
+        <div className="store-door"><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Enter / Run</button></div>
+        <ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/>
       </article>
     })}</div>
     <div className="storefront-sidewalk" aria-hidden="true"><span>PROJECT.X DISTRICT</span><i className="walker walker-one"/><i className="walker walker-two"/><i className="walker dog-walker"><b/></i></div>
   </section>
 
-  if (theme === 'Vending') return <VendingRenderer projects={projects} sourceMap={sourceMap} desktopOnline={desktopOnline} sourceLabel={sourceLabel} onOpen={onOpen} onRun={onRun}/>
+  if (theme === 'Vending') return <VendingRenderer projects={projects} sourceMap={sourceMap} desktopOnline={desktopOnline} sourceLabel={sourceLabel} onOpen={onOpen} onRun={onRun} onDeployment={onDeployment} healthMap={healthMap}/>
 
   if (theme === 'Comic') return <section className="comic-book" aria-label="Project comic shelf">
     <header><span>PROJECT.X PRESENTS</span><h2>THE BUILD UNIVERSE!</h2><b>ISSUE #{String(projects.length).padStart(2, '0')}</b></header>
@@ -144,7 +150,8 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
           <span className="comic-cover-art">{project.coverUrl && <ComicProjectArt source={project.coverUrl} name={project.name}/>}</span><span className="comic-ink-screen"/>
           <small>{sourceLabel(project, source)}</small>{!project.coverUrl && <b>{monogram(project.name)}</b>}<h3>{project.name}</h3><em>{index % 2 ? 'ZAP!' : 'BUILD!'}</em><i>NO. {String(index + 1).padStart(2, '0')}</i>
         </button>
-        <footer><span>{project.status || 'Building'}</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>RUN</button></footer>
+        <footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>RUN</button></footer>
+        <ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/>
       </article>
     })}</div><div className="comic-shelf-edge" aria-hidden="true"><span>PROJECT.X COLLECTED BUILDS</span></div>
   </section>
@@ -156,13 +163,14 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
       const depthStyle = { '--gallery-depth': `${index % 3}`, ...(artStyle(project) || {}) } as CSSProperties
       return <article className={`gallery-exhibit ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={depthStyle}>
         <div className="gallery-light"/><button type="button" className="gallery-frame project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}</button>
-        <div className="gallery-plaque"><strong>{project.name}</strong><span>{sourceLabel(project, source)}</span><small>{(project.stack || []).slice(0, 3).join(' · ') || project.status || 'Project'}</small><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Launch exhibit</button></div>
+        <div className="gallery-plaque"><span>{sourceLabel(project, source)}</span><small>{(project.stack || []).slice(0, 3).join(' · ') || 'Project'}</small><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Launch exhibit</button></div>
+        <ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/>
       </article>
     })}</div>
   </section>
 
   return <section className="command-project-grid" aria-label="Project command grid">{projects.map((project, index) => {
     const source = sourceMap.get(project.id)
-    return <article className={`command-project ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}><button type="button" className="command-visual project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{sourceLabel(project, source)}</small></button><div><h3>{project.name}</h3><p>{project.description || 'No description yet.'}</p><div className="command-meta"><span>{project.status || 'Building'}</span><span>{source?.gitBranch || 'NO BRANCH'}</span><span>{source?.path && desktopOnline ? 'LOCAL READY' : 'REMOTE'}</span></div><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Run</button><button type="button" disabled={!project.repoUrl} onClick={() => project.repoUrl && window.open(project.repoUrl, '_blank', 'noopener')}>Repo</button><button type="button" onClick={() => onOpen(project)}>Open</button></footer></div></article>
+    return <article className={`command-project ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}><button type="button" className="command-visual project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{sourceLabel(project, source)}</small></button><div><p>{project.description || 'No description yet.'}</p><div className="command-meta"><span>{source?.gitBranch || 'NO BRANCH'}</span><span>{source?.path && desktopOnline ? 'LOCAL SOURCE' : 'REMOTE'}</span></div><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Run</button><button type="button" disabled={!project.repoUrl} onClick={() => project.repoUrl && window.open(project.repoUrl, '_blank', 'noopener')}>Repo</button><button type="button" onClick={() => onOpen(project)}>Open</button></footer><ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/></div></article>
   })}</section>
 }

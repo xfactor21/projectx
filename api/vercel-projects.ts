@@ -1,5 +1,6 @@
 /// <reference types="node" />
-import { fetchWithTimeout, requireAuthorizedUser } from './_auth'
+import { fetchWithTimeout, requireUser } from './_auth'
+import { loadProviderConnection } from './_provider-store'
 
 type VercelDeployment = {
   uid: string
@@ -22,18 +23,22 @@ export default async function handler(request: any, response: any) {
     response.status(405).json({ connected: false, deployments: [], message: 'Method not allowed.' })
     return
   }
-  if (!await requireAuthorizedUser(request, response)) return
+  const user = await requireUser(request, response)
+  if (!user) return
 
   // The Vercel token must stay in the server environment. Proxying through this function prevents
   // the browser bundle from ever receiving a credential that can inspect the user's Vercel account.
-  const token = process.env.VERCEL_API_TOKEN
-  const teamId = process.env.VERCEL_TEAM_ID
+  let connection = await loadProviderConnection(user.id, 'vercel')
+  const legacyAllowed = new Set((process.env.PROJECTX_ALLOWED_USER_IDS || '').split(',').map((value) => value.trim()))
+  if (!connection && legacyAllowed.has(user.id) && process.env.VERCEL_API_TOKEN) connection = { token: process.env.VERCEL_API_TOKEN, teamId: process.env.VERCEL_TEAM_ID }
+  const token = connection?.token
+  const teamId = connection?.teamId
 
   if (!token) {
     response.status(503).json({
       connected: false,
       deployments: [],
-      message: 'Set VERCEL_API_TOKEN in the deployment environment to enable live Vercel status.',
+      message: 'Connect your Vercel account before loading deployment status.',
     })
     return
   }

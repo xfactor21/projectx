@@ -70,21 +70,30 @@ Required migrations:
 supabase/migrations/20260818_projectx_phase4.sql
 supabase/migrations/20260821_projectx_companion.sql
 supabase/migrations/20260824_projectx_companion_packages.sql
+supabase/migrations/20260830_projectx_provider_connections.sql
 ```
 
-Apply all three migrations in order. They create the cloud project/activity model, per-user device/action tables, and private per-user package storage with row-level policies. Normal users never enter Supabase configuration. Administrators running their own deployment can opt into **Settings > Cloud > Advanced self-hosting** and provide a browser-safe publishable key; privileged keys are rejected.
+Apply all migrations in order. They create the cloud project/activity model, per-user device/action tables, private package storage, and encrypted per-user provider connection records. Normal users never enter Supabase configuration. Administrators running their own deployment can opt into **Settings > Cloud > Advanced self-hosting** and provide a browser-safe publishable key; privileged keys are rejected.
 
-### Vercel
+### GitHub and Vercel provider connections
 
 Server-side only:
 
 ```text
-VERCEL_API_TOKEN=...
-VERCEL_TEAM_ID=...
-PROJECTX_ALLOWED_USER_IDS=...
+SUPABASE_SERVICE_ROLE_KEY=...
+PROJECTX_API_ORIGIN=https://your-projectx-host.example
+PROJECTX_OAUTH_STATE_SECRET=...random-secret...
+PROJECTX_PROVIDER_ENCRYPTION_KEY=...base64-encoded-32-byte-key...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+VERCEL_CLIENT_ID=...
+VERCEL_CLIENT_SECRET=...
+VERCEL_INTEGRATION_SLUG=...
 ```
 
-The browser never receives `VERCEL_API_TOKEN`. `/api/vercel-projects` fetches deployment status/history and `/api/vercel-deploy` creates explicit GitHub-backed Vercel deployments. Plain `vite` does not run these `/api` functions.
+Register a GitHub App and Vercel Integration whose callback is `PROJECTX_API_ORIGIN/api/provider-callback`. GitHub should receive repository Contents read/write, Metadata read, Deployments read/write, and Actions read permissions only for repositories the user selects. Add Workflows read/write only if a future release actually edits workflow files. Vercel should receive Project and Deployment read/write permissions. Do not request account administration, billing, team deletion, or provider-wide destructive permissions.
+
+Provider tokens are encrypted with AES-256-GCM before service-role storage and are never returned to the browser. `VERCEL_API_TOKEN`, `VERCEL_TEAM_ID`, and `PROJECTX_ALLOWED_USER_IDS` remain supported only as a legacy, explicitly allowlisted owner fallback during migration. New users connect their own accounts from project.X and never enter provider secrets.
 
 ## Implemented product features
 
@@ -115,11 +124,11 @@ GitHub sync no longer automatically enrolls every public repository. It now:
 5. Clones only the repositories explicitly selected by the user.
 6. Marks a repository Ready only after the local clone succeeds; failed clones remain retryable and are not treated as completed imports.
 
-Ready means the project has a usable local copy. Live means project.X currently owns a running development server for that project.
+The first project status circle means Run ready: package metadata, a supported script, and installed dependencies were verified locally. The second circle is independent and reflects the specifically linked Vercel deployment. A local development server never marks a deployment live.
 
 Current GitHub metadata includes language, stars, forks, open issues, default branch, last push, topics, homepage, archive state, repository URL, and GitHub Open Graph artwork.
 
-Current limitation: public unauthenticated API only, first 100 owner repositories, no private-repository flow yet.
+Without a provider connection, discovery falls back to the public GitHub API. A connected GitHub account can discover accessible private repositories. Local commit and push use the user's installed Git credentials; project.X never places provider tokens in clone URLs or command output.
 
 ### Local project onboarding
 
@@ -153,6 +162,7 @@ When a local project is run, project.X manages the development-server process an
 - Read recent Vercel deployments through a server-side adapter.
 - Match deployment names back to tracked project/repository names.
 - Explicitly create preview or production deployments from tracked GitHub repositories through `/api/vercel-deploy`.
+- Register the corresponding GitHub Deployment and queued deployment status when the user connected GitHub and granted repository Deployments write access.
 - Production is never selected automatically just because GitHub metadata changes.
 
 The Vercel Git connection/token must have access to the target GitHub repository.
@@ -316,7 +326,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX-08.30-v2.7-immersive-sync-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.30-v2.7-immersive-sync-windows.zip` contains only the Windows installer. The Android workflow publishes `projectX-08.30-v2.7-immersive-sync-android-debug.zip` with the companion APK.
+Release packaging produces separate archives: `projectX-08.30-v2.8-provider-health-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.30-v2.8-provider-health-windows.zip` contains only the Windows installer. The Android workflow publishes `projectX-08.30-v2.8-provider-health-android-debug.zip` with the companion APK.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 

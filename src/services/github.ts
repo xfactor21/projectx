@@ -15,7 +15,10 @@ export type GitHubRepo = {
   default_branch: string
   pushed_at: string
   updated_at: string
+  owner?: { login: string }
 }
+
+import { loadSession } from './supabase'
 
 export const GITHUB_DISCOVERY_EVENT = 'projectx:github-discovery'
 
@@ -70,13 +73,25 @@ async function requestPublicRepos(owner: string): Promise<GitHubRepo[]> {
   return repos.filter((repo) => !repo.fork)
 }
 
+async function requestConnectedRepos(owner: string): Promise<GitHubRepo[] | null> {
+  const session = loadSession()
+  if (!session) return null
+  try {
+    const response = await fetch('/api/provider-resources?provider=github', { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const body = await response.json() as { resources?: GitHubRepo[] }
+    if (!response.ok || !Array.isArray(body.resources)) return null
+    const normalized = owner.trim().toLowerCase()
+    return body.resources.filter((repo) => !repo.fork && repo.owner?.login.toLowerCase() === normalized)
+  } catch { return null }
+}
+
 /**
  * Sync intentionally returns only repositories that are already represented in
  * project.X. Discovery is emitted separately so a GitHub account with many
  * experiments cannot silently flood the user's curated project workspace.
  */
 export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
-  const repos = await requestPublicRepos(owner)
+  const repos = await requestConnectedRepos(owner) || await requestPublicRepos(owner)
   const tracked = trackedRepoKeys()
   const existing = repos.filter((repo) => tracked.has(repoKey(repo.html_url)))
   const discovered = repos.filter((repo) => !tracked.has(repoKey(repo.html_url)))
@@ -86,7 +101,7 @@ export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
 }
 
 export async function discoverPublicRepos(owner: string): Promise<GitHubRepo[]> {
-  return requestPublicRepos(owner)
+  return await requestConnectedRepos(owner) || requestPublicRepos(owner)
 }
 
 export function repoNameFromUrl(repoUrl: string) {

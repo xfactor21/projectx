@@ -4,6 +4,8 @@ export type VercelDeployResult = {
   url?: string | null
   status?: string
   message?: string
+  githubDeploymentRegistered?: boolean
+  githubMessage?: string
 }
 
 export async function deployGitHubProject(input: {
@@ -18,7 +20,7 @@ export async function deployGitHubProject(input: {
     const response = await fetch('/api/vercel-deploy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, confirm: true }),
     })
     const body = await response.json() as VercelDeployResult
     if (!response.ok) return { ok: false, message: body.message || `Deployment failed (${response.status}).` }

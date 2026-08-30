@@ -1,3 +1,5 @@
+import { removeProjectHealth } from './projectHealth'
+
 export const PROJECTS_KEY = 'projectx.projects.v1'
 export const LOCAL_SOURCES_KEY = 'projectx.local.sources.v1'
 
@@ -56,5 +58,6 @@ export function deleteProjectAndLocalSource(projectId: string): void {
   const sources = readLocalSources().filter((source) => source.projectId !== projectId)
   localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
   localStorage.setItem(LOCAL_SOURCES_KEY, JSON.stringify(sources))
+  removeProjectHealth(projectId)
   window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
 }

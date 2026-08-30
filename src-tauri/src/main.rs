@@ -45,6 +45,10 @@ pub(crate) struct ProjectSummary {
     pub(crate) scripts: Vec<String>,
     pub(crate) framework_hints: Vec<String>,
     pub(crate) git: Option<GitSummary>,
+    pub(crate) package_manager: Option<String>,
+    pub(crate) dependencies_installed: bool,
+    pub(crate) run_ready: bool,
+    pub(crate) readiness_detail: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -429,6 +433,31 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
     if root.join("src-tauri").exists() {
         framework_hints.insert("Tauri".into());
     }
+    let package_manager = if root.join("pnpm-lock.yaml").exists() {
+        Some("pnpm".to_string())
+    } else if root.join("yarn.lock").exists() {
+        Some("yarn".to_string())
+    } else if root.join("bun.lock").exists() || root.join("bun.lockb").exists() {
+        Some("bun".to_string())
+    } else if package_path.exists() {
+        Some("npm".to_string())
+    } else {
+        None
+    };
+    let dependencies_installed = root.join("node_modules").is_dir();
+    let supported_script = ["dev", "web", "start", "serve"]
+        .iter()
+        .find(|candidate| scripts.iter().any(|script| script == **candidate));
+    let run_ready = package_path.exists() && dependencies_installed && supported_script.is_some();
+    let readiness_detail = if !package_path.exists() {
+        "No package.json was found.".to_string()
+    } else if supported_script.is_none() {
+        "No supported dev, web, start, or serve script is declared.".to_string()
+    } else if !dependencies_installed {
+        "Dependencies are not installed yet; Run will install them first.".to_string()
+    } else {
+        format!("Ready to run with {}.", supported_script.unwrap_or(&"dev"))
+    };
     Ok(ProjectSummary {
         name,
         path: root.to_string_lossy().into_owned(),
@@ -436,6 +465,10 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
         scripts,
         framework_hints: framework_hints.into_iter().collect(),
         git: git_summary(root),
+        package_manager,
+        dependencies_installed,
+        run_ready,
+        readiness_detail,
     })
 }
 

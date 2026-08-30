@@ -23,8 +23,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX-08.30-v2.7-immersive-sync
-  PROJECTX_ANDROID_VERSION: 2.7.0
+  PROJECTX_BUILD_NAME: projectX-08.30-v2.8-provider-health
+  PROJECTX_ANDROID_VERSION: 2.8.0
   PROJECTX_ANDROID_VERSION_CODE: 20700
 
 jobs:

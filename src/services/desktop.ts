@@ -5,6 +5,10 @@ export type DesktopProjectSummary = {
   scripts?: string[]
   frameworkHints?: string[]
   git?: { branch?: string; remote?: string; dirty?: boolean }
+  packageManager?: string
+  dependenciesInstalled?: boolean
+  runReady?: boolean
+  readinessDetail?: string
 }
 
 export type ProjectRelocation = {
