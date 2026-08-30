@@ -7,6 +7,8 @@ import { deleteProjectAndLocalSource, readLocalSources, readProjects } from './s
 import { readSettings } from './services/settings'
 import appIcon from './assets/brand/app-icon.png'
 import workspaceHeader from './assets/brand/workspace-header-transparent.png'
+import planetCrest from './assets/brand/planetx-crest-transparent.png'
+import planetWordmark from './assets/brand/planetx-wordmark-transparent.png'
 import { recordRunTask } from './services/runTasks'
 import { isSupabaseConfigured, loadSession } from './services/supabase'
 
@@ -18,6 +20,7 @@ type LocalSource = { projectId:string; kind?:'desktop'|'browser'|'managed'|'zip'
 const PROJECTS_KEY='projectx.projects.v1'
 const LOCAL_KEY='projectx.local.sources.v1'
 const VIEW_KEY='projectx.view.v1'
+const HOST_STATUS_KEY='projectx.companion.host-status.v1'
 const themes:Array<{id:ThemeMode;label:string;sub:string}>=[
   {id:'Grid',label:'Command',sub:'Developer control room'},
   {id:'Storefront',label:'Storefront',sub:'Walkable project district'},
@@ -31,6 +34,8 @@ function readTheme():ThemeMode{const saved=localStorage.getItem(VIEW_KEY) as The
 function sourceLabel(project:Project,source?:LocalSource){if(source?.kind==='managed')return'MANAGED LOCAL';if(source?.kind==='zip')return'INITIALIZED LOCAL';if(source?.kind==='generated')return'PROJECT.X CREATED';if(source?.kind==='desktop')return'LOCAL PROJECT';if(source?.kind==='browser')return'LOCAL BROWSER';if(project.github||project.repoUrl?.includes('github.com'))return'GITHUB REMOTE';return'CLOUD / RECORD'}
 function openLauncher(){window.dispatchEvent(new CustomEvent('projectx:open-add-project'))}
 function preferredRunScript(scripts:string[]=[]){return ['dev','web','start','serve'].find((script)=>scripts.includes(script))||''}
+type HostStatus={status:'connecting'|'online'|'error';detail:string;projectCount:number;updatedAt:string}
+function readHostStatus():HostStatus|null{try{const parsed=JSON.parse(localStorage.getItem(HOST_STATUS_KEY)||'null');return parsed&&typeof parsed.detail==='string'?parsed:null}catch{return null}}
 
 export default function WorkspaceAppV3(){
   const desktop=getDesktopHost()
@@ -42,10 +47,12 @@ export default function WorkspaceAppV3(){
   const [selected,setSelected]=useState<Project|null>(null)
   const [status,setStatus]=useState(desktop?'Local development host online':'Web workspace')
   const [cloudState,setCloudState]=useState(()=>({configured:isSupabaseConfigured(),session:loadSession()}))
+  const [companionState,setCompanionState]=useState<HostStatus|null>(readHostStatus)
 
   useEffect(()=>{const refresh=()=>{setProjects(readArray(PROJECTS_KEY));setSources(readArray(LOCAL_KEY))};window.addEventListener('storage',refresh);window.addEventListener('projectx:projects-changed',refresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('projectx:projects-changed',refresh)}},[])
   useEffect(()=>localStorage.setItem(VIEW_KEY,theme),[theme])
   useEffect(()=>{const refresh=()=>setCloudState({configured:isSupabaseConfigured(),session:loadSession()});window.addEventListener('projectx:supabase-config-changed',refresh);window.addEventListener('projectx:supabase-session-changed',refresh);return()=>{window.removeEventListener('projectx:supabase-config-changed',refresh);window.removeEventListener('projectx:supabase-session-changed',refresh)}},[])
+  useEffect(()=>{const refresh=()=>setCompanionState(readHostStatus());window.addEventListener('projectx:companion-status',refresh);return()=>window.removeEventListener('projectx:companion-status',refresh)},[])
 
   const sourceMap=useMemo(()=>new Map(sources.map((source)=>[source.projectId,source])),[sources])
   const active=useMemo(()=>projects.filter((project)=>!project.archived),[projects])
@@ -80,6 +87,11 @@ export default function WorkspaceAppV3(){
 
   function changeTheme(next:ThemeMode){setTheme(next);setStatus(`${themes.find((item)=>item.id===next)?.label} environment loaded`);window.dispatchEvent(new CustomEvent('projectx:theme-changed',{detail:next}))}
 
+  function openBrandUrl(url:string){
+    if(desktop){void desktop.openExternalPreview(url);return}
+    window.open(url,'_blank','noopener,noreferrer')
+  }
+
   function deleteProject(project:Project){
     if(!window.confirm(`Delete ${project.name} from project.X? Local files will remain on disk.`))return
     deleteProjectAndLocalSource(project.id);setSelected(null);setStatus(`${project.name} was removed from project.X. Local files were not deleted.`)
@@ -90,9 +102,9 @@ export default function WorkspaceAppV3(){
   const liveCount=active.filter((project)=>project.status==='Live').length
 
   return <div className={`px-shell workspace-v2 workspace-v3 theme-${theme.toLowerCase()}`}>
-    <aside className="sidebar v2-sidebar"><button className="brand-lockup" type="button" onClick={()=>setNav('Projects')}><img className="brand-mark" src={appIcon} alt=""/><div><div className="brand-name">project<span>.X</span> <small className="brand-version">v{APP_VERSION}</small></div><div className="brand-subtitle">PROJECT LIFECYCLE</div></div></button><nav className="primary-nav">{(['Projects','Favorites','Activity','Archive'] as NavMode[]).map((item)=><button key={item} type="button" className={nav===item?'nav-item active':'nav-item'} onClick={()=>setNav(item)}><span className="nav-dot"/><span>{item}</span></button>)}</nav><div className="v2-source-status"><small>WORKSPACE SOURCE</small><strong>{desktop?'Local + Cloud':'Cloud / Web'}</strong><span>{localCount} local · {repoCount} repos</span></div><button className={`v2-cloud-entry ${cloudState.session?'connected':cloudState.configured?'ready':'offline'}`} type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'cloud',openCloud:true}}))}><i/><span><strong>{cloudState.session?'Cloud signed in':cloudState.configured?'Cloud sign in':'Configure Cloud'}</strong><small>{cloudState.session?.user.email||cloudState.session?.user.id||(cloudState.configured?'Account backup and Companion':'Cloud is not configured')}</small></span></button><div className="sidebar-spacer"/><div className="v2-sidebar-controls"><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'projects'}}))}>Control center</button><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-settings'))}>Settings</button></div><div className="v2-host-state"><i className={desktop?'online':''}/><span>{desktop?'LOCAL DEV HOST ONLINE':'LOCAL DEV HOST OFFLINE'}</span></div></aside>
+    <aside className="sidebar v2-sidebar"><button className="brand-lockup" type="button" onClick={()=>setNav('Projects')}><img className="brand-mark" src={appIcon} alt=""/><div><div className="brand-name">project<span>.X</span> <small className="brand-version">v{APP_VERSION}</small></div><div className="brand-subtitle">PROJECT LIFECYCLE</div></div></button><nav className="primary-nav">{(['Projects','Favorites','Activity','Archive'] as NavMode[]).map((item)=><button key={item} type="button" className={nav===item?'nav-item active':'nav-item'} onClick={()=>setNav(item)}><span className="nav-dot"/><span>{item}</span></button>)}</nav><div className="v2-source-status"><small>WORKSPACE SOURCE</small><strong>{desktop?'Local + Cloud':'Cloud / Web'}</strong><span>{localCount} local · {repoCount} repos</span></div><button className={`v2-cloud-entry ${cloudState.session?'connected':cloudState.configured?'ready':'offline'}`} type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'cloud',openCloud:true}}))}><i/><span><strong>{cloudState.session?'Cloud signed in':cloudState.configured?'Cloud sign in':'Configure Cloud'}</strong><small>{cloudState.session?.user.email||cloudState.session?.user.id||(cloudState.configured?'Account backup and Companion':'Cloud is not configured')}</small></span></button>{desktop&&cloudState.session&&<div className={`v2-companion-state ${companionState?.status||'connecting'}`}><i/><div><strong>{companionState?.status==='online'?'Companion connected':companionState?.status==='error'?'Companion needs attention':'Connecting Companion'}</strong><span>{companionState?.detail||'Publishing this PC and its local projects.'}</span></div></div>}<div className="sidebar-spacer"/><div className="planet-signature"><span>Created at planet.X</span><img src={planetWordmark} alt="planet.X"/></div><div className="v2-sidebar-controls"><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'projects'}}))}>Control center</button><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-settings'))}>Settings</button></div><div className="v2-host-state"><i className={desktop?'online':''}/><span>{desktop?'LOCAL DEV HOST ONLINE':'LOCAL DEV HOST OFFLINE'}</span></div></aside>
 
-    <main className="workspace v2-workspace"><div className="workspace-brand-banner"><img src={workspaceHeader} alt="project.X App Manager" /></div><header className="topbar v2-topbar"><div><p className="eyebrow">{themes.find((item)=>item.id===theme)?.sub} / {nav}</p><h1>{nav==='Projects'?'Your project universe.':nav}</h1><p className="v2-status-line">{status}</p></div><div className="topbar-actions"><label className="search-box"><span>⌕</span><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search projects…"/></label><button className="add-primary" type="button" onClick={openLauncher}>+ Add project</button></div></header>
+    <main className="workspace v2-workspace"><div className="workspace-brand-row"><div className="workspace-brand-banner"><img src={workspaceHeader} alt="project.X App Manager" /></div><div className="planet-promo"><div><button type="button" onClick={()=>openBrandUrl('https://www.planet-x.co')}>More planet.X Magic</button><button type="button" onClick={()=>openBrandUrl('https://www.planet-x.co/music')}>More xFactor Music</button></div><img src={planetCrest} alt="planet.X"/></div></div><header className="topbar v2-topbar"><div><p className="eyebrow">{themes.find((item)=>item.id===theme)?.sub} / {nav}</p><h1>{nav==='Projects'?'Your project universe.':nav}</h1><p className="v2-status-line">{status}</p></div><div className="topbar-actions"><label className="search-box"><span>⌕</span><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search projects…"/></label><button className="add-primary" type="button" onClick={openLauncher}>+ Add project</button></div></header>
       <section className="v2-theme-deck" aria-label="Workspace environments">{themes.map((item,index)=><button key={item.id} type="button" className={theme===item.id?'active':''} aria-pressed={theme===item.id} title={item.sub} onClick={()=>changeTheme(item.id)}><i>{String(index+1).padStart(2,'0')}</i><strong>{item.label}</strong><span>{item.sub}</span></button>)}</section>
       <section className="stats-strip v2-stats"><div><span>PROJECTS</span><strong>{String(active.length).padStart(2,'0')}</strong></div><div><span>LOCAL</span><strong>{String(localCount).padStart(2,'0')}</strong></div><div><span>REPOS</span><strong>{String(repoCount).padStart(2,'0')}</strong></div><div><span>LIVE</span><strong>{String(liveCount).padStart(2,'0')}</strong></div></section>
       {nav==='Activity'?<section className="v2-activity"><div className="section-heading"><div><p className="eyebrow">RECENT STATE</p><h3>Workspace activity</h3></div></div>{active.length?active.map((project,index)=><button type="button" key={project.id} onClick={()=>setSelected(project)}><b>{String(index+1).padStart(2,'0')}</b><strong>{project.name}</strong><span>{sourceLabel(project,sourceMap.get(project.id))} · {project.updated||'Unknown update'}</span></button>):<p>No project activity yet.</p>}</section>:<><section className="section-heading v2-heading"><div><p className="eyebrow">ENVIRONMENT / {theme.toUpperCase()}</p><h3>{nav==='Archive'?'Archived projects':nav==='Favorites'?'Favorites':'Projects'}</h3></div><span className="result-count">{visible.length} SHOWN</span></section><ThemeProjectRenderer theme={theme} projects={visible} sourceMap={sourceMap} desktopOnline={Boolean(desktop)} sourceLabel={sourceLabel} onOpen={setSelected} onRun={(project)=>void runProject(project)} onAdd={openLauncher}/></>}

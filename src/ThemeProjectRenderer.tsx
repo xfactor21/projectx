@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import ComicProjectArt from './ComicProjectArt'
 
 type Project = {
   id: string
@@ -88,7 +89,7 @@ function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOp
     releaseTimer.current = window.setTimeout(() => {
       onRun(selected)
       setDispensing('')
-    }, 720)
+    }, 1750)
   }
 
   return <section className={`vending-machine ${dispensing ? 'is-dispensing' : ''}`} aria-label="Project vending machine">
@@ -96,8 +97,10 @@ function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOp
     <div className="vending-body"><div className="vending-slots">{projects.map((project, index) => {
       const source = sourceMap.get(project.id)
       const projectCode = slotCode(index)
+      const packageType = ['candy','chips','can','box'][index % 4]
       return <article className={`vending-slot ${code === projectCode ? 'selected' : ''} ${dispensing === project.id ? 'dispensing' : ''}`} key={project.id}>
-        <button type="button" className={`vending-product project-art-surface ${project.coverUrl ? 'has-project-art' : ''}`} style={artStyle(project)} onClick={() => onOpen(project)} aria-label={`Open ${project.name}`}>
+        <span className="vending-coil" aria-hidden="true"/>
+        <button type="button" className={`vending-product package-${packageType} project-art-surface ${project.coverUrl ? 'has-project-art' : ''}`} style={artStyle(project)} onClick={() => onOpen(project)} aria-label={`Open ${project.name}`}>
           <span className="vending-glass"/>{!project.coverUrl && <b>{monogram(project.name)}</b>}<strong>{project.name}</strong><small>{sourceLabel(project, source)}</small>
         </button>
         <button type="button" className="vending-dial" onClick={() => setCode(projectCode)} aria-label={`Enter code ${projectCode} for ${project.name}`}><i/><span>{projectCode}</span></button>
@@ -119,7 +122,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
     <div className="storefront-skyline" aria-hidden="true" />
     <div className="storefront-row">{projects.map((project, index) => {
       const source = sourceMap.get(project.id)
-      return <article className={`store-unit ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}>
+      return <article className={`store-unit awning-${(index % 4) + 1} ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={{...artStyle(project),'--store-index':index} as CSSProperties}>
         <div className="store-awning"><span>{String(index + 1).padStart(2, '0')}</span><strong>{project.name}</strong></div>
         <button className="store-window project-art-surface" type="button" onClick={() => onOpen(project)}>
           <span className="store-neon">{sourceLabel(project, source)}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{project.description || 'Open project'}</small>
@@ -127,7 +130,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
         <div className="store-door"><span>{project.status || 'Building'}</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Enter / Run</button></div>
       </article>
     })}</div>
-    <div className="storefront-sidewalk" aria-hidden="true"><span>PROJECT.X DISTRICT</span><i/><i/><i/></div>
+    <div className="storefront-sidewalk" aria-hidden="true"><span>PROJECT.X DISTRICT</span><i className="walker walker-one"/><i className="walker walker-two"/><i className="walker dog-walker"><b/></i></div>
   </section>
 
   if (theme === 'Vending') return <VendingRenderer projects={projects} sourceMap={sourceMap} desktopOnline={desktopOnline} sourceLabel={sourceLabel} onOpen={onOpen} onRun={onRun}/>
@@ -136,10 +139,9 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
     <header><span>PROJECT.X PRESENTS</span><h2>THE BUILD UNIVERSE!</h2><b>ISSUE #{String(projects.length).padStart(2, '0')}</b></header>
     <div className="comic-shelf">{projects.map((project, index) => {
       const source = sourceMap.get(project.id)
-      const coverStyle = project.coverUrl ? { backgroundImage: `url("${project.coverUrl.replace(/"/g, '%22')}")` } : undefined
       return <article className={`comic-volume volume-${(index % 4) + 1} ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id}>
         <button type="button" className="comic-cover" onClick={() => onOpen(project)} aria-label={`Open ${project.name}`}>
-          <span className="comic-cover-art" style={coverStyle}/><span className="comic-ink-screen"/>
+          <span className="comic-cover-art">{project.coverUrl && <ComicProjectArt source={project.coverUrl} name={project.name}/>}</span><span className="comic-ink-screen"/>
           <small>{sourceLabel(project, source)}</small>{!project.coverUrl && <b>{monogram(project.name)}</b>}<h3>{project.name}</h3><em>{index % 2 ? 'ZAP!' : 'BUILD!'}</em><i>NO. {String(index + 1).padStart(2, '0')}</i>
         </button>
         <footer><span>{project.status || 'Building'}</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>RUN</button></footer>

@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { getDesktopHost } from './services/desktop'
 import { claimPendingActions, registerCompanionDevice, updateRemoteAction } from './services/companion'
 import { createCompanionZipSignedUrl, deleteCompanionZip } from './services/companionPackages'
-import { loadSession, upsertCloudProjects } from './services/supabase'
+import { getFreshSession, loadSession, upsertCloudProjects } from './services/supabase'
+import { projectInventorySignature, syncLocalProjects } from './services/projectCloudSync'
 import type { RemoteAction } from './services/companion'
 import type { DesktopProjectSummary } from './services/desktop'
 import { recordRunTask } from './services/runTasks'
@@ -10,6 +11,7 @@ import { recordRunTask } from './services/runTasks'
 const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
 const PROJECTS_KEY = 'projectx.projects.v1'
+const HOST_STATUS_KEY = 'projectx.companion.host-status.v1'
 
 type LocalSource = {
   projectId: string
@@ -55,6 +57,12 @@ function readArray<T>(key: string): T[] {
 function localSources(): LocalSource[] { return readArray<LocalSource>(LOCAL_KEY).filter((item) => item.kind !== 'browser' && Boolean(item.path)) }
 function localSource(projectId?: string | null): LocalSource | null { return projectId ? localSources().find((item) => item.projectId === projectId) || null : null }
 function newProjectId(name: string) { return `remote-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString().slice(-6)}` }
+
+function publishHostStatus(status: 'connecting' | 'online' | 'error', detail: string, projectCount = 0) {
+  const value = { status, detail, projectCount, updatedAt: new Date().toISOString() }
+  localStorage.setItem(HOST_STATUS_KEY, JSON.stringify(value))
+  window.dispatchEvent(new CustomEvent('projectx:companion-status', { detail: value }))
+}
 
 async function registerInitializedProject(summary: DesktopProjectSummary) {
   const id = newProjectId(summary.name)
@@ -180,12 +188,22 @@ export default function CompanionDesktopWorker() {
     const id = desktopDeviceId()
     let stopped = false
     let running = false
+    let syncedInventory = ''
 
     async function tick() {
       if (stopped || running || !loadSession()) return
       running = true
       try {
+        publishHostStatus('connecting', 'Refreshing cloud connection.')
+        const session = await getFreshSession(loadSession())
+        if (!session) return
         const sources = localSources()
+        const inventory = projectInventorySignature()
+        if (inventory !== syncedInventory) {
+          const synced = await syncLocalProjects(session)
+          syncedInventory = inventory
+          publishHostStatus('connecting', `Synced ${synced.count} project records.`, synced.count)
+        }
         await registerCompanionDevice({
           device_id: id,
           name: 'project.X Windows',
@@ -200,8 +218,10 @@ export default function CompanionDesktopWorker() {
         for (const action of actions) {
           if (action.status === 'approved') await execute(action)
         }
-      } catch {
-        // Companion support remains optional; network/config errors must never break desktop startup.
+        publishHostStatus('online', `Companion connected. ${sources.length} local project${sources.length === 1 ? '' : 's'} available.`, sources.length)
+      } catch (error) {
+        const detail = errorMessage(error)
+        publishHostStatus('error', detail)
       } finally { running = false }
     }
 

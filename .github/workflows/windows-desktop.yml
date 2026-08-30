@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX-08.28-v2.6-companion-launch
+  PROJECTX_BUILD_NAME: projectX-08.30-v2.7-immersive-sync
 
 jobs:
   windows-installer:

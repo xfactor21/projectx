@@ -51,6 +51,7 @@ import './v18.css'
 import './v19.css'
 import './uiViewportFixes.css'
 import './embeddedPreview.css'
+import './v27.css'
 
 installTauriDesktopBridge()
 applySettings()

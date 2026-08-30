@@ -316,7 +316,7 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX-08.28-v2.6-companion-launch-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.28-v2.6-companion-launch-windows.zip` contains only the Windows installer.
+Release packaging produces separate archives: `projectX-08.30-v2.7-immersive-sync-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.30-v2.7-immersive-sync-windows.zip` contains only the Windows installer. The Android workflow publishes `projectX-08.30-v2.7-immersive-sync-android-debug.zip` with the companion APK.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 

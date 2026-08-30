@@ -3,17 +3,20 @@ import { getDesktopHost } from './services/desktop'
 import { persistRunTasks, readRunTasks } from './services/runTasks'
 
 type PreviewState = { projectId: string; projectName: string; url: string; pid?: number; revision: number }
+type ViewportMode = 'full' | 'tablet' | 'phone'
 
 export default function EmbeddedPreview() {
   const desktop = getDesktopHost()
   const [preview, setPreview] = useState<PreviewState | null>(null)
   const [message, setMessage] = useState('')
+  const [viewport, setViewport] = useState<ViewportMode>('full')
 
   useEffect(() => {
     const open = (event: Event) => {
       const detail = (event as CustomEvent<Omit<PreviewState, 'revision'>>).detail
       if (!detail?.url || !/^https?:\/\//i.test(detail.url)) return
       setMessage('')
+      setViewport('full')
       setPreview({ ...detail, revision: Date.now() })
     }
     window.addEventListener('projectx:open-preview', open)
@@ -39,6 +42,11 @@ export default function EmbeddedPreview() {
     <section className="embedded-preview" role="dialog" aria-modal="true" aria-label={`${preview.projectName} preview`}>
       <header>
         <div><small>PROJECT.X WEBVIEW</small><strong>{preview.projectName}</strong><span>{preview.url}</span></div>
+        <nav aria-label="Preview viewport" className="embedded-preview-viewports">
+          <button type="button" className={viewport === 'full' ? 'active' : ''} title="Full preview" onClick={() => setViewport('full')}>Full</button>
+          <button type="button" className={viewport === 'tablet' ? 'active' : ''} title="Tablet preview" onClick={() => setViewport('tablet')}>Tablet</button>
+          <button type="button" className={viewport === 'phone' ? 'active' : ''} title="Phone preview" onClick={() => setViewport('phone')}>Phone</button>
+        </nav>
         <nav aria-label="Preview controls">
           <button type="button" title="Reload preview" aria-label="Reload preview" onClick={() => setPreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button>
           <button type="button" title="Open in default browser" aria-label="Open in default browser" onClick={() => void desktop?.openExternalPreview(preview.url)}>↗</button>
@@ -46,8 +54,10 @@ export default function EmbeddedPreview() {
           <button type="button" title="Close preview" aria-label="Close preview" onClick={() => setPreview(null)}>×</button>
         </nav>
       </header>
-      {message && <p>{message}</p>}
-      <iframe key={preview.revision} src={preview.url} title={`${preview.projectName} running preview`} allow="clipboard-read; clipboard-write; fullscreen" />
+      <div className={`embedded-preview-stage viewport-${viewport}`}>
+        {message && <p>{message}</p>}
+        <iframe key={preview.revision} src={preview.url} title={`${preview.projectName} running preview`} allow="clipboard-read; clipboard-write; fullscreen" />
+      </div>
     </section>
   </div>
 }

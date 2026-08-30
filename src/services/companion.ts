@@ -1,4 +1,4 @@
-import { getSupabasePublishableKey, getSupabaseUrl, loadSession } from './supabase'
+import { getFreshSession, getSupabasePublishableKey, getSupabaseUrl, loadSession } from './supabase'
 
 export type CompanionDevice = {
   id?: string
@@ -29,7 +29,7 @@ export type RemoteAction = {
 }
 
 async function companionRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const session = loadSession()
+  const session = await getFreshSession(loadSession())
   const base = getSupabaseUrl()
   const key = getSupabasePublishableKey()
   if (!session || !base || !key) throw new Error('Sign in and configure Supabase before using companion features.')

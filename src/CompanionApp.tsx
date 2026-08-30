@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchCloudProjects, isSupabaseConfigured, loadSession, signInWithPassword, signOut } from './services/supabase'
+import { fetchCloudProjects, getFreshSession, isSupabaseConfigured, loadSession, signInWithPassword, signOut } from './services/supabase'
 import { listCompanionDevices, listRemoteActions, queueRemoteAction, registerCompanionDevice, updateRemoteAction } from './services/companion'
 import { uploadCompanionZip } from './services/companionPackages'
 import { APP_VERSION } from './version'
@@ -111,7 +111,11 @@ export default function CompanionApp() {
     refreshLock.current = true
     if (!quiet) setRefreshing(true)
     try {
-      const cloud = await fetchCloudProjects(current)
+      let connectionMessage = ''
+      const activeSession = await getFreshSession(current)
+      if (!activeSession) throw new Error('Sign in again to reconnect Companion.')
+      if (activeSession.access_token !== current.access_token) setSession(activeSession)
+      const cloud = await fetchCloudProjects(activeSession)
       setProjects(cloud)
       try {
         await registerCompanionDevice({
@@ -139,11 +143,15 @@ export default function CompanionApp() {
         }
         const windowsHosts = devices.filter((device) => device.platform === 'windows')
         windowsHosts.sort((a, b) => new Date(b.last_seen_at || 0).getTime() - new Date(a.last_seen_at || 0).getTime())
-        setWindowsDevice(windowsHosts.find(isFresh) || windowsHosts[0] || null)
+        const selectedHost = windowsHosts.find(isFresh) || windowsHosts[0] || null
+        setWindowsDevice(selectedHost)
+        connectionMessage = selectedHost && isFresh(selectedHost)
+          ? `${selectedHost.name} is online with ${selectedHost.capabilities?.filter((item) => item.startsWith('project:')).length || 0} local projects.`
+          : selectedHost ? `${selectedHost.name} has not checked in recently.` : 'No Windows host has checked in yet.'
       } catch (error) {
         if (!quiet) setMessage(error instanceof Error ? error.message : 'Companion services are unavailable.')
       }
-      if (!quiet) setMessage(`${cloud.length} cloud project records loaded.`)
+      if (!quiet) setMessage(`${cloud.length} projects synced. ${connectionMessage}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to load companion data.')
     } finally {

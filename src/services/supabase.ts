@@ -11,6 +11,8 @@ export type SupabaseSession = { access_token: string; refresh_token?: string; ex
 export type CloudProject = { id?: string; user_id: string; client_id: string; name: string; kicker?: string; description?: string; status?: 'Live' | 'Building' | 'Concept' | 'Paused'; stack?: unknown; accent?: 'pink' | 'cyan' | 'violet'; progress?: number; favorite?: boolean; archived?: boolean; repo_url?: string; live_url?: string; cover_url?: string; notes?: string; github?: unknown; sort_order?: number; created_at?: string; updated_at?: string }
 export type CloudActivity = { id?: string; user_id: string; project_client_id?: string | null; event_type: string; message: string; metadata?: Record<string, unknown>; created_at?: string }
 
+let refreshPromise: Promise<SupabaseSession | null> | null = null
+
 function headers(accessToken?: string, extra?: HeadersInit): HeadersInit {
   const key = getSupabasePublishableKey()
   return { apikey: key, Authorization: `Bearer ${accessToken || key}`, 'Content-Type': 'application/json', ...extra }
@@ -136,6 +138,14 @@ export async function signUpWithPassword(email: string, password: string): Promi
 }
 export async function signInWithPassword(email: string, password: string): Promise<SupabaseSession> { const result = await request<unknown>('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) }); const session = parseSession(result); if (!session) throw new Error('Cloud sign-in returned an invalid session. Try again or contact support.'); saveSession(session); return session }
 export async function refreshSession(session = loadSession()): Promise<SupabaseSession | null> { if (!session?.refresh_token) return session; const result = await request<unknown>('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: JSON.stringify({ refresh_token: session.refresh_token }) }); const refreshed = parseSession(result); if (!refreshed) throw new Error('Cloud session refresh returned an invalid response. Sign in again.'); saveSession(refreshed); return refreshed }
+export async function getFreshSession(session = loadSession()): Promise<SupabaseSession | null> {
+  if (!session) return null
+  const expiresSoon = session.expires_at ? session.expires_at * 1000 - Date.now() < 5 * 60 * 1000 : false
+  if (!expiresSoon) return session
+  if (!session.refresh_token) throw new Error('Your cloud session expired. Sign in again on this device.')
+  if (!refreshPromise) refreshPromise = refreshSession(session).finally(() => { refreshPromise = null })
+  return refreshPromise
+}
 export async function signOut(session = loadSession()): Promise<void> { if (session?.access_token) { try { await request<void>('/auth/v1/logout', { method: 'POST' }, session.access_token) } catch { /* clear local session regardless */ } } saveSession(null) }
 
 export async function fetchCloudProjects(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
