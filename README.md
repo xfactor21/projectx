@@ -326,23 +326,23 @@ Development/build:
 - `oxlint` — linting.
 - `@types/node`, `@types/react`, `@types/react-dom` — TypeScript declarations.
 
-Release packaging produces separate archives: `projectX-08.30-v2.8-provider-health-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.30-v2.8-provider-health-windows.zip` contains only the Windows installer. The Android workflow publishes `projectX-08.30-v2.8-provider-health-android-debug.zip` with the companion APK.
+Release packaging produces separate archives: `projectX-08.30-v2.9-theme-connections-source.zip` contains the committed project tree under one top-level folder, while `projectX-08.30-v2.9-theme-connections-windows.zip` contains only the Windows installer. The Android workflow publishes `projectX-08.30-v2.9-theme-connections-android-debug.zip` with the companion APK.
 
 GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor JavaScript SDK is required by the current app.
 
 ## Known limitations / remaining work
 
 - A hosted browser cannot provide the full Windows experience. Git operations, terminal launch, process execution, and unrestricted path operations require the installed Windows host.
-- Private GitHub repository authentication is not implemented.
+- Private GitHub repository discovery is available after the user connects a GitHub App installation with access to selected repositories. Public discovery remains available without a provider connection.
 - Production Windows and Android packaging requires the managed project.X Supabase URL and publishable key in repository secrets.
-- `VERCEL_API_TOKEN` must be configured for Vercel status, analytics, and deploy actions to work.
-- Vercel project matching remains name-based for the existing sync surface.
+- Vercel status, analytics and deploy actions use each signed-in user's encrypted Vercel connection. `VERCEL_API_TOKEN` is only a migration fallback for explicitly allowlisted legacy owner accounts.
+- Deployment status is attached to an explicitly linked Vercel project/deployment. Name matching is used only to refresh a saved link when Vercel rotates a deployment identifier.
 - Companion device/action tables and private package storage require all three Supabase migrations before those features become durable.
 - Companion remote-action execution requires a running, signed-in Windows host to poll and claim authorized actions. ZIP handoff reports download/import/install stages and keeps packages private to the signed-in user.
 - Companion Launch can open an embedded preview on the PC or a LAN preview on the phone. Mobile LAN preview requires the phone and PC to share a private network; off-network live development requires an independently configured authenticated HTTPS tunnel. A project's Published link remains available for deployed builds.
 - Cloud sync is manual and conflict resolution is merge/replace based rather than a true timestamp/tombstone two-way engine.
 - The Activity view is still local/GitHub derived rather than backed by the cloud activity table.
-- Native timeout/deadlock tests exist; broader committed UI and installed-app automation remains future work.
+- Native timeout/deadlock and external-link safety tests are committed. Browser viewport/theme checks cover the five project environments; broader installed-app interaction automation remains future work.
 - Traffic/performance/runtime-error/cost analytics providers are not yet connected.
 - xConnect is not required. Its future adapter can implement the same capability boundaries without replacing project.X's independent GitHub/Vercel/local/companion contracts.
 

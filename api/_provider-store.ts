@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto'
+import { fetchWithTimeout } from './_auth'
 
 type Provider = 'github' | 'vercel'
 type StatePayload = { userId: string; provider: Provider; expiresAt: number; nonce: string }
@@ -62,17 +63,17 @@ function supabaseConfig() {
 
 export async function saveProviderConnection(row: Record<string, unknown>): Promise<void> {
   const { url, key } = supabaseConfig()
-  const response = await fetch(`${url}/rest/v1/projectx_provider_connections?on_conflict=user_id,provider,account_id`, {
+  const response = await fetchWithTimeout(`${url}/rest/v1/projectx_provider_connections?on_conflict=user_id,provider,account_id`, {
     method: 'POST',
     headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify(row),
-  })
+  }, 10_000)
   if (!response.ok) throw new Error(`Unable to save provider connection (${response.status}).`)
 }
 
 export async function loadProviderConnection(userId: string, provider: Provider): Promise<{ token: string; teamId?: string } | null> {
   const { url, key } = supabaseConfig()
-  const response = await fetch(`${url}/rest/v1/projectx_provider_connections?user_id=eq.${encodeURIComponent(userId)}&provider=eq.${provider}&select=encrypted_access_token,team_id&limit=1`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
+  const response = await fetchWithTimeout(`${url}/rest/v1/projectx_provider_connections?user_id=eq.${encodeURIComponent(userId)}&provider=eq.${provider}&select=encrypted_access_token,team_id&limit=1`, { headers: { apikey: key, Authorization: `Bearer ${key}` } }, 10_000)
   if (!response.ok) throw new Error(`Unable to load provider connection (${response.status}).`)
   const rows = await response.json() as Array<{ encrypted_access_token?: string; team_id?: string }>
   return rows[0]?.encrypted_access_token ? { token: decryptToken(rows[0].encrypted_access_token), teamId: rows[0].team_id || undefined } : null

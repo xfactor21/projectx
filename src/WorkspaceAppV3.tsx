@@ -13,6 +13,8 @@ import { recordRunTask } from './services/runTasks'
 import { isSupabaseConfigured, loadSession } from './services/supabase'
 import { buildHealthFromInspection, deploymentState, healthFor, PROJECT_HEALTH_EVENT, readProjectHealth, writeProjectHealth, type ProjectHealth } from './services/projectHealth'
 import { fetchVercelDeployments } from './services/vercel'
+import { fetchProviderConnection, type ProviderConnectionState, type ProviderId } from './services/providerConnections'
+import { openHostedLink } from './services/externalLinks'
 
 type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'
 type NavMode = 'Projects' | 'Favorites' | 'Activity' | 'Archive'
@@ -38,6 +40,7 @@ function openLauncher(){window.dispatchEvent(new CustomEvent('projectx:open-add-
 function preferredRunScript(scripts:string[]=[]){return ['dev','web','start','serve'].find((script)=>scripts.includes(script))||''}
 type HostStatus={status:'connecting'|'online'|'error';detail:string;projectCount:number;updatedAt:string}
 function readHostStatus():HostStatus|null{try{const parsed=JSON.parse(localStorage.getItem(HOST_STATUS_KEY)||'null');return parsed&&typeof parsed.detail==='string'?parsed:null}catch{return null}}
+function connectionAge(value:string|undefined,now:number){if(!value)return'not checked';const elapsed=Math.max(0,now-new Date(value).getTime());if(elapsed<60_000)return'just now';if(elapsed<3_600_000)return`${Math.floor(elapsed/60_000)}m ago`;if(elapsed<86_400_000)return`${Math.floor(elapsed/3_600_000)}h ago`;return`${Math.floor(elapsed/86_400_000)}d ago`}
 
 export default function WorkspaceAppV3(){
   const desktop=getDesktopHost()
@@ -50,12 +53,23 @@ export default function WorkspaceAppV3(){
   const [status,setStatus]=useState(desktop?'Local development host online':'Web workspace')
   const [cloudState,setCloudState]=useState(()=>({configured:isSupabaseConfigured(),session:loadSession()}))
   const [companionState,setCompanionState]=useState<HostStatus|null>(readHostStatus)
+  const [providerStates,setProviderStates]=useState<Partial<Record<ProviderId,ProviderConnectionState>>>({})
+  const [connectionClock,setConnectionClock]=useState(()=>Date.now())
   const [healthMap,setHealthMap]=useState<Record<string,ProjectHealth>>(()=>readProjectHealth())
 
   useEffect(()=>{const refresh=()=>{setProjects(readArray(PROJECTS_KEY));setSources(readArray(LOCAL_KEY))};window.addEventListener('storage',refresh);window.addEventListener('projectx:projects-changed',refresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('projectx:projects-changed',refresh)}},[])
   useEffect(()=>localStorage.setItem(VIEW_KEY,theme),[theme])
   useEffect(()=>{const refresh=()=>setCloudState({configured:isSupabaseConfigured(),session:loadSession()});window.addEventListener('projectx:supabase-config-changed',refresh);window.addEventListener('projectx:supabase-session-changed',refresh);return()=>{window.removeEventListener('projectx:supabase-config-changed',refresh);window.removeEventListener('projectx:supabase-session-changed',refresh)}},[])
   useEffect(()=>{const refresh=()=>setCompanionState(readHostStatus());window.addEventListener('projectx:companion-status',refresh);return()=>window.removeEventListener('projectx:companion-status',refresh)},[])
+  useEffect(()=>{const timer=window.setInterval(()=>setConnectionClock(Date.now()),15_000);return()=>window.clearInterval(timer)},[])
+  useEffect(()=>{
+    if(!cloudState.session)return
+    let cancelled=false
+    const refresh=async()=>{const [github,vercel]=await Promise.all([fetchProviderConnection('github'),fetchProviderConnection('vercel')]);if(!cancelled)setProviderStates({github,vercel})}
+    void refresh();const timer=window.setInterval(()=>void refresh(),60_000)
+    window.addEventListener('projectx:provider-changed',refresh)
+    return()=>{cancelled=true;window.clearInterval(timer);window.removeEventListener('projectx:provider-changed',refresh)}
+  },[cloudState.session])
   useEffect(()=>{const refresh=()=>setHealthMap(readProjectHealth());window.addEventListener(PROJECT_HEALTH_EVENT,refresh);return()=>window.removeEventListener(PROJECT_HEALTH_EVENT,refresh)},[])
   useEffect(()=>{document.documentElement.dataset.projectxTheme=theme.toLowerCase();return()=>{delete document.documentElement.dataset.projectxTheme}},[theme])
   useEffect(()=>{
@@ -116,8 +130,7 @@ export default function WorkspaceAppV3(){
   function changeTheme(next:ThemeMode){setTheme(next);setStatus(`${themes.find((item)=>item.id===next)?.label} environment loaded`);window.dispatchEvent(new CustomEvent('projectx:theme-changed',{detail:next}))}
 
   function openBrandUrl(url:string){
-    if(desktop){void desktop.openExternalPreview(url);return}
-    window.open(url,'_blank','noopener,noreferrer')
+    void openHostedLink(url).catch((error)=>setStatus(errorMessage(error,'Unable to open that link.')))
   }
 
   function deleteProject(project:Project){
@@ -128,13 +141,16 @@ export default function WorkspaceAppV3(){
   const localCount=active.filter((project)=>sourceMap.has(project.id)).length
   const repoCount=active.filter((project)=>Boolean(project.repoUrl||project.github)).length
   const liveCount=active.filter((project)=>healthFor(project.id,healthMap).deployment.state==='online').length
+  const companionOnline=companionState?.status==='online'&&Boolean(companionState.updatedAt)&&connectionClock-new Date(companionState.updatedAt).getTime()<30_000
+  const visibleProviderStates=cloudState.session?providerStates:{}
   function openDeployment(project:Project){
     window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'cloud'}}))
     window.setTimeout(()=>window.dispatchEvent(new CustomEvent('projectx:open-deployment',{detail:{projectId:project.id}})),0)
   }
+  function openConnection(target:'companion'|ProviderId){window.dispatchEvent(new CustomEvent('projectx:open-connection',{detail:{target}}))}
 
   return <div className={`px-shell workspace-v2 workspace-v3 theme-${theme.toLowerCase()}`}>
-    <aside className="sidebar v2-sidebar"><button className="brand-lockup" type="button" onClick={()=>setNav('Projects')}><img className="brand-mark" src={appIcon} alt=""/><div><div className="brand-name">project<span>.X</span> <small className="brand-version">v{APP_VERSION}</small></div><div className="brand-subtitle">PROJECT LIFECYCLE</div></div></button><nav className="primary-nav">{(['Projects','Favorites','Activity','Archive'] as NavMode[]).map((item)=><button key={item} type="button" className={nav===item?'nav-item active':'nav-item'} onClick={()=>setNav(item)}><span className="nav-dot"/><span>{item}</span></button>)}</nav><div className="v2-source-status"><small>WORKSPACE SOURCE</small><strong>{desktop?'Local + Cloud':'Cloud / Web'}</strong><span>{localCount} local · {repoCount} repos</span></div><button className={`v2-cloud-entry ${cloudState.session?'connected':cloudState.configured?'ready':'offline'}`} type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'cloud',openCloud:true}}))}><i/><span><strong>{cloudState.session?'Cloud signed in':cloudState.configured?'Cloud sign in':'Configure Cloud'}</strong><small>{cloudState.session?.user.email||cloudState.session?.user.id||(cloudState.configured?'Account backup and Companion':'Cloud is not configured')}</small></span></button>{desktop&&cloudState.session&&<div className={`v2-companion-state ${companionState?.status||'connecting'}`}><i/><div><strong>{companionState?.status==='online'?'Companion connected':companionState?.status==='error'?'Companion needs attention':'Connecting Companion'}</strong><span>{companionState?.detail||'Publishing this PC and its local projects.'}</span></div></div>}<div className="sidebar-spacer"/><div className="planet-signature"><span>Created at planet.X</span><img src={planetWordmark} alt="planet.X"/></div><div className="v2-sidebar-controls"><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'projects'}}))}>Control center</button><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-settings'))}>Settings</button></div><div className="v2-host-state"><i className={desktop?'online':''}/><span>{desktop?'LOCAL DEV HOST ONLINE':'LOCAL DEV HOST OFFLINE'}</span></div></aside>
+    <aside className="sidebar v2-sidebar"><button className="brand-lockup" type="button" onClick={()=>setNav('Projects')}><img className="brand-mark" src={appIcon} alt=""/><div><div className="brand-name">project<span>.X</span> <small className="brand-version">v{APP_VERSION}</small></div><div className="brand-subtitle">PROJECT LIFECYCLE</div></div></button><nav className="primary-nav">{(['Projects','Favorites','Activity','Archive'] as NavMode[]).map((item)=><button key={item} type="button" className={nav===item?'nav-item active':'nav-item'} onClick={()=>setNav(item)}><span className="nav-dot"/><span>{item}</span></button>)}</nav><div className="v2-source-status"><small>WORKSPACE SOURCE</small><strong>{desktop?'Local + Cloud':'Cloud / Web'}</strong><span>{localCount} local · {repoCount} repos</span></div><div className="connection-strip" aria-label="Connections"><button className={companionOnline?'online':companionState?.status==='error'?'error':'idle'} type="button" onClick={()=>openConnection('companion')} title={companionState?.detail||'Open Companion connection'}><i/><strong>Companion</strong><small>{connectionAge(companionState?.updatedAt,connectionClock)}</small></button><button className={visibleProviderStates.github?.connected?'online':'idle'} type="button" onClick={()=>openConnection('github')} title={visibleProviderStates.github?.message||'Open GitHub connection'}><i/><strong>GitHub</strong><small>{connectionAge(visibleProviderStates.github?.checkedAt,connectionClock)}</small></button><button className={visibleProviderStates.vercel?.connected?'online':'idle'} type="button" onClick={()=>openConnection('vercel')} title={visibleProviderStates.vercel?.message||'Open Vercel connection'}><i/><strong>Vercel</strong><small>{connectionAge(visibleProviderStates.vercel?.checkedAt,connectionClock)}</small></button></div><div className="sidebar-spacer"/><div className="planet-signature"><img src={planetWordmark} alt="planet.X"/><span>Created at planet.X</span></div><div className="v2-sidebar-controls"><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'projects'}}))}>Control center</button><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-settings'))}>Settings</button></div><div className="v2-host-state"><i className={desktop?'online':''}/><span>{desktop?'LOCAL DEV HOST ONLINE':'LOCAL DEV HOST OFFLINE'}</span></div></aside>
 
     <main className="workspace v2-workspace"><div className="workspace-brand-row"><div className="workspace-brand-banner"><img src={workspaceHeader} alt="project.X App Manager" /></div><div className="planet-promo"><div><button type="button" onClick={()=>openBrandUrl('https://www.planet-x.co')}>More planet.X Magic</button><button type="button" onClick={()=>openBrandUrl('https://www.planet-x.co/music')}>More xFactor Music</button></div><img src={planetCrest} alt="planet.X"/></div></div><header className="topbar v2-topbar"><div><p className="eyebrow">{themes.find((item)=>item.id===theme)?.sub} / {nav}</p><h1>{nav==='Projects'?'Your project universe.':nav}</h1><p className="v2-status-line">{status}</p></div><div className="topbar-actions"><label className="search-box"><span>⌕</span><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search projects…"/></label><button className="add-primary" type="button" onClick={openLauncher}>+ Add project</button></div></header>
       <section className="v2-theme-deck" aria-label="Workspace environments">{themes.map((item,index)=><button key={item.id} type="button" className={theme===item.id?'active':''} aria-pressed={theme===item.id} title={item.sub} onClick={()=>changeTheme(item.id)}><i>{String(index+1).padStart(2,'0')}</i><strong>{item.label}</strong><span>{item.sub}</span></button>)}</section>

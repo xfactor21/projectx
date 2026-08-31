@@ -672,6 +672,7 @@ fn main() {
             remote_packages::download_remote_package,
             remote_packages::remove_remote_package,
             preview::open_preview_window,
+            preview::open_external_url,
             dev_preview::run_preview_project,
             dev_preview::stop_preview_project,
             imports::select_zip_file,

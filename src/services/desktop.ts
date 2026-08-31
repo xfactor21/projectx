@@ -99,6 +99,7 @@ export type DesktopHostBridge = {
   removeRemotePackage(path: string): Promise<void>
   openPreviewWindow(projectId: string, projectName: string, url: string, pid?: number): Promise<void>
   openExternalPreview(url: string): Promise<void>
+  openExternalUrl(url: string): Promise<void>
   openInExplorer(path: string): Promise<void>
   openInTerminal(path: string): Promise<void>
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>

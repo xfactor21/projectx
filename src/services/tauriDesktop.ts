@@ -46,6 +46,7 @@ export function installTauriDesktopBridge(): boolean {
       window.dispatchEvent(new CustomEvent('projectx:open-preview', { detail: { projectId, projectName, url, pid } }))
     },
     openExternalPreview: (url) => invoke<void>('open_preview_window', { projectId: 'external', projectName: 'Preview', url }),
+    openExternalUrl: (url) => invoke<void>('open_external_url', { url }),
     openInExplorer: (path) => invoke<void>('open_in_explorer', { path }),
     openInTerminal: (path) => invoke<void>('open_in_terminal', { path }),
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),

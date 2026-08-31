@@ -16,8 +16,8 @@ export default function ThemeEnvironmentLayer() {
   }, [])
 
   if (theme === 'Storefront') return <div className="theme-environment env-storefront" aria-hidden="true">
-    <div className="store-sky"/><div className="store-brick-wall"/><div className="store-awning"><i/><i/><i/><i/><i/><i/></div>
-    <div className="store-sign">PROJECT.X SHOWROOM</div><div className="store-window-glow left"/><div className="store-window-glow right"/>
+    <div className="store-sky"/><div className="store-haze"/><div className="store-roofline"><i/><i/><i/><i/></div>
+    <div className="store-sign">PROJECT.X DISTRICT</div><div className="store-window-glow left"/><div className="store-window-glow right"/>
     <div className="store-lamp lamp-left"/><div className="store-lamp lamp-right"/><div className="xfactor-door-mark"/><div className="store-sidewalk"/>
   </div>
 
@@ -38,5 +38,5 @@ export default function ThemeEnvironmentLayer() {
     <div className="gallery-horizon"/><div className="gallery-plaque">PROJECT.X / DIGITAL EXHIBITION</div><div className="gallery-room-number">ROOM 05</div>
   </div>
 
-  return <div className="theme-environment env-command" aria-hidden="true"><div className="command-backdrop-grid"/><div className="command-scan"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>
+  return <div className="theme-environment env-command" aria-hidden="true"><div className="command-ambient left"/><div className="command-ambient right"/><div className="command-beacon one"/><div className="command-beacon two"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>
 }

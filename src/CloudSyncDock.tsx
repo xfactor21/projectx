@@ -74,6 +74,7 @@ export default function CloudSyncDock({ openRequest = 0 }: { openRequest?: numbe
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [dismissedRequest, setDismissedRequest] = useState(0)
   const [message, setMessage] = useState(isSupabaseConfigured() ? 'Cloud ready' : 'project.X Cloud is unavailable in this build.')
   const [configured, setConfigured] = useState(isSupabaseConfigured)
 
@@ -82,7 +83,9 @@ export default function CloudSyncDock({ openRequest = 0 }: { openRequest?: numbe
     window.addEventListener('projectx:supabase-config-changed', changed)
     return () => window.removeEventListener('projectx:supabase-config-changed', changed)
   }, [])
-  useEffect(() => { if (openRequest > 0) setExpanded(true) }, [openRequest])
+  const panelOpen = expanded || openRequest > dismissedRequest
+  function closePanel() { setExpanded(false); setDismissedRequest(openRequest) }
+  function togglePanel() { if (panelOpen) closePanel(); else setExpanded(true) }
 
   async function getFreshSession(): Promise<SupabaseSession | null> {
     const current = session || loadSession()
@@ -181,14 +184,14 @@ export default function CloudSyncDock({ openRequest = 0 }: { openRequest?: numbe
   }
 
   return (
-    <aside className={`cloud-dock ${expanded ? 'open' : ''}`} aria-label="project.X cloud sync">
-      <button className="cloud-dock-toggle" type="button" onClick={() => setExpanded((value) => !value)}>
+    <aside className={`cloud-dock ${panelOpen ? 'open' : ''}`} aria-label="project.X cloud sync">
+      <button className="cloud-dock-toggle" type="button" onClick={togglePanel}>
         <span className={configured ? 'cloud-dot online' : 'cloud-dot'} />
         <strong>CLOUD</strong>
         <span>{session ? 'SIGNED IN' : configured ? 'READY' : 'OFFLINE'}</span>
       </button>
-      {expanded && createPortal(<div className="utility-modal-layer" onPointerDown={(event) => { if (event.target === event.currentTarget) setExpanded(false) }}><div className="cloud-dock-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="project.X Cloud Sign In">
-        <div className="cloud-dock-head"><div><small>PROJECT.X ACCOUNT</small><strong>Cloud Sync</strong></div><button type="button" onClick={() => setExpanded(false)}>×</button></div>
+      {panelOpen && createPortal(<div className="utility-modal-layer" onPointerDown={(event) => { if (event.target === event.currentTarget) closePanel() }}><div className="cloud-dock-panel" data-projectx-utility-panel="true" role="dialog" aria-modal="true" aria-label="project.X Cloud Sign In">
+        <div className="cloud-dock-head"><div><small>PROJECT.X ACCOUNT</small><strong>Cloud Sync</strong></div><button type="button" onClick={closePanel}>×</button></div>
         <p className="cloud-message">{message}</p>
         {!session ? <>
           {!configured && <button className="cloud-configure" type="button" onClick={() => window.dispatchEvent(new CustomEvent('projectx:open-settings', { detail: { tab: 'cloud' } }))}>Open Cloud settings</button>}

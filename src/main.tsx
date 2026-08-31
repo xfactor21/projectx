@@ -15,6 +15,7 @@ import UtilityHub from './UtilityHub.tsx'
 import SettingsPanel from './SettingsPanel.tsx'
 import AppSplash from './AppSplash.tsx'
 import EmbeddedPreview from './EmbeddedPreview.tsx'
+import ConnectionCenter from './ConnectionCenter.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import { applySettings } from './services/settings'
 import './viewModes.css'
@@ -53,6 +54,7 @@ import './uiViewportFixes.css'
 import './embeddedPreview.css'
 import './v27.css'
 import './v28.css'
+import './v29.css'
 
 installTauriDesktopBridge()
 applySettings()
@@ -76,6 +78,7 @@ createRoot(document.getElementById('root')!).render(
         <ArtworkAutoDiscovery />
         <CompanionDesktopWorker />
         <EmbeddedPreview />
+        <ConnectionCenter />
         <UtilityHub />
         <SettingsPanel />
         <GitHubDiscoveryModal />

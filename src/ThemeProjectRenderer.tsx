@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import ComicProjectArt from './ComicProjectArt'
 import ProjectStatusBar from './ProjectStatusBar'
 import { healthFor, type ProjectHealth } from './services/projectHealth'
+import { openHostedLink } from './services/externalLinks'
 
 type Project = {
   id: string
@@ -128,15 +129,16 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
     <div className="storefront-row">{projects.map((project, index) => {
       const source = sourceMap.get(project.id)
       return <article className={`store-unit awning-${(index % 4) + 1} ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={{...artStyle(project),'--store-index':index} as CSSProperties}>
+        <div className="store-roof-trim"><i/><span>PROJECT.X · {String(index + 1).padStart(2, '0')}</span><i/></div>
         <div className="store-awning"><span>{String(index + 1).padStart(2, '0')}</span><strong>{project.name}</strong></div>
         <button className="store-window project-art-surface" type="button" onClick={() => onOpen(project)}>
-          <span className="store-neon">{sourceLabel(project, source)}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{project.description || 'Open project'}</small>
+          <span className="store-neon">{sourceLabel(project, source)}</span><span className="store-window-frame" aria-hidden="true"/>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{project.description || 'Open project'}</small>
         </button>
-        <div className="store-door"><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Enter / Run</button></div>
+        <div className="store-door"><span>OPEN · BUILD STUDIO</span><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Enter / Run</button></div>
         <ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/>
       </article>
     })}</div>
-    <div className="storefront-sidewalk" aria-hidden="true"><span>PROJECT.X DISTRICT</span><i className="walker walker-one"/><i className="walker walker-two"/><i className="walker dog-walker"><b/></i></div>
+    <div className="storefront-sidewalk" aria-hidden="true"><i/><span>PROJECT.X DISTRICT · INDEPENDENT BUILD STUDIOS</span><i/></div>
   </section>
 
   if (theme === 'Vending') return <VendingRenderer projects={projects} sourceMap={sourceMap} desktopOnline={desktopOnline} sourceLabel={sourceLabel} onOpen={onOpen} onRun={onRun} onDeployment={onDeployment} healthMap={healthMap}/>
@@ -171,6 +173,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
 
   return <section className="command-project-grid" aria-label="Project command grid">{projects.map((project, index) => {
     const source = sourceMap.get(project.id)
-    return <article className={`command-project ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}><button type="button" className="command-visual project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{sourceLabel(project, source)}</small></button><div><p>{project.description || 'No description yet.'}</p><div className="command-meta"><span>{source?.gitBranch || 'NO BRANCH'}</span><span>{source?.path && desktopOnline ? 'LOCAL SOURCE' : 'REMOTE'}</span></div><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Run</button><button type="button" disabled={!project.repoUrl} onClick={() => project.repoUrl && window.open(project.repoUrl, '_blank', 'noopener')}>Repo</button><button type="button" onClick={() => onOpen(project)}>Open</button></footer><ProjectStatusBar name={project.name} health={healthFor(project.id, healthMap)} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/></div></article>
+    const health=healthFor(project.id,healthMap)
+    return <article className={`command-project ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)}><button type="button" className="command-visual project-art-surface" onClick={() => onOpen(project)}><span>{String(index + 1).padStart(2, '0')}</span>{!project.coverUrl && <b>{monogram(project.name)}</b>}<small>{sourceLabel(project, source)}</small></button><div className="command-console"><header><span>PROJECT NODE {String(index + 1).padStart(2, '0')}</span><b className={health.build.state}>{health.build.state.toUpperCase()}</b></header><p>{project.description || 'No description yet.'}</p><div className="command-meta"><span>{source?.gitBranch || 'NO BRANCH'}</span><span>{source?.path && desktopOnline ? 'LOCAL SOURCE' : 'REMOTE'}</span><span>{(project.stack||[])[0]||'STACK UNKNOWN'}</span></div><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={() => onRun(project)}>Run</button><button type="button" disabled={!project.repoUrl} onClick={() => project.repoUrl && void openHostedLink(project.repoUrl)}>Repo</button><button type="button" onClick={() => onOpen(project)}>Open</button></footer><ProjectStatusBar name={project.name} health={health} onOpen={() => onOpen(project)} onDeployment={() => onDeployment(project)}/></div></article>
   })}</section>
 }

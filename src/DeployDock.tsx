@@ -33,18 +33,6 @@ export default function DeployDock() {
   const selected = projects.find((project) => project.id === selectedId) || projects[0]
   const vercelProjects = useMemo(() => Array.from(new Map(deployments.map((deployment) => [deployment.name, deployment])).values()), [deployments])
 
-  useEffect(() => {
-    const handle = (event: Event) => {
-      const detail = (event as CustomEvent<{ projectId?: string }>).detail
-      if (!detail?.projectId) return
-      setSelectedId(detail.projectId)
-      setOpen(true)
-      void loadDeployments(detail.projectId)
-    }
-    window.addEventListener('projectx:open-deployment', handle)
-    return () => window.removeEventListener('projectx:open-deployment', handle)
-  }, [])
-
   async function loadDeployments(projectId = selected?.id) {
     setMessage('Loading Vercel projects and current deployment states…')
     const result = await fetchVercelDeployments()
@@ -58,6 +46,18 @@ export default function DeployDock() {
     }
     setMessage(result.deployments.length ? 'Choose the Vercel project that belongs to this project.X record.' : 'Vercel is connected, but no deployments were returned.')
   }
+
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string }>).detail
+      if (!detail?.projectId) return
+      setSelectedId(detail.projectId)
+      setOpen(true)
+      void loadDeployments(detail.projectId)
+    }
+    window.addEventListener('projectx:open-deployment', handle)
+    return () => window.removeEventListener('projectx:open-deployment', handle)
+  }, [])
 
   function linkDeployment() {
     if (!selected) return setMessage('Choose a project.X project first.')
