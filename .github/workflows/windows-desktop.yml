@@ -3,7 +3,7 @@ name: project.X Windows Desktop
 on:
   workflow_dispatch:
   push:
-    branches: [develop]
+    branches: [main, develop]
   pull_request:
     branches: [main]
     paths:
