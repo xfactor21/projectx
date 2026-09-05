@@ -1,0 +1,71 @@
+name: project.X v2.9 Theme Overhaul
+
+on:
+  push:
+    branches: [theme-overhaul-v2.9]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.event.head_commit.message == 'theme: run immersive xFactor and planet.X overhaul'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply theme overhaul
+        run: python scripts/theme_overhaul_v29.py
+
+      - name: Fix generated planet.X environment selector collision
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          env = Path('src/ThemeEnvironmentLayer.tsx')
+          text = env.read_text(encoding='utf-8')
+          text = text.replace('className="planetx-label">PROJECT UNIVERSE', 'className="planetx-env-label">PROJECT UNIVERSE')
+          env.write_text(text, encoding='utf-8')
+
+          css = Path('src/phase2Themes.css')
+          text = css.read_text(encoding='utf-8')
+          text = text.replace('.planetx-label{position:absolute;right:5%;bottom:8%;', '.planetx-env-label{position:absolute;right:5%;bottom:8%;', 1)
+          css.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Regression tests
+        run: npm test
+
+      - name: Verify version discipline
+        shell: bash
+        run: |
+          grep -q "2.9.0" src/version.ts
+          ! grep -R "label:'Neon'\|label:'Orbit'" src/WorkspaceAppV3.tsx
+
+      - name: Commit generated theme implementation
+        shell: bash
+        run: |
+          git config user.name 'xFactor'
+          git config user.email 'xfactorxai@gmail.com'
+          git add src tests
+          git commit -m 'theme: apply immersive xFactor and planet.X overhaul'
+          git push origin HEAD:theme-overhaul-v2.9
