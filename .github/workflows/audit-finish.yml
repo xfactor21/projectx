@@ -7,11 +7,16 @@ on:
       - '.github/workflows/audit-finish.yml'
       - 'scripts/audit_finish_patch.py'
       - 'src/services/companion.ts'
+      - 'src/services/companionPackages.ts'
       - 'src/services/projectCloudSync.ts'
       - 'src/services/workspaceActivity.ts'
       - 'src/services/runTasks.ts'
+      - 'src/CompanionApp.tsx'
+      - 'src/CompanionDesktopWorker.tsx'
       - 'src/WorkspaceAppV3.tsx'
+      - 'src-tauri/src/imports.rs'
       - 'tests/audit-completion.test.mjs'
+      - 'tests/security-regression.test.mjs'
       - 'supabase/migrations/20260905_projectx_remote_action_protocol.sql'
 
 permissions:
@@ -61,5 +66,5 @@ jobs:
         run: |
           git config user.name "project.X Audit"
           git config user.email "actions@users.noreply.github.com"
-          git add src/CompanionApp.tsx src/CompanionDesktopWorker.tsx src/WorkspaceAppV3.tsx
-          if (git diff --cached --quiet) { Write-Host 'No generated patch changes.' } else { git commit -m "fix: complete companion cloud and activity audit remediation"; git push origin HEAD:audit-completion }
+          git add src/CompanionApp.tsx src/CompanionDesktopWorker.tsx src/WorkspaceAppV3.tsx src-tauri/src/imports.rs
+          if (git diff --cached --quiet) { Write-Host 'No generated patch changes.' } else { git commit -m "fix: complete companion cloud activity and ZIP audit remediation"; git push origin HEAD:audit-completion }
