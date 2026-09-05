@@ -54,8 +54,8 @@ jobs:
       - name: Regression tests
         run: npm test
 
-      - name: Install Capacitor build tools
-        run: npm install --no-save @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest @capacitor/assets@latest
+      - name: Install pinned Capacitor build tools
+        run: npm install --no-save @capacitor/core@8.5.1 @capacitor/cli@8.5.1 @capacitor/android@8.5.1 @capacitor/assets@3.0.5
 
       - name: Validate managed cloud configuration
         if: github.event_name != 'pull_request'
