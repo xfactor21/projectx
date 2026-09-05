@@ -5,8 +5,8 @@ import { execFileSync } from 'node:child_process'
 
 const read = (path) => fs.readFileSync(path, 'utf8')
 
-test('release version is not bumped during hardening', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '2.9.0')
+test('release version is v3.0 after hardening', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '3.0.0')
 })
 
 test('desktop Supabase sessions use protected persistence, not localStorage', () => {
