@@ -29,27 +29,30 @@ env:
   PROJECTX_ANDROID_VERSION_CODE: 20700
 
 jobs:
-  android-debug:
+  android:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Install web dependencies
         run: npm ci
+
+      - name: Regression tests
+        run: npm test
 
       - name: Install Capacitor build tools
         run: npm install --no-save @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest @capacitor/assets@latest
@@ -85,18 +88,78 @@ jobs:
           sed -i -E "s/versionName \"[^\"]+\"/versionName \"${PROJECTX_ANDROID_VERSION}\"/" android/app/build.gradle
           grep -E 'versionCode|versionName' android/app/build.gradle
 
+      - name: Detect release signing
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.PROJECTX_ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.PROJECTX_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PROJECTX_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PROJECTX_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Release signing secrets are not configured; debug APK will still be produced."
+          fi
+
+      - name: Configure release signing
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.PROJECTX_ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.PROJECTX_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PROJECTX_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PROJECTX_ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > android/app/projectx-release.jks
+          cat >> android/gradle.properties <<EOF
+          PROJECTX_STORE_FILE=projectx-release.jks
+          PROJECTX_STORE_PASSWORD=$STORE_PASSWORD
+          PROJECTX_KEY_ALIAS=$KEY_ALIAS
+          PROJECTX_KEY_PASSWORD=$KEY_PASSWORD
+          EOF
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/build.gradle')
+          text=p.read_text()
+          signing="""    signingConfigs {\n        release {\n            storeFile file(PROJECTX_STORE_FILE)\n            storePassword PROJECTX_STORE_PASSWORD\n            keyAlias PROJECTX_KEY_ALIAS\n            keyPassword PROJECTX_KEY_PASSWORD\n        }\n    }\n"""
+          text=text.replace('    buildTypes {', signing+'    buildTypes {', 1)
+          text=text.replace('        release {', '        release {\n            signingConfig signingConfigs.release', 1)
+          p.write_text(text)
+          PY
+
       - name: Build debug APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Apply project.X build filename
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk "${PROJECTX_BUILD_NAME}.apk"
+      - name: Build signed release APK and AAB
+        if: steps.signing.outputs.enabled == 'true'
+        working-directory: android
+        run: ./gradlew assembleRelease bundleRelease
 
-      - name: Upload Companion APK
-        uses: actions/upload-artifact@v4
+      - name: Apply project.X build filenames
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk "${PROJECTX_BUILD_NAME}.apk"
+          if [ "${{ steps.signing.outputs.enabled }}" = "true" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk "${PROJECTX_BUILD_NAME}-release.apk"
+            cp android/app/build/outputs/bundle/release/app-release.aab "${PROJECTX_BUILD_NAME}.aab"
+          fi
+
+      - name: Upload Companion debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ${{ env.PROJECTX_BUILD_NAME }}-android
+          name: ${{ env.PROJECTX_BUILD_NAME }}-android-debug
           path: ${{ env.PROJECTX_BUILD_NAME }}.apk
+          if-no-files-found: error
+
+      - name: Upload signed Companion release
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ env.PROJECTX_BUILD_NAME }}-android-release
+          path: |
+            ${{ env.PROJECTX_BUILD_NAME }}-release.apk
+            ${{ env.PROJECTX_BUILD_NAME }}.aab
           if-no-files-found: error
