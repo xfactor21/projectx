@@ -1,7 +1,8 @@
-import { getFreshSession, upsertCloudProjects } from './supabase'
+import { deleteCloudProject, fetchCloudProjects, getFreshSession, upsertCloudProjects } from './supabase'
 import type { CloudProject, SupabaseSession } from './supabase'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
+const SYNC_STATE_KEY = 'projectx.cloud.sync-state.v2'
 
 type LocalProject = {
   id: string
@@ -21,6 +22,17 @@ type LocalProject = {
   github?: unknown
 }
 
+type SyncSnapshot = {
+  localFingerprint: string
+  remoteUpdatedAt?: string
+}
+
+type SyncState = {
+  userId: string
+  ids: string[]
+  snapshots: Record<string, SyncSnapshot>
+}
+
 function readProjects(): LocalProject[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(PROJECTS_KEY) || '[]')
@@ -34,6 +46,27 @@ function lifecycleStatus(status?: string): CloudProject['status'] {
 
 function portableCover(value?: string) {
   return value && /^https:\/\//i.test(value) ? value : ''
+}
+
+function comparable(project: CloudProject) {
+  const { id: _id, user_id: _userId, created_at: _createdAt, updated_at: _updatedAt, ...rest } = project
+  return rest
+}
+
+function fingerprint(project: CloudProject) {
+  return JSON.stringify(comparable(project))
+}
+
+function readSyncState(userId: string): SyncState {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SYNC_STATE_KEY) || 'null') as SyncState | null
+    if (parsed?.userId === userId && Array.isArray(parsed.ids) && parsed.snapshots && typeof parsed.snapshots === 'object') return parsed
+  } catch { /* ignore malformed sync state */ }
+  return { userId, ids: [], snapshots: {} }
+}
+
+function writeSyncState(state: SyncState) {
+  localStorage.setItem(SYNC_STATE_KEY, JSON.stringify(state))
 }
 
 export function cloudProjectPayload(session: SupabaseSession) {
@@ -65,7 +98,43 @@ export function projectInventorySignature() {
 export async function syncLocalProjects(session?: SupabaseSession | null) {
   const active = await getFreshSession(session)
   if (!active) throw new Error('Sign in to project.X Cloud before connecting Companion.')
+
   const payload = cloudProjectPayload(active)
-  if (payload.length) await upsertCloudProjects(payload, active)
-  return { session: active, count: payload.length }
+  const remote = await fetchCloudProjects(active)
+  const remoteById = new Map(remote.map((project) => [project.client_id, project]))
+  const previous = readSyncState(active.user.id)
+  const currentIds = new Set(payload.map((project) => project.client_id))
+  const conflicts: string[] = []
+  const safeUpserts: CloudProject[] = []
+
+  for (const project of payload) {
+    const prior = previous.snapshots[project.client_id]
+    const currentRemote = remoteById.get(project.client_id)
+    const localChanged = !prior || prior.localFingerprint !== fingerprint(project)
+    const remoteChanged = Boolean(prior && currentRemote && prior.remoteUpdatedAt && currentRemote.updated_at && prior.remoteUpdatedAt !== currentRemote.updated_at)
+    if (localChanged && remoteChanged) {
+      conflicts.push(project.client_id)
+      continue
+    }
+    safeUpserts.push(project)
+  }
+
+  if (safeUpserts.length) await upsertCloudProjects(safeUpserts, active)
+
+  const deletedIds = previous.ids.filter((id) => !currentIds.has(id))
+  for (const id of deletedIds) await deleteCloudProject(id, active)
+
+  const refreshed = await fetchCloudProjects(active)
+  const refreshedById = new Map(refreshed.map((project) => [project.client_id, project]))
+  const snapshots: Record<string, SyncSnapshot> = {}
+  for (const project of payload) {
+    const currentRemote = refreshedById.get(project.client_id)
+    snapshots[project.client_id] = {
+      localFingerprint: fingerprint(project),
+      remoteUpdatedAt: currentRemote?.updated_at,
+    }
+  }
+  writeSyncState({ userId: active.user.id, ids: [...currentIds], snapshots })
+
+  return { session: active, count: safeUpserts.length, deletedCount: deletedIds.length, conflicts }
 }
