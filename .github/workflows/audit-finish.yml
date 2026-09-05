@@ -11,6 +11,7 @@ on:
       - 'src/services/projectCloudSync.ts'
       - 'src/services/workspaceActivity.ts'
       - 'src/services/runTasks.ts'
+      - 'src/CloudSyncDock.tsx'
       - 'src/CompanionApp.tsx'
       - 'src/CompanionDesktopWorker.tsx'
       - 'src/WorkspaceAppV3.tsx'
