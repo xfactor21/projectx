@@ -54,9 +54,10 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-      - name: Commit phase 1
+      - name: Commit phase 1 code fixes
         shell: pwsh
         run: |
+          git restore --source=HEAD -- .github/workflows/ci.yml .github/workflows/windows-desktop.yml .github/workflows/android-companion.yml
           git config user.name "project.X Hardening"
           git config user.email "actions@users.noreply.github.com"
           git add -A
