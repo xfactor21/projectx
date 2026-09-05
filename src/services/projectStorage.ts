@@ -71,6 +71,7 @@ export function deleteProjectAndLocalSource(projectId: string): void {
         message: 'Project removed from project.X. Local files were left untouched.',
         metadata: { source: 'project-storage' },
       }, session))
+      .then(() => window.dispatchEvent(new CustomEvent('projectx:activity-changed')))
       .catch(() => undefined)
   }
 }

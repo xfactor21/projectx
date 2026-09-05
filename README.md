@@ -340,10 +340,10 @@ GitHub, Vercel, and Supabase integrations use HTTP APIs directly; no vendor Java
 - Companion device/action tables and private package storage require all three Supabase migrations before those features become durable.
 - Companion remote-action execution requires a running, signed-in Windows host to poll and claim authorized actions. ZIP handoff reports download/import/install stages and keeps packages private to the signed-in user.
 - Companion Launch can open an embedded preview on the PC or a LAN preview on the phone. Mobile LAN preview requires the phone and PC to share a private network; off-network live development requires an independently configured authenticated HTTPS tunnel. A project's Published link remains available for deployed builds.
-- Cloud sync is manual and conflict resolution is merge/replace based rather than a true timestamp/tombstone two-way engine.
-- The Activity view is still local/GitHub derived rather than backed by the cloud activity table.
+- Cloud project deletions now use durable tombstones and remote-action state changes are database-enforced. Full simultaneous multi-device conflict merging still uses the explicit merge/replace workflow rather than silently guessing.
+- Activity reads the cloud activity table when signed in, refreshes automatically, and falls back to local project state if cloud activity is unavailable.
 - Native timeout/deadlock and external-link safety tests are committed. Browser viewport/theme checks cover the five project environments; broader installed-app interaction automation remains future work.
-- Traffic/performance/runtime-error/cost analytics providers are not yet connected.
+- Vercel deployment analytics are connected. Traffic/performance/runtime-error/cost telemetry remains provider-dependent and is intentionally not simulated when no external telemetry service is configured.
 - xConnect is not required. Its future adapter can implement the same capability boundaries without replacing project.X's independent GitHub/Vercel/local/companion contracts.
 
 ## CI
