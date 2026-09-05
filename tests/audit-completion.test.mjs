@@ -24,10 +24,11 @@ test('cloud sync tracks tombstones and detects conflicts', () => {
   assert.match(sync, /conflicts\.push/)
 })
 
-test('Android ZIP handoff refreshes auth and supports Android ZIP MIME types', () => {
+test('Android ZIP handoff refreshes auth and accepts Android ZIP MIME types', () => {
   const packages = read('src/services/companionPackages.ts')
   const app = read('src/CompanionApp.tsx')
   assert.match(packages, /getFreshSession/)
-  assert.match(packages, /application\/x-zip-compressed/)
+  assert.match(packages, /'Content-Type': 'application\/zip'/)
   assert.match(app, /application\/x-zip-compressed/)
+  assert.match(app, /application\/octet-stream/)
 })
