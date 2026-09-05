@@ -96,3 +96,14 @@ if old_activity in text:
 if new_activity not in text:
     raise SystemExit('missing real Activity timeline replacement')
 p.write_text(text, encoding='utf-8')
+
+# Phase 1 introduced literal PowerShell limits; remove now-unused Rust duplicates so native tests are warning-clean.
+p = Path('src-tauri/src/imports.rs')
+text = p.read_text(encoding='utf-8')
+for line in [
+    'const MAX_ZIP_EXTRACTED_BYTES: u64 = 512 * 1024 * 1024;\n',
+    'const MAX_ZIP_ENTRY_BYTES: u64 = 128 * 1024 * 1024;\n',
+    'const MAX_ZIP_ENTRIES: u64 = 25_000;\n',
+]:
+    text = text.replace(line, '')
+p.write_text(text, encoding='utf-8')
