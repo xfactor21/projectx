@@ -29,6 +29,24 @@ function encodedObjectPath(storagePath: string) {
   return storagePath.split('/').map((part) => encodeURIComponent(part)).join('/')
 }
 
+async function assertReadableZip(file: File) {
+  if (!file.name.toLowerCase().endsWith('.zip')) throw new Error('Choose a .zip project archive.')
+  if (file.size <= 0) throw new Error('The selected ZIP is empty or Android could not read it. Choose the file again from Files.')
+  if (file.size > MAX_ZIP_BYTES) throw new Error('Companion ZIP uploads are limited to 100 MB.')
+  let head: Uint8Array
+  try {
+    head = new Uint8Array(await file.slice(0, 4).arrayBuffer())
+  } catch {
+    throw new Error('Android could not read the selected ZIP. Copy it to local device storage and choose it again from Files.')
+  }
+  const valid = head.length >= 4 && head[0] === 0x50 && head[1] === 0x4b && (
+    (head[2] === 0x03 && head[3] === 0x04) ||
+    (head[2] === 0x05 && head[3] === 0x06) ||
+    (head[2] === 0x07 && head[3] === 0x08)
+  )
+  if (!valid) throw new Error('The selected file is named .zip but does not contain a readable ZIP archive.')
+}
+
 async function storageError(response: Response, fallback: string): Promise<Error> {
   const detail = await response.text()
   const normalized = detail.toLowerCase()
@@ -69,9 +87,7 @@ async function uploadOnce(file: File, session: SupabaseSession, storagePath: str
 }
 
 export async function uploadCompanionZip(file: File): Promise<{ storagePath: string; fileName: string; bytes: number }> {
-  if (!file.name.toLowerCase().endsWith('.zip')) throw new Error('Choose a .zip project archive.')
-  if (file.size <= 0) throw new Error('The selected ZIP is empty or Android could not read it. Choose the file again from Files.')
-  if (file.size > MAX_ZIP_BYTES) throw new Error('Companion ZIP uploads are limited to 100 MB.')
+  await assertReadableZip(file)
 
   let session = await freshSession()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project.zip'
