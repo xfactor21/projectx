@@ -1,4 +1,5 @@
 import type { ProjectRunResult } from './desktop'
+import { recordWorkspaceActivity } from './workspaceActivity'
 
 const KEY = 'projectx.running.tasks.v1'
 
@@ -41,5 +42,11 @@ export function recordRunTask(detail: RunStartedDetail) {
     startedAt: new Date().toISOString(),
   }
   persistRunTasks([task, ...readRunTasks().filter((item) => item.projectId !== task.projectId)].slice(0, 20))
+  recordWorkspaceActivity({
+    projectId: detail.projectId,
+    type: 'project.run.started',
+    message: `${detail.projectName} started with ${detail.result.script}.`,
+    metadata: { pid: detail.result.pid, url: detail.result.url || null, packageManager: detail.result.packageManager || null },
+  })
   window.dispatchEvent(new CustomEvent('projectx:run-started', { detail }))
 }
