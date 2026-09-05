@@ -25,6 +25,15 @@ test('ZIP extraction is guarded before Expand-Archive', () => {
   assert.match(source, /compression ratio/)
 })
 
+test('Companion ZIP paths are passed explicitly to PowerShell', () => {
+  const source = read('src-tauri/src/imports.rs')
+  assert.match(source, /PROJECTX_ZIP_PATH/)
+  assert.match(source, /PROJECTX_ZIP_DESTINATION/)
+  assert.match(source, /\$env:PROJECTX_ZIP_PATH/)
+  assert.doesNotMatch(source, /OpenRead\(\$args\[0\]\)/)
+  assert.doesNotMatch(source, /Expand-Archive -LiteralPath \$args\[0\]/)
+})
+
 test('main is an artifact-producing release branch', () => {
   assert.match(read('.github/workflows/windows-desktop.yml'), /branches: \[main, develop\]/)
   assert.match(read('.github/workflows/android-companion.yml'), /- main\r?\n\s+- develop/)
