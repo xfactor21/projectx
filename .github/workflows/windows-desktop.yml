@@ -43,6 +43,9 @@ jobs:
       - name: Regression tests
         run: npm test
 
+      - name: Build frontend for Tauri test context
+        run: npm run build
+
       - name: Native tests
         working-directory: src-tauri
         run: cargo test
