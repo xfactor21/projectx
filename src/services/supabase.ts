@@ -9,7 +9,7 @@ export type SupabaseConfig = { url: string; publishableKey: string; source: 'sel
 
 export type SupabaseUser = { id: string; email?: string }
 export type SupabaseSession = { access_token: string; refresh_token?: string; expires_in?: number; expires_at?: number; token_type?: string; user: SupabaseUser }
-export type CloudProject = { id?: string; user_id: string; client_id: string; name: string; kicker?: string; description?: string; status?: 'Live' | 'Building' | 'Concept' | 'Paused'; stack?: unknown; accent?: 'pink' | 'cyan' | 'violet'; progress?: number; favorite?: boolean; archived?: boolean; repo_url?: string; live_url?: string; cover_url?: string; notes?: string; github?: unknown; sort_order?: number; created_at?: string; updated_at?: string }
+export type CloudProject = { id?: string; user_id: string; client_id: string; name: string; kicker?: string; description?: string; status?: 'Live' | 'Building' | 'Concept' | 'Paused'; stack?: unknown; accent?: 'pink' | 'cyan' | 'violet'; progress?: number; favorite?: boolean; archived?: boolean; repo_url?: string; live_url?: string; cover_url?: string; notes?: string; github?: unknown; sort_order?: number; deleted_at?: string | null; created_at?: string; updated_at?: string }
 export type CloudActivity = { id?: string; user_id: string; project_client_id?: string | null; event_type: string; message: string; metadata?: Record<string, unknown>; created_at?: string }
 
 let refreshPromise: Promise<SupabaseSession | null> | null = null
@@ -185,13 +185,17 @@ export async function getFreshSession(session = loadSession()): Promise<Supabase
 }
 export async function signOut(session = loadSession()): Promise<void> { if (session?.access_token) { try { await request<void>('/auth/v1/logout', { method: 'POST' }, session.access_token) } catch { /* clear local session regardless */ } } saveSession(null) }
 
-export async function fetchCloudProjects(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
+export async function fetchCloudProjects(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&deleted_at=is.null&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
+export async function fetchCloudProjectsIncludingDeleted(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
 export async function upsertCloudProjects(projects: CloudProject[], session = loadSession()): Promise<CloudProject[]> {
   if (!session) throw new Error('Sign in before syncing projects.')
   if (!projects.length) return []
-  const payload = projects.map((project, index) => ({ ...project, user_id: session.user.id, sort_order: project.sort_order ?? index }))
+  const payload = projects.map((project, index) => ({ ...project, user_id: session.user.id, deleted_at: null, sort_order: project.sort_order ?? index }))
   return request<CloudProject[]>('/rest/v1/projectx_projects?on_conflict=user_id,client_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(payload) }, session.access_token)
 }
-export async function deleteCloudProject(clientId: string, session = loadSession()): Promise<void> { if (!session) throw new Error('Sign in before syncing projects.'); await request<void>(`/rest/v1/projectx_projects?client_id=eq.${encodeURIComponent(clientId)}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }, session.access_token) }
+export async function deleteCloudProject(clientId: string, session = loadSession()): Promise<void> {
+  if (!session) throw new Error('Sign in before syncing projects.')
+  await request<void>('/rest/v1/rpc/projectx_soft_delete_project', { method: 'POST', body: JSON.stringify({ target_client_id: clientId }) }, session.access_token)
+}
 export async function fetchCloudActivity(session = loadSession(), limit = 100): Promise<CloudActivity[]> { if (!session) throw new Error('Sign in before syncing activity.'); return request<CloudActivity[]>(`/rest/v1/projectx_activity?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 500))}`, { method: 'GET' }, session.access_token) }
 export async function appendCloudActivity(activity: Omit<CloudActivity, 'user_id'>, session = loadSession()): Promise<CloudActivity[]> { if (!session) throw new Error('Sign in before syncing activity.'); return request<CloudActivity[]>('/rest/v1/projectx_activity', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ ...activity, user_id: session.user.id }) }, session.access_token) }
