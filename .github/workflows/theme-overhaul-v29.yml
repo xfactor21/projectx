@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   apply-and-validate:
-    if: github.event.head_commit.message == 'theme: run immersive xFactor and planet.X overhaul'
+    if: ${{ github.event.head_commit.message == 'theme runner execute immersive xFactor and planet.X overhaul' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
