@@ -7,6 +7,7 @@ import { projectInventorySignature, syncLocalProjects } from './services/project
 import type { RemoteAction } from './services/companion'
 import type { DesktopProjectSummary } from './services/desktop'
 import { recordRunTask } from './services/runTasks'
+import { recordWorkspaceActivity } from './services/workspaceActivity'
 
 const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
@@ -38,6 +39,10 @@ function errorMessage(error: unknown) {
 
 function preferredRunScript(scripts: string[] = []) {
   return ['dev', 'web', 'start', 'serve'].find((script) => scripts.includes(script)) || ''
+}
+
+function actionLabelForActivity(actionType: string) {
+  return actionType.replace(/[._]/g, ' ').replace(/\b\w/g, (value) => value.toUpperCase())
 }
 
 function desktopDeviceId() {
@@ -109,7 +114,7 @@ async function execute(action: RemoteAction) {
   const desktop = getDesktopHost()
   if (!desktop || !action.id) return
   const source = localSource(action.project_client_id)
-  await updateRemoteAction(action.id, 'running')
+  await updateRemoteAction(action.id, 'running', undefined, desktopDeviceId())
   try {
     let result: unknown
     if (action.action_type === 'package.create_project' || action.action_type === 'package.update_project') {
@@ -117,17 +122,17 @@ async function execute(action: RemoteAction) {
       const fileName = String(action.payload?.fileName || 'companion-project.zip')
       if (!storagePath) throw new Error('Companion package storage path is missing.')
       if (action.action_type === 'package.update_project' && !source?.path) throw new Error('The target project is not linked to an authorized folder on this Windows device.')
-      await updateRemoteAction(action.id, 'running', { stage: 'Preparing secure package download.' })
+      await updateRemoteAction(action.id, 'running', { stage: 'Preparing secure package download.' }, desktopDeviceId())
       const signedUrl = await createCompanionZipSignedUrl(storagePath, 600)
       const localZip = await desktop.downloadRemotePackage(signedUrl, fileName)
       try {
         if (action.action_type === 'package.create_project') {
-          await updateRemoteAction(action.id, 'running', { stage: action.payload?.installDeps === false ? 'Validating and importing project files.' : 'Importing project and installing detected dependencies.' })
+          await updateRemoteAction(action.id, 'running', { stage: action.payload?.installDeps === false ? 'Validating and importing project files.' : 'Importing project and installing detected dependencies.' }, desktopDeviceId())
           const initialized = await desktop.initializeZipProject(localZip, action.payload?.installDeps !== false)
           const createdProjectId = await registerInitializedProject(initialized.summary)
           result = { createdProjectId, summary: initialized.summary, install: initialized.install || null }
         } else {
-          await updateRemoteAction(action.id, 'running', { stage: 'Validating and merging project files.' })
+          await updateRemoteAction(action.id, 'running', { stage: 'Validating and merging project files.' }, desktopDeviceId())
           const merged = await desktop.applyZipMerge(localZip, source!.path!)
           refreshUpdatedProject(action.project_client_id!, merged.summary)
           result = { summary: merged.summary, addedCount: merged.addedCount, replacedCount: merged.replacedCount, backupPath: merged.backupPath }
@@ -159,7 +164,7 @@ async function execute(action: RemoteAction) {
           const destination = String(action.payload?.destination || 'pc')
           const script = preferredRunScript(source.scripts)
           if (!script) throw new Error('This project has no supported dev, web, start or serve script.')
-          await updateRemoteAction(action.id, 'running', { stage: destination === 'mobile' ? 'Starting a LAN-accessible dev server.' : 'Starting the project.X dev server.' })
+          await updateRemoteAction(action.id, 'running', { stage: destination === 'mobile' ? 'Starting a LAN-accessible dev server.' : 'Starting the project.X dev server.' }, desktopDeviceId())
           const run = await desktop.runDevProject(source.path, script, destination === 'mobile')
           requireSuccessfulResult(run)
           if (!run.pid || !run.url) throw new Error('The dev server started without a usable preview URL.')
@@ -173,9 +178,11 @@ async function execute(action: RemoteAction) {
         default: throw new Error(`Unsupported remote action: ${action.action_type}`)
       }
     }
-    await updateRemoteAction(action.id, 'succeeded', { result: requireSuccessfulResult(result) ?? null })
+    await updateRemoteAction(action.id, 'succeeded', { result: requireSuccessfulResult(result) ?? null }, desktopDeviceId())
+    recordWorkspaceActivity({ projectId: action.project_client_id || null, type: `companion.${action.action_type}.succeeded`, message: `${actionLabelForActivity(action.action_type)} completed on Windows.`, metadata: { actionId: action.id } })
   } catch (error) {
-    await updateRemoteAction(action.id, 'failed', { error: errorMessage(error) })
+    await updateRemoteAction(action.id, 'failed', { error: errorMessage(error) }, desktopDeviceId())
+    recordWorkspaceActivity({ projectId: action.project_client_id || null, type: `companion.${action.action_type}.failed`, message: `${actionLabelForActivity(action.action_type)} failed on Windows: ${errorMessage(error)}`, metadata: { actionId: action.id } })
   }
 }
 
@@ -202,7 +209,7 @@ export default function CompanionDesktopWorker() {
         if (inventory !== syncedInventory) {
           const synced = await syncLocalProjects(session)
           syncedInventory = inventory
-          publishHostStatus('connecting', `Synced ${synced.count} project records.`, synced.count)
+          publishHostStatus('connecting', synced.conflicts.length ? `Synced ${synced.count} project records; ${synced.conflicts.length} conflict${synced.conflicts.length === 1 ? '' : 's'} need review.` : `Synced ${synced.count} project records${synced.deletedCount ? `; removed ${synced.deletedCount} stale cloud record${synced.deletedCount === 1 ? '' : 's'}` : ''}.`, synced.count)
         }
         await registerCompanionDevice({
           device_id: id,

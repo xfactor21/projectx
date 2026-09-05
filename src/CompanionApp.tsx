@@ -217,7 +217,7 @@ export default function CompanionApp() {
       })
       const action = rows[0]
       if (!action?.id) throw new Error('The remote action was not created.')
-      await updateRemoteAction(action.id, 'approved')
+      await updateRemoteAction(action.id, 'approved', undefined, deviceId())
       setMessage(`${project.name}: action sent to ${windowsDevice.name}.`)
       setTab('actions')
       await refresh(session, true)
@@ -246,7 +246,7 @@ export default function CompanionApp() {
       })
       const action = rows[0]
       if (!action?.id) throw new Error('The package action could not be created.')
-      await updateRemoteAction(action.id, 'approved')
+      await updateRemoteAction(action.id, 'approved', undefined, deviceId())
       const offline = !isFresh(windowsDevice)
       setMessage(offline ? `${packageFile.name} queued. ${windowsDevice.name} will receive it when it comes online.` : `${packageFile.name} sent to ${windowsDevice.name}.`)
       setPackageFile(null)
@@ -276,7 +276,7 @@ export default function CompanionApp() {
       })
       const action = rows[0]
       if (!action?.id) throw new Error('The launch request could not be created.')
-      await updateRemoteAction(action.id, 'approved')
+      await updateRemoteAction(action.id, 'approved', undefined, deviceId())
       if (destination === 'mobile') localStorage.setItem(PENDING_MOBILE_LAUNCH_KEY, action.id)
       setLaunchProject(null)
       setMessage(destination === 'mobile' ? `Starting ${project.name} on the PC. The preview will open here when its LAN address is ready.` : `Starting ${project.name} in project.X Preview on the PC.`)

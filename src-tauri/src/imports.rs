@@ -202,9 +202,6 @@ fn open_external_url(url: &str) -> Result<(), String> {
 }
 
 const MAX_ZIP_COMPRESSED_BYTES: u64 = 100 * 1024 * 1024;
-const MAX_ZIP_EXTRACTED_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_ZIP_ENTRY_BYTES: u64 = 128 * 1024 * 1024;
-const MAX_ZIP_ENTRIES: u64 = 25_000;
 
 fn validate_zip_archive(zip_path: &Path) -> Result<(), String> {
     let compressed = fs::metadata(zip_path)
