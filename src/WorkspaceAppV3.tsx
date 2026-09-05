@@ -16,7 +16,7 @@ import { fetchVercelDeployments } from './services/vercel'
 import { fetchProviderConnection, type ProviderConnectionState, type ProviderId } from './services/providerConnections'
 import { openHostedLink } from './services/externalLinks'
 
-type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'
+type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'
 type NavMode = 'Projects' | 'Favorites' | 'Activity' | 'Archive'
 type Project = { id:string; name:string; kicker?:string; description?:string; status?:string; stack?:string[]; updated?:string; progress?:number; favorite?:boolean; archived?:boolean; repoUrl?:string; liveUrl?:string; coverUrl?:string; github?:unknown }
 type LocalSource = { projectId:string; kind?:'desktop'|'browser'|'managed'|'zip'|'generated'; path?:string; scripts?:string[]; hasGit?:boolean; gitBranch?:string }
@@ -31,6 +31,8 @@ const themes:Array<{id:ThemeMode;label:string;sub:string}>=[
   {id:'Vending',label:'Vending',sub:'Build dispenser machine'},
   {id:'Comic',label:'Comic',sub:'Sequential project universe'},
   {id:'3D',label:'Gallery',sub:'Spatial project exhibit'},
+  {id:'Neon',label:'Neon',sub:'Cyberpunk build district'},
+  {id:'Orbit',label:'Orbit',sub:'Planetary project command'},
 ]
 
 function readArray<T>(key:string):T[]{return key===PROJECTS_KEY?readProjects() as T[]:key===LOCAL_KEY?readLocalSources() as T[]:[]}

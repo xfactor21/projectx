@@ -56,6 +56,7 @@ import './embeddedPreview.css'
 import './v27.css'
 import './v28.css'
 import './v29.css'
+import './phase2Themes.css'
 
 installTauriDesktopBridge()
 applySettings()

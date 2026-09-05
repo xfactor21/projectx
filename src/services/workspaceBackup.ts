@@ -12,7 +12,7 @@ export const GITHUB_OWNER_KEY = 'projectx.github.owner.v1'
 export const VIEW_KEY = 'projectx.view.v1'
 export const SOUND_KEY = 'projectx.theme.sound.v1'
 
-const THEMES = new Set(['Grid', 'Storefront', 'Vending', 'Comic', 'Gallery'])
+const THEMES = new Set(['Grid', 'Storefront', 'Vending', 'Comic', 'Gallery', '3D', 'Neon', 'Orbit'])
 const OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/
 
 type JsonRecord = Record<string, unknown>

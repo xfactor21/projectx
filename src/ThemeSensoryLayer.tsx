@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 const SOUND_KEY = 'projectx.theme.sound.v1'
 
-type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'
+type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'
 
 function readEnabled() {
   return localStorage.getItem(SOUND_KEY) === 'on'
@@ -56,6 +56,18 @@ function playThemeCue(context: AudioContext, theme: ThemeMode) {
     noiseBurst(context, now, .09, .025)
     tone(context, 160, now, .12, .065, 'sawtooth')
     tone(context, 330, now + .045, .16, .035, 'square')
+    return
+  }
+  if (theme === 'Neon') {
+    tone(context, 82, now, .72, .035, 'sawtooth')
+    tone(context, 659, now + .08, .18, .025, 'square')
+    tone(context, 988, now + .2, .12, .018, 'sine')
+    return
+  }
+  if (theme === 'Orbit') {
+    tone(context, 73, now, 1.5, .025, 'sine')
+    tone(context, 147, now + .08, 1.2, .02, 'sine')
+    tone(context, 587, now + .32, .72, .014, 'sine')
     return
   }
   if (theme === '3D') {

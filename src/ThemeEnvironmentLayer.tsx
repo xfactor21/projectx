@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'
+type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'
 
 function readTheme(): ThemeMode {
   return (localStorage.getItem('projectx.view.v1') || 'Grid') as ThemeMode
@@ -37,6 +37,10 @@ export default function ThemeEnvironmentLayer() {
     <div className="gallery-ceiling"/><div className="gallery-beam beam-one"/><div className="gallery-beam beam-two"/><div className="gallery-beam beam-three"/>
     <div className="gallery-horizon"/><div className="gallery-plaque">PROJECT.X / DIGITAL EXHIBITION</div><div className="gallery-room-number">ROOM 05</div>
   </div>
+
+  if (theme === 'Neon') return <div className="theme-environment env-neon" aria-hidden="true"><div className="neon-sky"/><div className="neon-grid"/><div className="neon-tower left"/><div className="neon-tower right"/><div className="neon-x-sign">X</div><div className="neon-rain"/></div>
+
+  if (theme === 'Orbit') return <div className="theme-environment env-orbit" aria-hidden="true"><div className="orbit-stars"/><div className="orbit-halo one"/><div className="orbit-halo two"/><div className="orbit-moon"/><div className="orbit-x">X</div></div>
 
   return <div className="theme-environment env-command" aria-hidden="true"><div className="command-ambient left"/><div className="command-ambient right"/><div className="command-beacon one"/><div className="command-beacon two"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>
 }
