@@ -33,6 +33,9 @@ jobs:
         shell: pwsh
         run: |
           python scripts/phase1_patch.py
+          $test = Get-Content tests/security-regression.test.mjs -Raw
+          $test = $test.Replace('/- main\n\s+- develop/', '/- main\r?\n\s+- develop/')
+          Set-Content tests/security-regression.test.mjs -Value $test -NoNewline
           git rm -f projectx
 
       - name: Install dependencies
