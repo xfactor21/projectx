@@ -1,0 +1,168 @@
+from pathlib import Path
+
+
+def replace(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    text = p.read_text(encoding='utf-8')
+    if old not in text:
+        raise SystemExit(f'Missing patch anchor in {path}: {old[:100]!r}')
+    p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+# Android ZIP picker: accept MIME labels used by Android document providers and allow reselecting same file.
+replace(
+    'src/CompanionApp.tsx',
+    '<label className="companion-file-picker"><span>{packageFile ? packageFile.name : \'Choose ZIP from phone\'}</span><input type="file" accept=".zip,application/zip" onChange={(event) => setPackageFile(event.target.files?.[0] || null)}/></label>',
+    '<label className="companion-file-picker"><span>{packageFile ? `${packageFile.name} · ${(packageFile.size / 1024 / 1024).toFixed(1)} MB` : \'Choose ZIP from phone\'}</span><input type="file" accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream" onClick={(event) => { event.currentTarget.value = \'\' }} onChange={(event) => setPackageFile(event.target.files?.[0] || null)}/></label>'
+)
+
+# Add two full workspace environments without changing the release version.
+replace(
+    'src/WorkspaceAppV3.tsx',
+    "type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'",
+    "type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'"
+)
+replace(
+    'src/WorkspaceAppV3.tsx',
+    "  {id:'3D',label:'Gallery',sub:'Spatial project exhibit'},\n]",
+    "  {id:'3D',label:'Gallery',sub:'Spatial project exhibit'},\n  {id:'Neon',label:'Neon',sub:'Cyberpunk build district'},\n  {id:'Orbit',label:'Orbit',sub:'Planetary project command'},\n]"
+)
+
+replace(
+    'src/ThemeProjectRenderer.tsx',
+    "  theme: 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'",
+    "  theme: 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'"
+)
+
+marker = '  return <section className="command-project-grid" aria-label="Project command grid">{projects.map((project, index) => {'
+insert = r'''  if (theme === 'Neon') return <section className="neon-district" aria-label="Neon project district">
+    <div className="neon-streetline" aria-hidden="true"/>
+    <header className="neon-district-header"><span>PLANET.X / NIGHT SHIFT</span><strong>BUILD CITY</strong><small>{projects.length} PROJECT SIGNALS</small></header>
+    <div className="neon-projects">{projects.map((project,index)=>{
+      const source=sourceMap.get(project.id)
+      const health=healthFor(project.id,healthMap)
+      return <article key={project.id} className={`neon-project neon-${index%3} ${project.coverUrl?'has-project-art':''}`} style={artStyle(project)}>
+        <button type="button" className="neon-billboard project-art-surface" onClick={()=>onOpen(project)}><span>PX-{String(index+1).padStart(2,'0')}</span>{!project.coverUrl&&<b>{monogram(project.name)}</b>}<strong>{project.name}</strong><small>{sourceLabel(project,source)}</small></button>
+        <div className="neon-console"><p>{project.description||'Project signal awaiting description.'}</p><div>{(project.stack||[]).slice(0,3).map((item)=><span key={item}>{item}</span>)}</div><footer><button type="button" disabled={!source?.path||!desktopOnline} onClick={()=>onRun(project)}>RUN</button><button type="button" onClick={()=>onDeployment(project)}>DEPLOY</button><button type="button" onClick={()=>onOpen(project)}>OPEN</button></footer></div>
+        <ProjectStatusBar name={project.name} health={health} onOpen={()=>onOpen(project)} onDeployment={()=>onDeployment(project)}/>
+      </article>
+    })}</div>
+  </section>
+
+  if (theme === 'Orbit') return <section className="orbit-command" aria-label="Orbital project command">
+    <div className="orbit-core" aria-hidden="true"><span>PROJECT.X</span><i/><b>ORBIT</b></div>
+    <div className="orbit-projects">{projects.map((project,index)=>{
+      const source=sourceMap.get(project.id)
+      const health=healthFor(project.id,healthMap)
+      return <article key={project.id} className={`orbit-node orbit-node-${index%6}`} style={{'--orbit-index':index,...(artStyle(project)||{})} as CSSProperties}>
+        <button type="button" className={`orbit-planet project-art-surface ${project.coverUrl?'has-project-art':''}`} onClick={()=>onOpen(project)}>{!project.coverUrl&&<b>{monogram(project.name)}</b>}<span>{String(index+1).padStart(2,'0')}</span></button>
+        <div className="orbit-label"><strong>{project.name}</strong><small>{sourceLabel(project,source)}</small><div><button type="button" disabled={!source?.path||!desktopOnline} onClick={()=>onRun(project)}>Run</button><button type="button" onClick={()=>onOpen(project)}>Open</button></div></div>
+        <ProjectStatusBar name={project.name} health={health} onOpen={()=>onOpen(project)} onDeployment={()=>onDeployment(project)}/>
+      </article>
+    })}</div>
+  </section>
+
+'''
+p = Path('src/ThemeProjectRenderer.tsx')
+text = p.read_text(encoding='utf-8')
+if marker not in text:
+    raise SystemExit('Theme renderer insertion anchor missing')
+p.write_text(text.replace(marker, insert + marker, 1), encoding='utf-8')
+
+replace(
+    'src/ThemeEnvironmentLayer.tsx',
+    "type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'",
+    "type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'"
+)
+replace(
+    'src/ThemeEnvironmentLayer.tsx',
+    '  return <div className="theme-environment env-command" aria-hidden="true"><div className="command-ambient left"/><div className="command-ambient right"/><div className="command-beacon one"/><div className="command-beacon two"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>',
+    '''  if (theme === 'Neon') return <div className="theme-environment env-neon" aria-hidden="true"><div className="neon-sky"/><div className="neon-grid"/><div className="neon-tower left"/><div className="neon-tower right"/><div className="neon-x-sign">X</div><div className="neon-rain"/></div>\n\n  if (theme === 'Orbit') return <div className="theme-environment env-orbit" aria-hidden="true"><div className="orbit-stars"/><div className="orbit-halo one"/><div className="orbit-halo two"/><div className="orbit-moon"/><div className="orbit-x">X</div></div>\n\n  return <div className="theme-environment env-command" aria-hidden="true"><div className="command-ambient left"/><div className="command-ambient right"/><div className="command-beacon one"/><div className="command-beacon two"/><div className="command-label">PROJECT.X // COMMAND ENVIRONMENT</div></div>'''
+)
+
+replace(
+    'src/ThemeSensoryLayer.tsx',
+    "type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D'",
+    "type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'"
+)
+replace(
+    'src/ThemeSensoryLayer.tsx',
+    "  if (theme === '3D') {",
+    "  if (theme === 'Neon') {\n    tone(context, 82, now, .72, .035, 'sawtooth')\n    tone(context, 659, now + .08, .18, .025, 'square')\n    tone(context, 988, now + .2, .12, .018, 'sine')\n    return\n  }\n  if (theme === 'Orbit') {\n    tone(context, 73, now, 1.5, .025, 'sine')\n    tone(context, 147, now + .08, 1.2, .02, 'sine')\n    tone(context, 587, now + .32, .72, .014, 'sine')\n    return\n  }\n  if (theme === '3D') {"
+)
+
+replace(
+    'src/services/workspaceBackup.ts',
+    "const THEMES = new Set(['Grid', 'Storefront', 'Vending', 'Comic', 'Gallery'])",
+    "const THEMES = new Set(['Grid', 'Storefront', 'Vending', 'Comic', 'Gallery', '3D', 'Neon', 'Orbit'])"
+)
+
+replace(
+    'src/main.tsx',
+    "import './v29.css'",
+    "import './v29.css'\nimport './phase2Themes.css'"
+)
+
+Path('src/phase2Themes.css').write_text(r'''/* Phase 2 workspace environments — intentionally version-neutral until release cut. */
+
+/* Shared theme polish */
+.v2-theme-deck button { position: relative; overflow: hidden; transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.v2-theme-deck button::after { content: ''; position: absolute; inset: auto 12% 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,46,166,.7), rgba(68,229,255,.72), transparent); opacity: .28; }
+.v2-theme-deck button:hover { transform: translateY(-2px); }
+.v2-theme-deck button.active { box-shadow: 0 12px 36px rgba(0,0,0,.28), inset 0 0 28px rgba(130,80,255,.08); }
+.store-unit,.comic-volume,.gallery-exhibit,.command-project,.vending-slot { transition: transform .22s ease, filter .22s ease, box-shadow .22s ease; }
+.store-unit:hover,.comic-volume:hover,.gallery-exhibit:hover,.command-project:hover,.vending-slot:hover { transform: translateY(-4px); filter: saturate(1.08); }
+
+/* NEON — layered cyberpunk street instead of generic cards. */
+body:has(.view-neon), body:has(.theme-neon) { background: #05030a; }
+.env-neon { background: radial-gradient(circle at 68% 22%, rgba(22,211,255,.12), transparent 31%), radial-gradient(circle at 20% 50%, rgba(255,22,154,.13), transparent 32%), linear-gradient(#05030a 0 64%, #090614 64%); }
+.env-neon .neon-sky { position:absolute; inset:0; background: linear-gradient(180deg,rgba(2,3,13,.1),rgba(8,3,20,.68)); }
+.env-neon .neon-grid { position:absolute; left:-10%; right:-10%; bottom:-18%; height:54%; transform:perspective(520px) rotateX(62deg); transform-origin:bottom; background-image:linear-gradient(rgba(67,224,255,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(255,45,173,.16) 1px,transparent 1px); background-size:46px 34px; mask-image:linear-gradient(to top,#000,transparent 88%); }
+.env-neon .neon-tower { position:absolute; bottom:26%; width:17%; height:48%; border:1px solid rgba(90,228,255,.1); background:repeating-linear-gradient(180deg,rgba(8,12,26,.96) 0 18px,rgba(255,30,161,.09) 19px 20px); box-shadow:0 0 60px rgba(0,0,0,.8); transform:skewY(-3deg); }
+.env-neon .neon-tower.left { left:2%; } .env-neon .neon-tower.right { right:4%; height:58%; transform:skewY(4deg); }
+.env-neon .neon-x-sign { position:absolute; right:10%; top:16%; font:900 96px/1 system-ui; color:rgba(255,34,168,.18); text-shadow:0 0 24px rgba(255,34,168,.42),0 0 44px rgba(62,226,255,.2); transform:rotate(-7deg); }
+.env-neon .neon-rain { position:absolute; inset:0; opacity:.18; background:repeating-linear-gradient(102deg,transparent 0 18px,rgba(119,231,255,.2) 19px 20px,transparent 21px 47px); animation:px-neon-rain 6s linear infinite; }
+@keyframes px-neon-rain { to { background-position:130px 420px; } }
+.neon-district { position:relative; z-index:2; padding:18px 18px 56px; border:1px solid rgba(80,222,255,.12); background:linear-gradient(180deg,rgba(8,6,20,.74),rgba(4,4,12,.88)); box-shadow:0 30px 90px rgba(0,0,0,.42); overflow:hidden; }
+.neon-district::before { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg,transparent 15%,rgba(255,37,168,.025) 35%,transparent 60%,rgba(57,225,255,.025)); }
+.neon-district-header { display:flex; align-items:end; gap:18px; padding:4px 4px 20px; border-bottom:1px solid rgba(119,224,255,.14); }
+.neon-district-header span,.neon-district-header small { font:700 10px/1.2 ui-monospace,monospace; letter-spacing:.16em; color:#7ddff3; }
+.neon-district-header strong { font:800 clamp(24px,3vw,44px)/.9 system-ui; letter-spacing:-.04em; color:#fff; text-shadow:0 0 18px rgba(255,39,166,.28); }
+.neon-district-header small { margin-left:auto; color:#ff63be; }
+.neon-projects { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; padding-top:20px; }
+.neon-project { position:relative; min-width:0; border:1px solid rgba(91,222,255,.17); background:rgba(5,7,18,.8); box-shadow:0 14px 38px rgba(0,0,0,.35),inset 0 0 32px rgba(74,72,255,.025); transition:.24s ease; }
+.neon-project:hover { transform:translateY(-6px); border-color:rgba(255,65,178,.42); box-shadow:0 20px 46px rgba(0,0,0,.45),0 0 26px rgba(255,42,169,.08); }
+.neon-billboard { position:relative; width:100%; min-height:170px; border:0; border-bottom:1px solid rgba(120,223,255,.15); background:radial-gradient(circle at 30% 20%,rgba(255,39,167,.18),transparent 42%),linear-gradient(135deg,#12102a,#080b18); color:#fff; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; padding:18px; text-align:left; overflow:hidden; }
+.neon-project.has-project-art .neon-billboard { background-image:linear-gradient(180deg,transparent 25%,rgba(3,4,10,.92)),var(--project-art); background-size:cover; background-position:center; }
+.neon-billboard>span { position:absolute; top:14px; right:14px; font:800 9px ui-monospace,monospace; letter-spacing:.16em; color:#66e5ff; }
+.neon-billboard>b { font:900 54px/1 system-ui; color:#fff; text-shadow:4px 0 #ff2ca8,-4px 0 #35e5ff; margin-bottom:auto; }
+.neon-billboard>strong { font:800 22px/1.05 system-ui; letter-spacing:-.03em; }
+.neon-billboard>small { margin-top:7px; font:700 9px ui-monospace,monospace; letter-spacing:.12em; color:#ff8bd0; }
+.neon-console { padding:14px 16px 16px; }
+.neon-console p { min-height:40px; margin:0 0 12px; color:rgba(230,237,255,.72); font-size:12px; line-height:1.5; }
+.neon-console>div { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }.neon-console>div span { padding:4px 7px; border:1px solid rgba(83,221,255,.14); color:#9cecff; font:700 9px ui-monospace,monospace; }
+.neon-console footer { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }.neon-console button { min-height:32px; border:1px solid rgba(117,222,255,.2); background:#0b1020; color:#dffaff; font:800 9px ui-monospace,monospace; letter-spacing:.1em; }.neon-console button:first-child { border-color:rgba(255,42,170,.38); background:linear-gradient(135deg,rgba(255,42,170,.15),rgba(53,222,255,.08)); }
+
+/* ORBIT — radial dashboard with project planets and deep-space depth. */
+body:has(.view-orbit), body:has(.theme-orbit) { background:#02040a; }
+.env-orbit { background:radial-gradient(circle at 50% 46%,rgba(77,39,173,.18),transparent 26%),radial-gradient(circle at 80% 18%,rgba(27,193,255,.08),transparent 20%),#02040a; }
+.env-orbit .orbit-stars { position:absolute; inset:0; background-image:radial-gradient(circle,#fff 0 1px,transparent 1.5px),radial-gradient(circle,#6ae7ff 0 1px,transparent 1.5px); background-size:79px 73px,121px 113px; background-position:0 0,37px 26px; opacity:.24; }
+.env-orbit .orbit-halo { position:absolute; left:50%; top:48%; border:1px solid rgba(79,220,255,.1); border-radius:50%; transform:translate(-50%,-50%) rotate(-12deg); }.env-orbit .orbit-halo.one{width:58vw;height:24vw}.env-orbit .orbit-halo.two{width:82vw;height:34vw;transform:translate(-50%,-50%) rotate(18deg);border-color:rgba(255,48,177,.08)}
+.env-orbit .orbit-moon { position:absolute; right:7%; top:16%; width:88px; height:88px; border-radius:50%; background:radial-gradient(circle at 32% 28%,#738099,#1a2131 38%,#080c13 72%); box-shadow:-18px 14px 44px rgba(0,0,0,.6),0 0 40px rgba(73,218,255,.08); opacity:.48; }
+.env-orbit .orbit-x { position:absolute; left:7%; bottom:10%; font:900 120px/1 system-ui; color:rgba(255,255,255,.025); transform:rotate(12deg); }
+.orbit-command { position:relative; z-index:2; min-height:620px; overflow:hidden; border:1px solid rgba(96,220,255,.11); background:radial-gradient(circle at 50% 46%,rgba(41,20,97,.27),transparent 25%),rgba(2,5,12,.74); }
+.orbit-command::before,.orbit-command::after { content:''; position:absolute; left:50%; top:48%; border:1px solid rgba(97,225,255,.13); border-radius:50%; transform:translate(-50%,-50%) rotate(-10deg); pointer-events:none; }.orbit-command::before{width:64%;height:34%}.orbit-command::after{width:88%;height:54%;transform:translate(-50%,-50%) rotate(13deg);border-color:rgba(255,61,179,.1)}
+.orbit-core { position:absolute; left:50%; top:48%; width:150px; height:150px; transform:translate(-50%,-50%); border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; border:1px solid rgba(112,230,255,.28); background:radial-gradient(circle at 38% 30%,rgba(255,61,184,.32),rgba(73,41,148,.24) 36%,rgba(4,8,18,.96) 72%); box-shadow:0 0 45px rgba(60,211,255,.13),0 0 90px rgba(255,43,171,.08),inset 0 0 30px rgba(255,255,255,.04); color:#fff; z-index:3; }
+.orbit-core span,.orbit-core b { font:800 9px ui-monospace,monospace; letter-spacing:.16em; }.orbit-core b{font-size:20px;letter-spacing:.05em}.orbit-core i{width:46px;height:1px;margin:8px 0;background:linear-gradient(90deg,#ff3fae,#52e4ff)}
+.orbit-projects { position:relative; min-height:620px; z-index:4; }
+.orbit-node { position:absolute; width:190px; transform:translate(-50%,-50%); }
+.orbit-node-0{left:18%;top:24%}.orbit-node-1{left:50%;top:15%}.orbit-node-2{left:82%;top:27%}.orbit-node-3{left:84%;top:70%}.orbit-node-4{left:50%;top:83%}.orbit-node-5{left:16%;top:70%}
+.orbit-node:nth-child(n+7) { position:relative; display:inline-flex; vertical-align:top; margin:480px 8px 0 16px; left:auto; top:auto; transform:none; }
+.orbit-planet { width:78px; height:78px; margin:0 auto; border-radius:50%; border:1px solid rgba(108,227,255,.28); background:radial-gradient(circle at 33% 26%,rgba(255,255,255,.22),rgba(52,209,255,.16) 22%,rgba(112,45,198,.18) 48%,#060a13 76%); color:#fff; box-shadow:0 0 26px rgba(65,218,255,.1),inset -14px -12px 24px rgba(0,0,0,.45); display:grid; place-items:center; position:relative; overflow:hidden; transition:.25s ease; }
+.orbit-planet.has-project-art { background-image:linear-gradient(135deg,rgba(3,5,12,.06),rgba(3,5,12,.55)),var(--project-art); background-size:cover; background-position:center; }
+.orbit-planet:hover { transform:scale(1.08); box-shadow:0 0 34px rgba(255,58,181,.16),0 0 18px rgba(74,225,255,.18); }.orbit-planet b{font:900 24px system-ui;text-shadow:2px 0 #ff3caf,-2px 0 #4ae5ff}.orbit-planet span{position:absolute;right:7px;bottom:7px;font:800 8px ui-monospace,monospace;color:#91ebff}
+.orbit-label { margin-top:10px; padding:8px 10px; text-align:center; background:rgba(3,7,15,.8); border:1px solid rgba(98,220,255,.12); backdrop-filter:blur(9px); }.orbit-label strong{display:block;color:#fff;font-size:12px}.orbit-label small{display:block;margin-top:4px;color:#77dff1;font:700 8px ui-monospace,monospace;letter-spacing:.08em}.orbit-label>div{display:flex;gap:5px;justify-content:center;margin-top:7px}.orbit-label button{border:1px solid rgba(112,222,255,.16);background:#080d18;color:#dff8ff;font:700 8px ui-monospace,monospace;padding:5px 9px}
+
+@media (max-width:900px){.orbit-command{min-height:auto;padding:24px 14px}.orbit-core,.orbit-command::before,.orbit-command::after{display:none}.orbit-projects{min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}.orbit-node,.orbit-node:nth-child(n+7){position:relative;display:block;left:auto;top:auto;transform:none;width:auto;margin:0}.neon-projects{grid-template-columns:1fr}.neon-district-header{align-items:flex-start;flex-direction:column}.neon-district-header small{margin-left:0}}
+
+@media (prefers-reduced-motion:reduce){.env-neon .neon-rain{animation:none}.neon-project,.orbit-planet,.v2-theme-deck button{transition:none}}
+''', encoding='utf-8')
