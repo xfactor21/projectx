@@ -1,0 +1,62 @@
+name: project.X Audit Completion
+
+on:
+  push:
+    branches: [audit-completion]
+    paths:
+      - '.github/workflows/audit-finish.yml'
+      - 'scripts/audit_finish_patch.py'
+      - 'src/services/companion.ts'
+      - 'src/services/projectCloudSync.ts'
+      - 'tests/audit-completion.test.mjs'
+      - 'supabase/migrations/20260905_projectx_remote_action_protocol.sql'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: audit-completion
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+
+      - name: Apply audit patch
+        run: python scripts/audit_finish_patch.py
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Regression tests
+        run: npm test
+
+      - name: Native tests
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Commit validated audit fixes
+        shell: pwsh
+        run: |
+          git config user.name "project.X Audit"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/CompanionApp.tsx src/CompanionDesktopWorker.tsx
+          if (git diff --cached --quiet) { Write-Host 'No generated patch changes.' } else { git commit -m "fix: complete companion and cloud audit remediation"; git push origin HEAD:audit-completion }
