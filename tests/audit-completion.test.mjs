@@ -17,11 +17,13 @@ test('remote actions use guarded RPC transitions', () => {
 
 test('cloud sync tracks tombstones and detects conflicts', () => {
   const sync = read('src/services/projectCloudSync.ts')
+  const cloudUi = read('src/CloudSyncDock.tsx')
   assert.match(sync, /SYNC_STATE_KEY/)
   assert.match(sync, /deletedIds/)
   assert.match(sync, /deleteCloudProject/)
   assert.match(sync, /remoteChanged/)
   assert.match(sync, /conflicts\.push/)
+  assert.match(cloudUi, /syncLocalProjects/)
 })
 
 test('Android ZIP handoff refreshes auth and accepts Android ZIP MIME types', () => {
@@ -29,6 +31,20 @@ test('Android ZIP handoff refreshes auth and accepts Android ZIP MIME types', ()
   const app = read('src/CompanionApp.tsx')
   assert.match(packages, /getFreshSession/)
   assert.match(packages, /'Content-Type': 'application\/zip'/)
+  assert.match(packages, /0x50/)
   assert.match(app, /application\/x-zip-compressed/)
   assert.match(app, /application\/octet-stream/)
+})
+
+test('production workflow dependencies are pinned', () => {
+  const workflows = [
+    read('.github/workflows/ci.yml'),
+    read('.github/workflows/windows-desktop.yml'),
+    read('.github/workflows/android-companion.yml'),
+  ].join('\n')
+  assert.doesNotMatch(workflows, /uses:\s+[^\s]+@v\d+/)
+  assert.doesNotMatch(workflows, /uses:\s+[^\s]+@stable/)
+  assert.doesNotMatch(workflows, /@latest/)
+  assert.match(read('.github/workflows/android-companion.yml'), /PROJECTX_ANDROID_KEYSTORE_B64/)
+  assert.match(read('.github/workflows/android-companion.yml'), /bundleRelease/)
 })
