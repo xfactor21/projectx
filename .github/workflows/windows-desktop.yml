@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX-08.30-v2.9-theme-connections
+  PROJECTX_BUILD_NAME: projectX-09.05-v3.0-immersive-hardening
 
 jobs:
   windows-installer:

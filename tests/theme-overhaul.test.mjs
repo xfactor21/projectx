@@ -8,8 +8,8 @@ const sensory = fs.readFileSync('src/ThemeSensoryLayer.tsx', 'utf8')
 const css = fs.readFileSync('src/phase2Themes.css', 'utf8')
 const version = fs.readFileSync('src/version.ts', 'utf8')
 
-test('theme overhaul keeps v2.9 while introducing xFactor and planet.X', () => {
-  assert.match(version, /2\.9\.0/)
+test('theme overhaul ships v3.0 with xFactor and planet.X', () => {
+  assert.match(version, /3\.0\.0/)
   assert.match(workspace, /label:'xFactor'/)
   assert.match(workspace, /label:'planet\.X'/)
   assert.match(workspace, /raw==='Neon'\?'XFactor'/)
