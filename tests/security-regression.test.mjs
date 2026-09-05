@@ -17,6 +17,14 @@ test('desktop Supabase sessions use protected persistence, not localStorage', ()
   assert.match(source, /localStorage\.removeItem\(SESSION_KEY\)/)
 })
 
+test('protected desktop session paths are passed explicitly to PowerShell', () => {
+  const source = read('src-tauri/src/secure_session.rs')
+  assert.match(source, /PROJECTX_SESSION_PATH/)
+  assert.match(source, /\$env:PROJECTX_SESSION_PATH/)
+  assert.doesNotMatch(source, /ReadAllBytes\(\$args\[0\]\)/)
+  assert.doesNotMatch(source, /WriteAllBytes\(\$args\[0\]/)
+})
+
 test('ZIP extraction is guarded before Expand-Archive', () => {
   const source = read('src-tauri/src/imports.rs')
   assert.match(source, /validate_zip_archive\(zip_path\)\?;/)
