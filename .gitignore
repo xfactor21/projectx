@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.artifact-staging/
+artifacts/
+src-tauri/target/
+src-tauri/target-*/
+src-tauri/gen/
+android/
 
 # Editor directories and files
 .vscode/*

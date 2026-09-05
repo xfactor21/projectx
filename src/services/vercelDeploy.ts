@@ -1,0 +1,32 @@
+export type VercelDeployResult = {
+  ok: boolean
+  id?: string
+  url?: string | null
+  status?: string
+  message?: string
+  githubDeploymentRegistered?: boolean
+  githubMessage?: string
+}
+
+export async function deployGitHubProject(input: {
+  projectName: string
+  repoUrl: string
+  ref?: string
+  target?: 'preview' | 'production'
+}): Promise<VercelDeployResult> {
+  const session = loadSession()
+  if (!session) return { ok: false, message: 'Sign in before deploying through Vercel.' }
+  try {
+    const response = await fetch('/api/vercel-deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ...input, confirm: true }),
+    })
+    const body = await response.json() as VercelDeployResult
+    if (!response.ok) return { ok: false, message: body.message || `Deployment failed (${response.status}).` }
+    return body
+  } catch {
+    return { ok: false, message: 'Deployment actions require the hosted project.X API; plain local Vite does not run /api routes.' }
+  }
+}
+import { loadSession } from './supabase'

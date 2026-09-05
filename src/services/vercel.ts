@@ -16,8 +16,10 @@ export type VercelIntegrationResponse = {
 }
 
 export async function fetchVercelDeployments(): Promise<VercelIntegrationResponse> {
+  const session = loadSession()
+  if (!session) return { connected: false, deployments: [], message: 'Sign in before loading Vercel deployments.' }
   try {
-    const response = await fetch('/api/vercel-projects')
+    const response = await fetch('/api/vercel-projects', { headers: { Authorization: `Bearer ${session.access_token}` } })
     const body = await response.json() as VercelIntegrationResponse
     if (!response.ok) {
       return {
@@ -35,3 +37,4 @@ export async function fetchVercelDeployments(): Promise<VercelIntegrationRespons
     }
   }
 }
+import { loadSession } from './supabase'

@@ -1,0 +1,434 @@
+/* project.X immersive workspace environments
+   The selected project view now themes the entire application shell, not just the card grid. */
+
+.px-shell,
+.px-shell .sidebar,
+.px-shell .workspace,
+.px-shell .topbar,
+.px-shell .hero-panel,
+.px-shell .integration-deck,
+.px-shell .stats-strip,
+.px-shell .controls-row,
+.px-shell .project-card,
+.px-shell .new-project-card {
+  transition: background .35s ease, border-color .35s ease, box-shadow .35s ease, color .35s ease, transform .25s ease;
+}
+
+/* COMMAND CENTER / GRID */
+body:has(.view-grid) {
+  background: #05070b;
+}
+
+body:has(.view-grid) .px-shell {
+  --theme-primary: #29e0ff;
+  --theme-secondary: #ff2ba6;
+  --theme-surface: rgba(9, 12, 18, .9);
+  background:
+    radial-gradient(circle at 78% 10%, rgba(41,224,255,.08), transparent 26%),
+    radial-gradient(circle at 28% 90%, rgba(255,43,166,.06), transparent 24%),
+    #05070b;
+}
+
+/* STOREFRONT — actual streetscape/storefront environment */
+body:has(.view-storefront) {
+  background: #17100d;
+}
+
+body:has(.view-storefront) .px-shell {
+  --theme-primary: #ffd38a;
+  --theme-secondary: #ef7c45;
+  --theme-surface: rgba(35, 25, 20, .94);
+  color: #fff5e8;
+  background:
+    linear-gradient(rgba(22,14,11,.22), rgba(22,14,11,.62)),
+    repeating-linear-gradient(0deg, transparent 0 30px, rgba(255,255,255,.025) 30px 31px),
+    repeating-linear-gradient(90deg, #40251b 0 62px, #321b15 62px 64px, #40251b 64px 126px, #2a1712 126px 128px);
+}
+
+body:has(.view-storefront) .sidebar {
+  background: linear-gradient(180deg, #211611 0%, #130d0a 100%);
+  border-right: 4px solid #5f3523;
+  box-shadow: inset -12px 0 25px rgba(0,0,0,.25);
+}
+
+body:has(.view-storefront) .brand-mark {
+  border-radius: 6px 6px 1px 1px;
+  background: #f0b45f;
+  color: #2b170f;
+  box-shadow: 0 4px 0 #8e4e2c, 0 12px 24px rgba(0,0,0,.3);
+}
+
+body:has(.view-storefront) .workspace {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255,196,122,.08), transparent 180px),
+    linear-gradient(90deg, rgba(0,0,0,.2), transparent 30%, rgba(0,0,0,.15));
+}
+
+body:has(.view-storefront) .workspace::before {
+  content: 'PROJECT.X DISTRICT  •  OPEN BUILDS  •  DIGITAL GOODS';
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: block;
+  margin: -1px -1px 20px;
+  padding: 9px 20px;
+  color: #2b170f;
+  background: #f0b45f;
+  border-bottom: 3px solid #8e4e2c;
+  font: 800 9px/1.2 var(--mono);
+  letter-spacing: .18em;
+  text-align: center;
+}
+
+body:has(.view-storefront) .topbar h1 span,
+body:has(.view-storefront) .eyebrow,
+body:has(.view-storefront) .result-count {
+  color: #ffd38a;
+}
+
+body:has(.view-storefront) .hero-panel,
+body:has(.view-storefront) .integration-deck,
+body:has(.view-storefront) .stats-strip {
+  background: linear-gradient(180deg, rgba(55,37,28,.97), rgba(29,19,15,.96));
+  border-color: rgba(255,211,138,.18);
+  box-shadow: 0 18px 40px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.04);
+}
+
+body:has(.view-storefront) .view-storefront {
+  position: relative;
+  padding: 40px 34px 56px;
+  border: 12px solid #25140f;
+  border-top-width: 28px;
+  border-radius: 4px 4px 12px 12px;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,.11), transparent 25%, rgba(255,255,255,.025) 55%, transparent 70%),
+    linear-gradient(180deg, rgba(56,80,82,.78), rgba(13,22,24,.92));
+  box-shadow:
+    inset 0 0 0 3px #a4683d,
+    inset 0 0 60px rgba(0,0,0,.4),
+    0 28px 70px rgba(0,0,0,.36);
+  overflow: hidden;
+}
+
+body:has(.view-storefront) .view-storefront::before {
+  content: 'PROJECT.X  •  SHOWROOM';
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #f7d99c;
+  font: 900 11px/1 var(--mono);
+  letter-spacing: .24em;
+  text-shadow: 0 0 14px rgba(255,200,100,.3);
+  white-space: nowrap;
+}
+
+body:has(.view-storefront) .view-storefront::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(112deg, transparent 8%, rgba(255,255,255,.075) 18%, transparent 28%, transparent 69%, rgba(255,255,255,.045) 77%, transparent 86%);
+}
+
+body:has(.view-storefront) .view-storefront .project-card {
+  background: linear-gradient(180deg, #2c211b, #19120f);
+  border: 1px solid rgba(255,220,163,.22);
+  box-shadow: 0 16px 35px rgba(0,0,0,.32), 0 0 0 5px rgba(31,17,12,.65);
+}
+
+body:has(.view-storefront) .view-storefront .card-visual {
+  filter: saturate(.82) contrast(1.04) sepia(.08);
+}
+
+/* VENDING — neon machine cabinet, not a normal dashboard */
+body:has(.view-vending) {
+  background: #020509;
+}
+
+body:has(.view-vending) .px-shell {
+  --theme-primary: #75ffbd;
+  --theme-secondary: #ff4de1;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(83,255,193,.12), transparent 40%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.015) 0 1px, transparent 1px 46px),
+    #020509;
+}
+
+body:has(.view-vending) .sidebar {
+  background: #050a0d;
+  border-right: 2px solid rgba(117,255,189,.25);
+  box-shadow: inset -10px 0 40px rgba(117,255,189,.03);
+}
+
+body:has(.view-vending) .topbar,
+body:has(.view-vending) .integration-deck,
+body:has(.view-vending) .hero-panel,
+body:has(.view-vending) .stats-strip {
+  background: #05090d;
+  border-color: rgba(117,255,189,.16);
+  box-shadow: inset 0 0 30px rgba(117,255,189,.025);
+}
+
+body:has(.view-vending) .view-vending {
+  border: 8px solid #10191c;
+  border-radius: 18px;
+  padding: 56px 26px 32px;
+  background:
+    repeating-linear-gradient(90deg, rgba(117,255,189,.025) 0 1px, transparent 1px 260px),
+    linear-gradient(180deg, #071115, #03080b);
+  box-shadow: inset 0 0 0 2px rgba(117,255,189,.14), inset 0 0 80px rgba(0,0,0,.85), 0 24px 80px rgba(0,0,0,.5);
+}
+
+body:has(.view-vending) .view-vending::before {
+  content: 'project.X // BUILD DISPENSER  •  SELECT PROJECT';
+  top: 18px;
+  left: 24px;
+  right: 24px;
+  position: absolute;
+  padding: 10px 14px;
+  color: #75ffbd;
+  border: 1px solid rgba(117,255,189,.18);
+  background: rgba(0,0,0,.6);
+  text-shadow: 0 0 12px rgba(117,255,189,.6);
+}
+
+body:has(.view-vending) .view-vending .project-card {
+  border: 2px solid #13252a;
+  background: #050b0f;
+  box-shadow: inset 0 0 0 5px #081114, inset 0 0 25px rgba(117,255,189,.025), 0 12px 25px rgba(0,0,0,.45);
+}
+
+body:has(.view-vending) .view-vending .project-card::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  border: 1px solid rgba(117,255,189,.08);
+  border-radius: inherit;
+}
+
+/* COMIC — paper, ink, halftone, full-shell palette */
+body:has(.view-comic) {
+  background: #e7dfca;
+}
+
+body:has(.view-comic) .px-shell {
+  --theme-primary: #ff315f;
+  --theme-secondary: #087fca;
+  color: #151515;
+  background:
+    radial-gradient(circle, rgba(0,0,0,.075) 1px, transparent 1.5px) 0 0/9px 9px,
+    #e8dfc9;
+}
+
+body:has(.view-comic) .sidebar {
+  background: #f3e9d2;
+  border-right: 4px solid #111;
+  box-shadow: none;
+}
+
+body:has(.view-comic) .brand-name,
+body:has(.view-comic) .nav-item,
+body:has(.view-comic) .topbar,
+body:has(.view-comic) .topbar h1,
+body:has(.view-comic) .section-heading h3,
+body:has(.view-comic) .hero-panel,
+body:has(.view-comic) .hero-panel h2,
+body:has(.view-comic) .integration-deck,
+body:has(.view-comic) .stats-strip,
+body:has(.view-comic) .controls-row {
+  color: #141414;
+}
+
+body:has(.view-comic) .topbar,
+body:has(.view-comic) .hero-panel,
+body:has(.view-comic) .integration-deck,
+body:has(.view-comic) .stats-strip,
+body:has(.view-comic) .controls-row {
+  background: #f7edd8;
+  border: 3px solid #111;
+  box-shadow: 6px 6px 0 #111;
+}
+
+body:has(.view-comic) .eyebrow,
+body:has(.view-comic) .hero-label,
+body:has(.view-comic) .result-count {
+  color: #d81f4f;
+}
+
+body:has(.view-comic) .view-comic {
+  padding: 20px;
+  background:
+    radial-gradient(circle, rgba(0,0,0,.075) 1px, transparent 1.5px) 0 0/8px 8px,
+    #f5ead2;
+  border: 5px solid #111;
+  box-shadow: 10px 10px 0 #111;
+}
+
+body:has(.view-comic) .view-comic .project-card {
+  color: #111;
+  background: #fff9e9;
+  border: 4px solid #111;
+  box-shadow: 8px 8px 0 #111;
+}
+
+body:has(.view-comic) .view-comic .project-card h4,
+body:has(.view-comic) .view-comic .project-description,
+body:has(.view-comic) .view-comic .card-footer,
+body:has(.view-comic) .view-comic .progress-meta {
+  color: #111;
+}
+
+body:has(.view-comic) .view-comic .stack-row span {
+  color: #111;
+  background: #ffe663;
+  border: 2px solid #111;
+}
+
+/* 3D GALLERY — spatial black museum with luminous plinths */
+body:has(.view-3d) {
+  background: #020205;
+}
+
+body:has(.view-3d) .px-shell {
+  --theme-primary: #b88cff;
+  --theme-secondary: #4af4ff;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(142,91,255,.14), transparent 36%),
+    linear-gradient(180deg, #070611 0%, #020205 65%);
+}
+
+body:has(.view-3d) .sidebar {
+  background: rgba(5,4,10,.92);
+  border-right: 1px solid rgba(184,140,255,.2);
+  backdrop-filter: blur(24px);
+}
+
+body:has(.view-3d) .workspace {
+  perspective: 1400px;
+}
+
+body:has(.view-3d) .topbar,
+body:has(.view-3d) .hero-panel,
+body:has(.view-3d) .integration-deck,
+body:has(.view-3d) .stats-strip {
+  background: rgba(12,9,22,.72);
+  border-color: rgba(184,140,255,.15);
+  backdrop-filter: blur(24px);
+}
+
+body:has(.view-3d) .view-3d {
+  position: relative;
+  min-height: 650px;
+  padding: 70px 44px 100px;
+  transform-style: preserve-3d;
+  background:
+    linear-gradient(90deg, transparent 49.8%, rgba(184,140,255,.07) 50%, transparent 50.2%),
+    linear-gradient(180deg, transparent 0 70%, rgba(74,244,255,.04)),
+    #05040b;
+  border: 1px solid rgba(184,140,255,.16);
+  box-shadow: inset 0 -90px 100px rgba(74,244,255,.025), inset 0 0 90px rgba(0,0,0,.72);
+  overflow: visible;
+}
+
+body:has(.view-3d) .view-3d::before {
+  content: '';
+  position: absolute;
+  inset: 55% -10% -18%;
+  transform: rotateX(72deg);
+  transform-origin: top;
+  background:
+    linear-gradient(rgba(184,140,255,.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,244,255,.09) 1px, transparent 1px);
+  background-size: 52px 52px;
+  opacity: .52;
+  pointer-events: none;
+}
+
+body:has(.view-3d) .view-3d .project-card {
+  background: linear-gradient(165deg, rgba(24,18,40,.94), rgba(6,5,11,.98));
+  border-color: rgba(184,140,255,.22);
+  box-shadow: 0 30px 50px rgba(0,0,0,.55), 0 0 35px rgba(184,140,255,.06);
+  transform: rotateX(1deg) translateZ(20px);
+}
+
+body:has(.view-3d) .view-3d .project-card:hover {
+  transform: translateY(-12px) translateZ(55px) rotateX(0deg) scale(1.015);
+  box-shadow: 0 45px 75px rgba(0,0,0,.65), 0 0 50px rgba(74,244,255,.12);
+}
+
+/* Theme floating docks so they belong to the selected environment too. */
+body:has(.view-storefront) :is(.local-dock, .cloud-sync-dock, .intel-dock, .deploy-dock, .analytics-dock, .beta-diagnostics-dock, .desktop-actions-dock),
+body:has(.view-vending) :is(.local-dock, .cloud-sync-dock, .intel-dock, .deploy-dock, .analytics-dock, .beta-diagnostics-dock, .desktop-actions-dock),
+body:has(.view-comic) :is(.local-dock, .cloud-sync-dock, .intel-dock, .deploy-dock, .analytics-dock, .beta-diagnostics-dock, .desktop-actions-dock),
+body:has(.view-3d) :is(.local-dock, .cloud-sync-dock, .intel-dock, .deploy-dock, .analytics-dock, .beta-diagnostics-dock, .desktop-actions-dock) {
+  filter: none;
+}
+
+/* New managed-local controls */
+.local-action-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.local-secondary {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  color: #dce4ed;
+  background: rgba(255,255,255,.045);
+  cursor: pointer;
+}
+
+.local-secondary:hover {
+  border-color: rgba(41,224,255,.3);
+  background: rgba(41,224,255,.07);
+}
+
+.relocation-history {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.relocation-history > small {
+  opacity: .58;
+  letter-spacing: .14em;
+}
+
+.relocation-history button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+  color: inherit;
+  background: rgba(255,255,255,.035);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.relocation-history button span {
+  overflow: hidden;
+  opacity: .55;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  body:has(.view-storefront) .view-storefront,
+  body:has(.view-3d) .view-3d {
+    padding: 28px 14px 42px;
+  }
+  body:has(.view-storefront) .view-storefront {
+    border-width: 7px;
+    border-top-width: 22px;
+  }
+}

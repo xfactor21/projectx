@@ -1,0 +1,75 @@
+name: project.X Windows Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/windows-desktop.yml'
+
+concurrency:
+  group: projectx-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECTX_BUILD_NAME: projectX-08.30-v2.9-theme-connections
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Validate managed cloud configuration
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if (-not $env:VITE_SUPABASE_URL -or -not $env:VITE_SUPABASE_PUBLISHABLE_KEY) {
+            throw 'Production packaging requires VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY repository secrets.'
+          }
+
+      - name: Build Windows installer
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run desktop:build
+
+      - name: Apply project.X build filename
+        shell: pwsh
+        run: |
+          $bundle = 'src-tauri/target/release/bundle/nsis'
+          $installer = Get-ChildItem -Path $bundle -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'No NSIS installer was produced.' }
+          $target = Join-Path $bundle "$env:PROJECTX_BUILD_NAME.exe"
+          if ($installer.FullName -ne $target) { Move-Item -Force $installer.FullName $target }
+          Write-Host "Installer: $target"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECTX_BUILD_NAME }}
+          path: src-tauri/target/release/bundle/nsis/${{ env.PROJECTX_BUILD_NAME }}.exe
+          if-no-files-found: error

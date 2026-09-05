@@ -15,14 +15,43 @@ export type GitHubRepo = {
   default_branch: string
   pushed_at: string
   updated_at: string
+  owner?: { login: string }
 }
+
+import { loadSession } from './supabase'
+
+export const GITHUB_DISCOVERY_EVENT = 'projectx:github-discovery'
+
+const PROJECT_STORAGE_KEY = 'projectx.projects.v1'
+const LOCAL_SOURCE_KEY = 'projectx.local.sources.v1'
 
 const githubHeaders = {
   Accept: 'application/vnd.github+json',
   'X-GitHub-Api-Version': '2022-11-28',
 }
 
-export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
+function repoKey(url: string) {
+  return url.toLowerCase().replace(/\.git$/i, '').replace(/\/$/, '')
+}
+
+function trackedRepoKeys(): Set<string> {
+  try {
+    const projects = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]') as Array<{ id?: string; repoUrl?: string; archived?: boolean }>
+    const sources = JSON.parse(localStorage.getItem(LOCAL_SOURCE_KEY) || '[]') as Array<{ projectId?: string; path?: string }>
+    if (!Array.isArray(projects) || !Array.isArray(sources)) return new Set()
+    const locallyInstalled = new Set(sources.filter((source) => source.path).map((source) => source.projectId))
+    const requireLocalInstall = Boolean(window.projectXDesktop)
+    return new Set(projects
+      .filter((project) => !requireLocalInstall || project.archived || locallyInstalled.has(project.id))
+      .map((project) => project.repoUrl || '')
+      .filter(Boolean)
+      .map(repoKey))
+  } catch {
+    return new Set()
+  }
+}
+
+async function requestPublicRepos(owner: string): Promise<GitHubRepo[]> {
   const cleanOwner = owner.trim()
   if (!cleanOwner) throw new Error('GitHub owner is required.')
 
@@ -42,6 +71,37 @@ export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
 
   const repos = await response.json() as GitHubRepo[]
   return repos.filter((repo) => !repo.fork)
+}
+
+async function requestConnectedRepos(owner: string): Promise<GitHubRepo[] | null> {
+  const session = loadSession()
+  if (!session) return null
+  try {
+    const response = await fetch('/api/provider-resources?provider=github', { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const body = await response.json() as { resources?: GitHubRepo[] }
+    if (!response.ok || !Array.isArray(body.resources)) return null
+    const normalized = owner.trim().toLowerCase()
+    return body.resources.filter((repo) => !repo.fork && repo.owner?.login.toLowerCase() === normalized)
+  } catch { return null }
+}
+
+/**
+ * Sync intentionally returns only repositories that are already represented in
+ * project.X. Discovery is emitted separately so a GitHub account with many
+ * experiments cannot silently flood the user's curated project workspace.
+ */
+export async function fetchPublicRepos(owner: string): Promise<GitHubRepo[]> {
+  const repos = await requestConnectedRepos(owner) || await requestPublicRepos(owner)
+  const tracked = trackedRepoKeys()
+  const existing = repos.filter((repo) => tracked.has(repoKey(repo.html_url)))
+  const discovered = repos.filter((repo) => !tracked.has(repoKey(repo.html_url)))
+
+  window.dispatchEvent(new CustomEvent<GitHubRepo[]>(GITHUB_DISCOVERY_EVENT, { detail: discovered }))
+  return existing
+}
+
+export async function discoverPublicRepos(owner: string): Promise<GitHubRepo[]> {
+  return await requestConnectedRepos(owner) || requestPublicRepos(owner)
 }
 
 export function repoNameFromUrl(repoUrl: string) {

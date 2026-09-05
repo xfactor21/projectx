@@ -1,0 +1,8 @@
+{
+  "appId": "com.planetx.projectx.companion",
+  "appName": "project.X Companion",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  }
+}
