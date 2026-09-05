@@ -216,7 +216,9 @@ fn validate_zip_archive(zip_path: &Path) -> Result<(), String> {
     let script = r#"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 try {
-  $archive = [IO.Compression.ZipFile]::OpenRead($args[0])
+  $zipPath = $env:PROJECTX_ZIP_PATH
+  if ([string]::IsNullOrWhiteSpace($zipPath)) { throw 'project.X did not provide a ZIP path to the validator.' }
+  $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
   try {
     if ($archive.Entries.Count -gt 25000) { throw 'ZIP contains too many entries (25,000 maximum).' }
     [int64]$total = 0
@@ -245,7 +247,9 @@ try {
 }
 "#;
     let mut command = Command::new("powershell.exe");
-    command.args(["-NoProfile", "-NonInteractive", "-Command", script]).arg(zip_path);
+    command
+        .env("PROJECTX_ZIP_PATH", zip_path)
+        .args(["-NoProfile", "-NonInteractive", "-Command", script]);
     let result = command_output_with_timeout(&mut command, Duration::from_secs(30))?;
     if result.ok { Ok(()) } else { Err(format!("ZIP safety validation failed: {}", result.output)) }
 }
@@ -254,12 +258,18 @@ fn expand_zip(zip_path: &Path, destination: &Path) -> Result<(), String> {
     validate_zip_archive(zip_path)?;
     fs::create_dir_all(destination)
         .map_err(|error| format!("Unable to create import folder: {error}"))?;
-    let script = "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force";
+    let script = r#"
+$zipPath = $env:PROJECTX_ZIP_PATH
+$destinationPath = $env:PROJECTX_ZIP_DESTINATION
+if ([string]::IsNullOrWhiteSpace($zipPath)) { throw 'project.X did not provide a ZIP path to the extractor.' }
+if ([string]::IsNullOrWhiteSpace($destinationPath)) { throw 'project.X did not provide an extraction destination.' }
+Expand-Archive -LiteralPath $zipPath -DestinationPath $destinationPath -Force
+"#;
     let mut command = Command::new("powershell.exe");
     command
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .arg(zip_path)
-        .arg(destination);
+        .env("PROJECTX_ZIP_PATH", zip_path)
+        .env("PROJECTX_ZIP_DESTINATION", destination)
+        .args(["-NoProfile", "-NonInteractive", "-Command", script]);
     let result = command_output(&mut command)?;
     if result.ok {
         Ok(())
