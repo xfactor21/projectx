@@ -16,7 +16,7 @@ import { fetchVercelDeployments } from './services/vercel'
 import { fetchProviderConnection, type ProviderConnectionState, type ProviderId } from './services/providerConnections'
 import { openHostedLink } from './services/externalLinks'
 
-type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'
+type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'XFactor' | 'PlanetX'
 type NavMode = 'Projects' | 'Favorites' | 'Activity' | 'Archive'
 type Project = { id:string; name:string; kicker?:string; description?:string; status?:string; stack?:string[]; updated?:string; progress?:number; favorite?:boolean; archived?:boolean; repoUrl?:string; liveUrl?:string; coverUrl?:string; github?:unknown }
 type LocalSource = { projectId:string; kind?:'desktop'|'browser'|'managed'|'zip'|'generated'; path?:string; scripts?:string[]; hasGit?:boolean; gitBranch?:string }
@@ -31,12 +31,12 @@ const themes:Array<{id:ThemeMode;label:string;sub:string}>=[
   {id:'Vending',label:'Vending',sub:'Build dispenser machine'},
   {id:'Comic',label:'Comic',sub:'Sequential project universe'},
   {id:'3D',label:'Gallery',sub:'Spatial project exhibit'},
-  {id:'Neon',label:'Neon',sub:'Cyberpunk build district'},
-  {id:'Orbit',label:'Orbit',sub:'Planetary project command'},
+  {id:'XFactor',label:'xFactor',sub:'Hot-pink neon street-tech build district'},
+  {id:'PlanetX',label:'planet.X',sub:'Premium orbital project command'},
 ]
 
 function readArray<T>(key:string):T[]{return key===PROJECTS_KEY?readProjects() as T[]:key===LOCAL_KEY?readLocalSources() as T[]:[]}
-function readTheme():ThemeMode{const saved=localStorage.getItem(VIEW_KEY) as ThemeMode|null;return saved&&themes.some((item)=>item.id===saved)?saved:'Grid'}
+function readTheme():ThemeMode{const raw=localStorage.getItem(VIEW_KEY);const saved=raw==='Neon'?'XFactor':raw==='Orbit'?'PlanetX':raw as ThemeMode|null;return saved&&themes.some((item)=>item.id===saved)?saved:'Grid'}
 function sourceLabel(project:Project,source?:LocalSource){if(source?.kind==='managed')return'MANAGED LOCAL';if(source?.kind==='zip')return'INITIALIZED LOCAL';if(source?.kind==='generated')return'PROJECT.X CREATED';if(source?.kind==='desktop')return'LOCAL PROJECT';if(source?.kind==='browser')return'LOCAL BROWSER';if(project.github||project.repoUrl?.includes('github.com'))return'GITHUB REMOTE';return'CLOUD / RECORD'}
 function openLauncher(){window.dispatchEvent(new CustomEvent('projectx:open-add-project'))}
 function preferredRunScript(scripts:string[]=[]){return ['dev','web','start','serve'].find((script)=>scripts.includes(script))||''}

@@ -25,7 +25,7 @@ type LocalSource = {
 }
 
 type Props = {
-  theme: 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'Neon' | 'Orbit'
+  theme: 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'XFactor' | 'PlanetX'
   projects: Project[]
   sourceMap: Map<string, LocalSource>
   desktopOnline: boolean
@@ -171,28 +171,28 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
     })}</div>
   </section>
 
-  if (theme === 'Neon') return <section className="neon-district" aria-label="Neon project district">
-    <div className="neon-streetline" aria-hidden="true"/>
-    <header className="neon-district-header"><span>PLANET.X / NIGHT SHIFT</span><strong>BUILD CITY</strong><small>{projects.length} PROJECT SIGNALS</small></header>
-    <div className="neon-projects">{projects.map((project,index)=>{
+  if (theme === 'XFactor') return <section className="xfactor-district" aria-label="Neon project district">
+    <div className="xfactor-streetline" aria-hidden="true"/>
+    <header className="xfactor-district-header"><span>xFactor // AFTER DARK</span><strong>X DISTRICT</strong><small>{projects.length} PROJECT SIGNALS</small></header>
+    <div className="xfactor-projects">{projects.map((project,index)=>{
       const source=sourceMap.get(project.id)
       const health=healthFor(project.id,healthMap)
-      return <article key={project.id} className={`neon-project neon-${index%3} ${project.coverUrl?'has-project-art':''}`} style={artStyle(project)}>
-        <button type="button" className="neon-billboard project-art-surface" onClick={()=>onOpen(project)}><span>PX-{String(index+1).padStart(2,'0')}</span>{!project.coverUrl&&<b>{monogram(project.name)}</b>}<strong>{project.name}</strong><small>{sourceLabel(project,source)}</small></button>
-        <div className="neon-console"><p>{project.description||'Project signal awaiting description.'}</p><div>{(project.stack||[]).slice(0,3).map((item)=><span key={item}>{item}</span>)}</div><footer><button type="button" disabled={!source?.path||!desktopOnline} onClick={()=>onRun(project)}>RUN</button><button type="button" onClick={()=>onDeployment(project)}>DEPLOY</button><button type="button" onClick={()=>onOpen(project)}>OPEN</button></footer></div>
+      return <article key={project.id} className={`xfactor-project xfactor-${index%3} ${project.coverUrl?'has-project-art':''}`} style={artStyle(project)}>
+        <button type="button" className="xfactor-billboard project-art-surface" onClick={()=>onOpen(project)}><span>XF-{String(index+1).padStart(2,'0')}</span>{!project.coverUrl&&<b>{monogram(project.name)}</b>}<strong>{project.name}</strong><small>{sourceLabel(project,source)}</small></button>
+        <div className="xfactor-console"><p>{project.description||'Signal open. Add a project description to light this block up.'}</p><div>{(project.stack||[]).slice(0,3).map((item)=><span key={item}>{item}</span>)}</div><footer><button type="button" disabled={!source?.path||!desktopOnline} onClick={()=>onRun(project)}>RUN</button><button type="button" onClick={()=>onDeployment(project)}>DEPLOY</button><button type="button" onClick={()=>onOpen(project)}>OPEN</button></footer></div>
         <ProjectStatusBar name={project.name} health={health} onOpen={()=>onOpen(project)} onDeployment={()=>onDeployment(project)}/>
       </article>
     })}</div>
   </section>
 
-  if (theme === 'Orbit') return <section className="orbit-command" aria-label="Orbital project command">
-    <div className="orbit-core" aria-hidden="true"><span>PROJECT.X</span><i/><b>ORBIT</b></div>
-    <div className="orbit-projects">{projects.map((project,index)=>{
+  if (theme === 'PlanetX') return <section className="planetx-command" aria-label="Orbital project command">
+    <div className="planetx-core" aria-hidden="true"><span>planet.X</span><i/><b>COMMAND</b></div>
+    <div className="planetx-projects">{projects.map((project,index)=>{
       const source=sourceMap.get(project.id)
       const health=healthFor(project.id,healthMap)
-      return <article key={project.id} className={`orbit-node orbit-node-${index%6}`} style={{'--orbit-index':index,...(artStyle(project)||{})} as CSSProperties}>
-        <button type="button" className={`orbit-planet project-art-surface ${project.coverUrl?'has-project-art':''}`} onClick={()=>onOpen(project)}>{!project.coverUrl&&<b>{monogram(project.name)}</b>}<span>{String(index+1).padStart(2,'0')}</span></button>
-        <div className="orbit-label"><strong>{project.name}</strong><small>{sourceLabel(project,source)}</small><div><button type="button" disabled={!source?.path||!desktopOnline} onClick={()=>onRun(project)}>Run</button><button type="button" onClick={()=>onOpen(project)}>Open</button></div></div>
+      return <article key={project.id} className={`planetx-node planetx-node-${index%6}`} style={{'--planetx-index':index,...(artStyle(project)||{})} as CSSProperties}>
+        <button type="button" className={`planetx-planet project-art-surface ${project.coverUrl?'has-project-art':''}`} onClick={()=>onOpen(project)}>{!project.coverUrl&&<b>{monogram(project.name)}</b>}<span>{String(index+1).padStart(2,'0')}</span></button>
+        <div className="planetx-label"><strong>{project.name}</strong><small>{sourceLabel(project,source)}</small><div><button type="button" disabled={!source?.path||!desktopOnline} onClick={()=>onRun(project)}>Run</button><button type="button" onClick={()=>onOpen(project)}>Open</button></div></div>
         <ProjectStatusBar name={project.name} health={health} onOpen={()=>onOpen(project)} onDeployment={()=>onDeployment(project)}/>
       </article>
     })}</div>
