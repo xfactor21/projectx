@@ -1,4 +1,5 @@
 import { removeProjectHealth } from './projectHealth'
+import { appendCloudActivity, deleteCloudProject, loadSession } from './supabase'
 
 export const PROJECTS_KEY = 'projectx.projects.v1'
 export const LOCAL_SOURCES_KEY = 'projectx.local.sources.v1'
@@ -60,4 +61,16 @@ export function deleteProjectAndLocalSource(projectId: string): void {
   localStorage.setItem(LOCAL_SOURCES_KEY, JSON.stringify(sources))
   removeProjectHealth(projectId)
   window.dispatchEvent(new CustomEvent('projectx:projects-changed'))
+
+  const session = loadSession()
+  if (session) {
+    void deleteCloudProject(projectId, session)
+      .then(() => appendCloudActivity({
+        project_client_id: projectId,
+        event_type: 'project.deleted',
+        message: 'Project removed from project.X. Local files were left untouched.',
+        metadata: { source: 'project-storage' },
+      }, session))
+      .catch(() => undefined)
+  }
 }
