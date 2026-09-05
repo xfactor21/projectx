@@ -24,15 +24,19 @@ pub(crate) fn save_secure_session(app: AppHandle, content: String) -> Result<(),
     let script = r#"
 $bytes = [Convert]::FromBase64String($env:PROJECTX_SESSION_B64)
 $protected = [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
-[IO.File]::WriteAllBytes($args[0], $protected)
+[IO.File]::WriteAllBytes($env:PROJECTX_SESSION_PATH, $protected)
 "#;
     let mut command = Command::new("powershell.exe");
     command
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .arg(&path)
-        .env("PROJECTX_SESSION_B64", encoded);
+        .env("PROJECTX_SESSION_B64", encoded)
+        .env("PROJECTX_SESSION_PATH", &path);
     let result = command_output_with_timeout(&mut command, Duration::from_secs(15))?;
-    if result.ok { Ok(()) } else { Err(format!("Unable to protect cloud session: {}", result.output)) }
+    if result.ok {
+        Ok(())
+    } else {
+        Err(format!("Unable to protect cloud session: {}", result.output))
+    }
 }
 
 #[tauri::command]
@@ -42,14 +46,14 @@ pub(crate) fn load_secure_session(app: AppHandle) -> Result<Option<String>, Stri
         return Ok(None);
     }
     let script = r#"
-$protected = [IO.File]::ReadAllBytes($args[0])
+$protected = [IO.File]::ReadAllBytes($env:PROJECTX_SESSION_PATH)
 $bytes = [Security.Cryptography.ProtectedData]::Unprotect($protected, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
 [Console]::Out.Write([Convert]::ToBase64String($bytes))
 "#;
     let mut command = Command::new("powershell.exe");
     command
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .arg(&path);
+        .env("PROJECTX_SESSION_PATH", &path);
     let result = command_output_with_timeout(&mut command, Duration::from_secs(15))?;
     if !result.ok {
         return Err(format!("Unable to unlock cloud session: {}", result.output));
