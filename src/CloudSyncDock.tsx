@@ -8,8 +8,8 @@ import {
   signInWithPassword,
   signOut,
   signUpWithPassword,
-  upsertCloudProjects,
 } from './services/supabase'
+import { syncLocalProjects } from './services/projectCloudSync'
 import type { SupabaseSession } from './services/supabase'
 
 const STORAGE_KEY = 'projectx.projects.v1'
@@ -32,10 +32,6 @@ type LocalProject = {
   notes?: string
   github?: unknown
   updated?: string
-}
-
-function toCloudLifecycleStatus(status: LocalProject['status']): 'Live' | 'Building' | 'Concept' | 'Paused' {
-  return status === 'Live' || status === 'Concept' || status === 'Paused' ? status : 'Building'
 }
 
 function readLocalProjects(): LocalProject[] {
@@ -119,27 +115,12 @@ export default function CloudSyncDock({ openRequest = 0 }: { openRequest?: numbe
     if (!activeSession) return setMessage('Sign in first.')
     setBusy(true)
     try {
-      const projects = readLocalProjects()
-      await upsertCloudProjects(projects.map((project, index) => ({
-        user_id: activeSession.user.id,
-        client_id: project.id,
-        name: project.name,
-        kicker: project.kicker || '',
-        description: project.description || '',
-        status: toCloudLifecycleStatus(project.status),
-        stack: project.stack || [],
-        accent: project.accent || 'pink',
-        progress: project.progress || 0,
-        favorite: Boolean(project.favorite),
-        archived: Boolean(project.archived),
-        repo_url: project.repoUrl || '',
-        live_url: project.liveUrl || '',
-        cover_url: project.coverUrl || '',
-        notes: project.notes || '',
-        github: project.github || null,
-        sort_order: index,
-      })), activeSession)
-      setMessage(`Cloud backup complete: ${projects.length} project${projects.length === 1 ? '' : 's'}.`)
+      const result = await syncLocalProjects(activeSession)
+      if (result.conflicts.length) {
+        setMessage(`Cloud backup protected ${result.conflicts.length} conflict${result.conflicts.length === 1 ? '' : 's'} from overwrite. ${result.count} project${result.count === 1 ? '' : 's'} synced${result.deletedCount ? `; ${result.deletedCount} stale cloud record${result.deletedCount === 1 ? '' : 's'} removed` : ''}. Use Merge to review cloud changes.`)
+      } else {
+        setMessage(`Cloud backup complete: ${result.count} project${result.count === 1 ? '' : 's'} synced${result.deletedCount ? `; ${result.deletedCount} stale cloud record${result.deletedCount === 1 ? '' : 's'} removed` : ''}.`)
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cloud backup failed.')
     } finally { setBusy(false) }
