@@ -201,7 +201,57 @@ fn open_external_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+const MAX_ZIP_COMPRESSED_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_ZIP_EXTRACTED_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_ZIP_ENTRY_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_ZIP_ENTRIES: u64 = 25_000;
+
+fn validate_zip_archive(zip_path: &Path) -> Result<(), String> {
+    let compressed = fs::metadata(zip_path)
+        .map_err(|error| format!("Unable to inspect ZIP: {error}"))?
+        .len();
+    if compressed == 0 || compressed > MAX_ZIP_COMPRESSED_BYTES {
+        return Err("ZIP archives must be between 1 byte and 100 MB compressed.".into());
+    }
+    let script = r#"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+try {
+  $archive = [IO.Compression.ZipFile]::OpenRead($args[0])
+  try {
+    if ($archive.Entries.Count -gt 25000) { throw 'ZIP contains too many entries (25,000 maximum).' }
+    [int64]$total = 0
+    foreach ($entry in $archive.Entries) {
+      $name = $entry.FullName.Replace('\\','/')
+      if ([string]::IsNullOrWhiteSpace($name)) { continue }
+      if ($name.StartsWith('/') -or $name -match '^[A-Za-z]:' ) { throw "Unsafe absolute ZIP path: $name" }
+      $parts = $name.Split('/', [StringSplitOptions]::RemoveEmptyEntries)
+      if ($parts -contains '..') { throw "Unsafe parent traversal in ZIP path: $name" }
+      if ($parts.Count -gt 40) { throw "ZIP path nesting is too deep: $name" }
+      if ($name.Length -gt 512) { throw 'ZIP entry path exceeds 512 characters.' }
+      if (-not $name.EndsWith('/')) {
+        if ($entry.Length -gt 134217728) { throw "ZIP entry exceeds 128 MB: $name" }
+        $total += $entry.Length
+        if ($total -gt 536870912) { throw 'ZIP expands beyond the 512 MB safety limit.' }
+        if ($entry.CompressedLength -gt 0 -and $entry.Length -gt 1048576) {
+          $ratio = $entry.Length / [double]$entry.CompressedLength
+          if ($ratio -gt 1000) { throw "Suspicious ZIP compression ratio: $name" }
+        }
+      }
+    }
+  } finally { if ($archive) { $archive.Dispose() } }
+} catch {
+  [Console]::Error.Write($_.Exception.Message)
+  exit 1
+}
+"#;
+    let mut command = Command::new("powershell.exe");
+    command.args(["-NoProfile", "-NonInteractive", "-Command", script]).arg(zip_path);
+    let result = command_output_with_timeout(&mut command, Duration::from_secs(30))?;
+    if result.ok { Ok(()) } else { Err(format!("ZIP safety validation failed: {}", result.output)) }
+}
+
 fn expand_zip(zip_path: &Path, destination: &Path) -> Result<(), String> {
+    validate_zip_archive(zip_path)?;
     fs::create_dir_all(destination)
         .map_err(|error| format!("Unable to create import folder: {error}"))?;
     let script = "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force";

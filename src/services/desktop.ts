@@ -97,6 +97,9 @@ export type DesktopHostBridge = {
   toolchainPreflight(): Promise<ToolStatus[]>
   downloadRemotePackage(url: string, fileName: string): Promise<string>
   removeRemotePackage(path: string): Promise<void>
+  saveSecureSession(content: string): Promise<void>
+  loadSecureSession(): Promise<string | null>
+  clearSecureSession(): Promise<void>
   openPreviewWindow(projectId: string, projectName: string, url: string, pid?: number): Promise<void>
   openExternalPreview(url: string): Promise<void>
   openExternalUrl(url: string): Promise<void>

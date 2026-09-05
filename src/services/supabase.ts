@@ -1,3 +1,4 @@
+import { getDesktopHost } from './desktop'
 const BUILD_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
 const BUILD_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
 const CONFIG_KEY = 'projectx.supabase.config.v1'
@@ -122,11 +123,47 @@ export async function testSupabaseConfig(url: string, publishableKey: string): P
 export function isSupabaseConfigured(): boolean { const config = getSupabaseConfig(); return Boolean(config.url && config.publishableKey) }
 export function getSupabaseUrl(): string { return getSupabaseConfig().url }
 export function getSupabasePublishableKey(): string { return getSupabaseConfig().publishableKey }
-export function loadSession(): SupabaseSession | null { try { const raw = localStorage.getItem(SESSION_KEY); return raw ? parseSession(JSON.parse(raw)) : null } catch { return null } }
+function desktopSessionStore(): Storage { return getDesktopHost() ? sessionStorage : localStorage }
+export function loadSession(): SupabaseSession | null { try { const raw = desktopSessionStore().getItem(SESSION_KEY); return raw ? parseSession(JSON.parse(raw)) : null } catch { return null } }
 export function saveSession(session: SupabaseSession | null): void {
-  if (!session) localStorage.removeItem(SESSION_KEY)
-  else localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  const desktop = getDesktopHost()
+  const store = desktop ? sessionStorage : localStorage
+  if (!session) store.removeItem(SESSION_KEY)
+  else store.setItem(SESSION_KEY, JSON.stringify(session))
+  if (desktop) {
+    localStorage.removeItem(SESSION_KEY)
+    if (session) void desktop.saveSecureSession(JSON.stringify(session)).catch(() => undefined)
+    else void desktop.clearSecureSession().catch(() => undefined)
+  }
   window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+}
+export async function bootstrapSecureSession(): Promise<void> {
+  const desktop = getDesktopHost()
+  if (!desktop) return
+  const current = sessionStorage.getItem(SESSION_KEY)
+  if (current) {
+    try { if (parseSession(JSON.parse(current))) return } catch { sessionStorage.removeItem(SESSION_KEY) }
+  }
+  const legacy = localStorage.getItem(SESSION_KEY)
+  if (legacy) {
+    try {
+      const parsed = parseSession(JSON.parse(legacy))
+      if (parsed) {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(parsed))
+        await desktop.saveSecureSession(JSON.stringify(parsed))
+      }
+    } finally { localStorage.removeItem(SESSION_KEY) }
+    window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+    return
+  }
+  try {
+    const protectedSession = await desktop.loadSecureSession()
+    if (!protectedSession) return
+    const parsed = parseSession(JSON.parse(protectedSession))
+    if (!parsed) { await desktop.clearSecureSession(); return }
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(parsed))
+    window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+  } catch { await desktop.clearSecureSession().catch(() => undefined) }
 }
 
 export async function signUpWithPassword(email: string, password: string): Promise<SupabaseSession | null> {

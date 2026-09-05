@@ -42,6 +42,9 @@ export function installTauriDesktopBridge(): boolean {
     toolchainPreflight: () => invoke<ToolStatus[]>('toolchain_preflight'),
     downloadRemotePackage: (url, fileName) => invoke<string>('download_remote_package', { url, fileName }),
     removeRemotePackage: (path) => invoke<void>('remove_remote_package', { path }),
+    saveSecureSession: (content) => invoke<void>('save_secure_session', { content }),
+    loadSecureSession: () => invoke<string | null>('load_secure_session'),
+    clearSecureSession: () => invoke<void>('clear_secure_session'),
     openPreviewWindow: async (projectId, projectName, url, pid) => {
       window.dispatchEvent(new CustomEvent('projectx:open-preview', { detail: { projectId, projectName, url, pid } }))
     },

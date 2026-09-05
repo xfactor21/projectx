@@ -6,6 +6,7 @@ mod imports;
 mod local_dev_url;
 mod preview;
 mod remote_packages;
+mod secure_session;
 mod system_tools;
 mod workspace_backup;
 
@@ -671,6 +672,9 @@ fn main() {
             system_tools::toolchain_preflight,
             remote_packages::download_remote_package,
             remote_packages::remove_remote_package,
+            secure_session::save_secure_session,
+            secure_session::load_secure_session,
+            secure_session::clear_secure_session,
             preview::open_preview_window,
             preview::open_external_url,
             dev_preview::run_preview_project,

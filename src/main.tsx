@@ -18,6 +18,7 @@ import EmbeddedPreview from './EmbeddedPreview.tsx'
 import ConnectionCenter from './ConnectionCenter.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import { applySettings } from './services/settings'
+import { bootstrapSecureSession } from './services/supabase'
 import './viewModes.css'
 import './immersiveThemes.css'
 import './workspaceV2.css'
@@ -58,6 +59,7 @@ import './v29.css'
 
 installTauriDesktopBridge()
 applySettings()
+void bootstrapSecureSession()
 
 window.addEventListener('projectx:open-add-project', () => {
   window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'projects' } }))
