@@ -46,7 +46,7 @@ async function companionRequest<T>(path: string, init: RequestInit = {}): Promis
   if (!response.ok) {
     const normalized = text.toLowerCase()
     if (normalized.includes('projectx_devices') || normalized.includes('projectx_remote_actions') || normalized.includes('schema cache')) {
-      throw new Error('Companion tables or protocol functions are not installed in this Supabase project. Apply the latest project.X migrations, then retry.')
+      throw new Error(`COMPANION_SCHEMA:${text || response.status}`)
     }
     throw new Error(text || `Companion request failed (${response.status}).`)
   }
@@ -96,6 +96,32 @@ export async function claimPendingActions(deviceId: string): Promise<RemoteActio
   return companionRequest<RemoteAction[]>(`/rest/v1/projectx_remote_actions?select=*&target_device_id=eq.${encodeURIComponent(deviceId)}&status=eq.approved&order=created_at.asc`)
 }
 
+async function guardedPatch(
+  id: string,
+  status: RemoteActionStatus,
+  actor: string,
+  result?: Record<string, unknown>,
+): Promise<RemoteAction[]> {
+  const filters = [`id=eq.${encodeURIComponent(id)}`]
+  if (status === 'approved') {
+    filters.push('status=eq.pending', `requested_by_device_id=eq.${encodeURIComponent(actor)}`)
+  } else if (status === 'running') {
+    filters.push('status=eq.approved', `target_device_id=eq.${encodeURIComponent(actor)}`)
+  } else if (status === 'succeeded' || status === 'failed' || status === 'canceled') {
+    filters.push('status=eq.running', `target_device_id=eq.${encodeURIComponent(actor)}`)
+  } else {
+    throw new Error(`Unsupported remote-action transition: ${status}`)
+  }
+  return companionRequest<RemoteAction[]>(
+    `/rest/v1/projectx_remote_actions?${filters.join('&')}`,
+    {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ status, ...(result ? { result } : {}) }),
+    },
+  )
+}
+
 export async function updateRemoteAction(
   id: string,
   status: RemoteActionStatus,
@@ -106,26 +132,33 @@ export async function updateRemoteAction(
   if (!actor) throw new Error('A device identity is required to update a remote action.')
 
   let rows: RemoteAction[]
-  if (status === 'approved') {
-    rows = await companionRpc<RemoteAction[]>('projectx_approve_remote_action', {
-      p_action_id: id,
-      p_requesting_device_id: actor,
-    })
-  } else if (status === 'running') {
-    rows = await companionRpc<RemoteAction[]>('projectx_start_remote_action', {
-      p_action_id: id,
-      p_target_device_id: actor,
-      p_result: result || null,
-    })
-  } else if (status === 'succeeded' || status === 'failed' || status === 'canceled') {
-    rows = await companionRpc<RemoteAction[]>('projectx_finish_remote_action', {
-      p_action_id: id,
-      p_target_device_id: actor,
-      p_status: status,
-      p_result: result || null,
-    })
-  } else {
-    throw new Error(`Unsupported remote-action transition: ${status}`)
+  try {
+    if (status === 'approved') {
+      rows = await companionRpc<RemoteAction[]>('projectx_approve_remote_action', {
+        p_action_id: id,
+        p_requesting_device_id: actor,
+      })
+    } else if (status === 'running') {
+      rows = await companionRpc<RemoteAction[]>('projectx_start_remote_action', {
+        p_action_id: id,
+        p_target_device_id: actor,
+        p_result: result || null,
+      })
+    } else if (status === 'succeeded' || status === 'failed' || status === 'canceled') {
+      rows = await companionRpc<RemoteAction[]>('projectx_finish_remote_action', {
+        p_action_id: id,
+        p_target_device_id: actor,
+        p_status: status,
+        p_result: result || null,
+      })
+    } else {
+      throw new Error(`Unsupported remote-action transition: ${status}`)
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.startsWith('COMPANION_SCHEMA:')) throw error
+    // Backward-compatible rollout path: still enforce the prior status and actor in the PATCH predicate.
+    rows = await guardedPatch(id, status, actor, result)
   }
 
   if (!rows?.length) throw new Error(`Remote action ${id} could not transition to ${status}. It may be stale or owned by another device.`)
