@@ -25,6 +25,34 @@ test('protected desktop session paths are passed explicitly to PowerShell', () =
   assert.doesNotMatch(source, /WriteAllBytes\(\$args\[0\]/)
 })
 
+test('desktop cloud session restores before React mounts', () => {
+  const source = read('src/main.tsx')
+  const restore = source.indexOf('await bootstrapSecureSession()')
+  const mount = source.indexOf("createRoot(document.getElementById('root')!)")
+  assert.ok(restore >= 0)
+  assert.ok(mount > restore)
+})
+
+test('Companion connection panel signs into cloud directly', () => {
+  const source = read('src/ConnectionCenter.tsx')
+  assert.match(source, /signInWithPassword/)
+  assert.match(source, /connection-inline-auth/)
+  assert.match(source, /projectx:supabase-session-changed/)
+  assert.doesNotMatch(source, /Sign in to project\.X Cloud'\}<\/button>\s*\)\s*=>\s*\{\s*setTarget\(null\);\s*window\.dispatchEvent\(new CustomEvent\('projectx:open-utility'/)
+})
+
+test('native provider auth uses hosted API with explicit CORS support', () => {
+  const client = read('src/services/providerConnections.ts')
+  const cors = read('api/_cors.ts')
+  const connect = read('api/provider-connect.ts')
+  assert.match(client, /VITE_PROJECTX_API_ORIGIN/)
+  assert.match(client, /projectx-tau-six\.vercel\.app/)
+  assert.match(client, /apiUrl\('\/api\/provider-connect'\)/)
+  assert.match(cors, /Access-Control-Allow-Origin/)
+  assert.match(cors, /tauri:\/\/localhost/)
+  assert.match(connect, /requestOrigin\(request\)/)
+})
+
 test('ZIP extraction is guarded before Expand-Archive', () => {
   const source = read('src-tauri/src/imports.rs')
   assert.match(source, /validate_zip_archive\(zip_path\)\?;/)
