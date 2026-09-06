@@ -26,7 +26,7 @@ concurrency:
 env:
   PROJECTX_BUILD_NAME: projectX-09.05-v3.0-immersive-hardening
   PROJECTX_ANDROID_VERSION: 3.0.0
-  PROJECTX_ANDROID_VERSION_CODE: 30000
+  PROJECTX_ANDROID_VERSION_CODE_BASE: 300000
   CAPACITOR_VERSION: 8.5.1
   CAPACITOR_ASSETS_VERSION: 3.0.5
 
@@ -49,6 +49,29 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+
+      - name: Restore stable internal signing key
+        if: github.event_name != 'pull_request'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.android/projectx-internal.jks
+          key: projectx-android-internal-signing-v1
+
+      - name: Ensure stable internal signing key
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/projectx-internal.jks" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/projectx-internal.jks" \
+              -storepass projectx-internal \
+              -alias projectxinternal \
+              -keypass projectx-internal \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=project.X Internal Test,O=planet.X,C=US"
+          fi
 
       - name: Install web dependencies
         run: npm ci
@@ -86,8 +109,10 @@ jobs:
       - name: Set Android app version
         shell: bash
         run: |
-          sed -i -E "s/versionCode [0-9]+/versionCode ${PROJECTX_ANDROID_VERSION_CODE}/" android/app/build.gradle
+          VERSION_CODE=$((PROJECTX_ANDROID_VERSION_CODE_BASE + GITHUB_RUN_NUMBER))
+          sed -i -E "s/versionCode [0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
           sed -i -E "s/versionName \"[^\"]+\"/versionName \"${PROJECTX_ANDROID_VERSION}\"/" android/app/build.gradle
+          echo "PROJECTX_ANDROID_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           grep -E 'versionCode|versionName' android/app/build.gradle
 
       - name: Build Android APK
@@ -100,21 +125,29 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x android/gradlew
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKSIGNER" || { echo 'Android apksigner was not found.'; exit 1; }
+
           if [ -n "${PROJECTX_ANDROID_KEYSTORE_BASE64:-}" ] && [ -n "${PROJECTX_ANDROID_KEYSTORE_PASSWORD:-}" ] && [ -n "${PROJECTX_ANDROID_KEY_ALIAS:-}" ] && [ -n "${PROJECTX_ANDROID_KEY_PASSWORD:-}" ]; then
             echo "$PROJECTX_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/projectx-release.jks"
             (cd android && ./gradlew assembleRelease)
             UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
             if [ ! -f "$UNSIGNED" ]; then UNSIGNED="android/app/build/outputs/apk/release/app-release.apk"; fi
-            APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-            test -x "$APKSIGNER" || { echo 'Android apksigner was not found.'; exit 1; }
             "$APKSIGNER" sign --ks "$RUNNER_TEMP/projectx-release.jks" --ks-key-alias "$PROJECTX_ANDROID_KEY_ALIAS" --ks-pass "pass:$PROJECTX_ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$PROJECTX_ANDROID_KEY_PASSWORD" --out "${PROJECTX_BUILD_NAME}.apk" "$UNSIGNED"
             "$APKSIGNER" verify --verbose "${PROJECTX_BUILD_NAME}.apk"
             echo "PROJECTX_ANDROID_ARTIFACT_KIND=signed-release" >> "$GITHUB_ENV"
+          elif [ "${GITHUB_EVENT_NAME}" != "pull_request" ]; then
+            (cd android && ./gradlew assembleRelease)
+            UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+            if [ ! -f "$UNSIGNED" ]; then UNSIGNED="android/app/build/outputs/apk/release/app-release.apk"; fi
+            "$APKSIGNER" sign --ks "$HOME/.android/projectx-internal.jks" --ks-key-alias projectxinternal --ks-pass "pass:projectx-internal" --key-pass "pass:projectx-internal" --out "${PROJECTX_BUILD_NAME}.apk" "$UNSIGNED"
+            "$APKSIGNER" verify --verbose "${PROJECTX_BUILD_NAME}.apk"
+            echo "PROJECTX_ANDROID_ARTIFACT_KIND=internal-test" >> "$GITHUB_ENV"
+            echo 'Release signing secrets are not configured; publishing a stable-signed internal test APK so updates preserve app data.'
           else
             (cd android && ./gradlew assembleDebug)
             cp android/app/build/outputs/apk/debug/app-debug.apk "${PROJECTX_BUILD_NAME}.apk"
-            echo "PROJECTX_ANDROID_ARTIFACT_KIND=debug" >> "$GITHUB_ENV"
-            echo 'Release signing secrets are not configured; publishing a debug APK for internal testing.'
+            echo "PROJECTX_ANDROID_ARTIFACT_KIND=debug-pr" >> "$GITHUB_ENV"
           fi
 
       - name: Upload Companion APK
