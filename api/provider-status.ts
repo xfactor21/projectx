@@ -1,8 +1,10 @@
 /// <reference types="node" />
 import { fetchWithTimeout, requireUser } from './_auth'
+import { applyProviderCors } from './_cors'
 import { loadProviderConnection } from './_provider-store'
 
 export default async function handler(request: any, response: any) {
+  if (applyProviderCors(request, response)) return
   if (request.method !== 'GET') return response.status(405).json({ ok: false, connected: false, message: 'Method not allowed.' })
   const user = await requireUser(request, response)
   if (!user) return
