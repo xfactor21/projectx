@@ -2,6 +2,7 @@ import { fetchCloudProjectsIncludingDeleted, getFreshSession, upsertCloudProject
 import type { CloudProject, SupabaseSession } from './supabase'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
+const RECONCILE_WINDOW_MS = 15_000
 
 type LocalProject = {
   id: string
@@ -86,7 +87,8 @@ export function cloudProjectPayload(session: SupabaseSession) {
 }
 
 export function projectInventorySignature() {
-  return JSON.stringify(cloudProjectPayload({ user: { id: '' }, access_token: '' }).map(({ user_id: _userId, ...project }) => project))
+  const projects = cloudProjectPayload({ user: { id: '' }, access_token: '' }).map(({ user_id: _userId, ...project }) => project)
+  return JSON.stringify({ syncWindow: Math.floor(Date.now() / RECONCILE_WINDOW_MS), projects })
 }
 
 export async function reconcileCloudProjectInventory(session?: SupabaseSession | null) {
@@ -96,9 +98,10 @@ export async function reconcileCloudProjectInventory(session?: SupabaseSession |
   const cloud = await fetchCloudProjectsIncludingDeleted(active)
   const tombstones = new Set(cloud.filter((project) => project.deleted_at).map((project) => project.client_id))
   const activeCloud = cloud.filter((project) => !project.deleted_at)
-  const local = readProjects().filter((project) => !tombstones.has(project.id))
+  const original = readProjects()
+  const local = original.filter((project) => !tombstones.has(project.id))
   const merged = [...local]
-  let changed = merged.length !== readProjects().length
+  let changed = merged.length !== original.length
 
   for (const incoming of activeCloud) {
     const index = merged.findIndex((project) => project.id === incoming.client_id || (incoming.repo_url && project.repoUrl === incoming.repo_url))
@@ -115,6 +118,7 @@ export async function reconcileCloudProjectInventory(session?: SupabaseSession |
 export async function syncLocalProjects(session?: SupabaseSession | null) {
   const active = await getFreshSession(session)
   if (!active) throw new Error('Sign in to project.X Cloud before connecting Companion.')
+  await reconcileCloudProjectInventory(active)
   const payload = cloudProjectPayload(active)
   if (payload.length) await upsertCloudProjects(payload, active)
   return { session: active, count: payload.length }
