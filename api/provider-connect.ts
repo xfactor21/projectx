@@ -1,8 +1,10 @@
 /// <reference types="node" />
 import { requireUser } from './_auth'
+import { applyProviderCors, requestOrigin } from './_cors'
 import { createProviderState } from './_provider-store'
 
 export default async function handler(request: any, response: any) {
+  if (applyProviderCors(request, response)) return
   if (request.method !== 'POST') return response.status(405).json({ ok: false, message: 'Method not allowed.' })
   const user = await requireUser(request, response)
   if (!user) return
@@ -10,9 +12,7 @@ export default async function handler(request: any, response: any) {
   if (!['github', 'vercel'].includes(provider)) return response.status(400).json({ ok: false, message: 'Provider must be github or vercel.' })
   try {
     const state = createProviderState(user.id, provider)
-    const origin = (process.env.PROJECTX_API_ORIGIN || '').replace(/\/$/, '')
-    if (!origin) throw new Error('PROJECTX_API_ORIGIN is not configured.')
-    const redirectUri = `${origin}/api/provider-callback`
+    const redirectUri = `${requestOrigin(request)}/api/provider-callback`
     if (provider === 'github') {
       const clientId = process.env.GITHUB_CLIENT_ID
       if (!clientId) throw new Error('GitHub App client ID is not configured.')
