@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { encryptToken, saveProviderConnection, verifyProviderState } from './_provider-store'
 import { fetchWithTimeout } from './_auth'
+import { requestOrigin } from './_cors'
 
 function page(response: any, status: number, title: string, detail: string) {
   const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] || character)
@@ -13,10 +14,12 @@ export default async function handler(request: any, response: any) {
     const code = String(request.query?.code || '')
     const state = verifyProviderState(String(request.query?.state || ''))
     if (!code) throw new Error('The provider did not return an authorization code.')
-    const origin = (process.env.PROJECTX_API_ORIGIN || '').replace(/\/$/, '')
-    const redirectUri = `${origin}/api/provider-callback`
+    const redirectUri = `${requestOrigin(request)}/api/provider-callback`
     if (state.provider === 'github') {
-      const exchange = await fetchWithTimeout('https://github.com/login/oauth/access_token', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: process.env.GITHUB_CLIENT_ID, client_secret: process.env.GITHUB_CLIENT_SECRET, code, redirect_uri: redirectUri }) }, 15_000)
+      const clientId = process.env.GITHUB_CLIENT_ID || ''
+      const clientSecret = process.env.GITHUB_CLIENT_SECRET || ''
+      if (!clientId || !clientSecret) throw new Error('GitHub OAuth credentials are not configured on the project.X API.')
+      const exchange = await fetchWithTimeout('https://github.com/login/oauth/access_token', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri }) }, 15_000)
       const token = await exchange.json() as { access_token?: string; scope?: string; error_description?: string }
       if (!exchange.ok || !token.access_token) throw new Error(token.error_description || 'GitHub token exchange failed.')
       const accountResponse = await fetchWithTimeout('https://api.github.com/user', { headers: { Authorization: `Bearer ${token.access_token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } }, 10_000)
@@ -24,7 +27,10 @@ export default async function handler(request: any, response: any) {
       if (!accountResponse.ok || !account.id) throw new Error('Unable to read the connected GitHub account.')
       await saveProviderConnection({ user_id: state.userId, provider: 'github', account_id: String(account.id), account_name: account.login, encrypted_access_token: encryptToken(token.access_token), scopes: (token.scope || '').split(',').map((scope) => scope.trim()).filter(Boolean), updated_at: new Date().toISOString() })
     } else {
-      const exchange = await fetchWithTimeout('https://api.vercel.com/v2/oauth/access_token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: process.env.VERCEL_CLIENT_ID || '', client_secret: process.env.VERCEL_CLIENT_SECRET || '', code, redirect_uri: redirectUri }) }, 15_000)
+      const clientId = process.env.VERCEL_CLIENT_ID || ''
+      const clientSecret = process.env.VERCEL_CLIENT_SECRET || ''
+      if (!clientId || !clientSecret) throw new Error('Vercel OAuth credentials are not configured on the project.X API.')
+      const exchange = await fetchWithTimeout('https://api.vercel.com/v2/oauth/access_token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri }) }, 15_000)
       const token = await exchange.json() as { access_token?: string; team_id?: string; user_id?: string; error?: { message?: string } }
       if (!exchange.ok || !token.access_token) throw new Error(token.error?.message || 'Vercel token exchange failed.')
       const accountId = token.team_id || token.user_id
