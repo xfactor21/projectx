@@ -59,34 +59,42 @@ import './v29.css'
 import './phase2Themes.css'
 import './themeImmersionRound.css'
 
-installTauriDesktopBridge()
-applySettings()
-void bootstrapSecureSession()
+async function start() {
+  installTauriDesktopBridge()
+  applySettings()
 
-window.addEventListener('projectx:open-add-project', () => {
-  window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'projects' } }))
-  window.setTimeout(() => document.querySelector<HTMLButtonElement>('.project-launcher-fab')?.click(), 100)
-})
+  // Restore the protected desktop cloud session before React reads auth state.
+  // Without this await, components could mount as signed-out even though a valid
+  // protected session was restored a moment later.
+  await bootstrapSecureSession()
 
-const capacitorNative = Boolean((window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.())
-const companionMode = capacitorNative || new URLSearchParams(window.location.search).get('mode') === 'companion'
+  window.addEventListener('projectx:open-add-project', () => {
+    window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'projects' } }))
+    window.setTimeout(() => document.querySelector<HTMLButtonElement>('.project-launcher-fab')?.click(), 100)
+  })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      {companionMode ? <><AppSplash /><CompanionApp /></> : <>
-        <AppSplash />
-        <ThemeEnvironmentLayer />
-        <WorkspaceApp />
-        <SurfaceCoordinator />
-        <ArtworkAutoDiscovery />
-        <CompanionDesktopWorker />
-        <EmbeddedPreview />
-        <ConnectionCenter />
-        <UtilityHub />
-        <SettingsPanel />
-        <GitHubDiscoveryModal />
-      </>}
-    </ErrorBoundary>
-  </StrictMode>,
-)
+  const capacitorNative = Boolean((window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.())
+  const companionMode = capacitorNative || new URLSearchParams(window.location.search).get('mode') === 'companion'
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        {companionMode ? <><AppSplash /><CompanionApp /></> : <>
+          <AppSplash />
+          <ThemeEnvironmentLayer />
+          <WorkspaceApp />
+          <SurfaceCoordinator />
+          <ArtworkAutoDiscovery />
+          <CompanionDesktopWorker />
+          <EmbeddedPreview />
+          <ConnectionCenter />
+          <UtilityHub />
+          <SettingsPanel />
+          <GitHubDiscoveryModal />
+        </>}
+      </ErrorBoundary>
+    </StrictMode>,
+  )
+}
+
+void start()
