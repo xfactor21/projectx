@@ -15,6 +15,8 @@ function readHostStatus(): HostStatus | null {
   } catch { return null }
 }
 
+function delay(ms: number) { return new Promise((resolve) => window.setTimeout(resolve, ms)) }
+
 export default function ConnectionCenter() {
   const [target, setTarget] = useState<ConnectionTarget | null>(null)
   const [host, setHost] = useState<HostStatus | null>(readHostStatus)
@@ -78,9 +80,22 @@ export default function ConnectionCenter() {
 
   async function connect(next: ProviderId) {
     setBusy(true)
-    try { setMessage(await connectProvider(next)) }
-    catch (error) { setMessage(error instanceof Error ? error.message : `Unable to connect ${next}.`) }
-    finally { setBusy(false) }
+    try {
+      setMessage(await connectProvider(next))
+      setMessage(`${next === 'github' ? 'GitHub' : 'Vercel'} authorization opened. Waiting for completion…`)
+      for (let attempt = 0; attempt < 45; attempt += 1) {
+        await delay(2_000)
+        const state = await fetchProviderConnection(next, true)
+        setProvider(state)
+        if (state.connected) {
+          setMessage(`${next === 'github' ? 'GitHub' : 'Vercel'} connected successfully.`)
+          return
+        }
+      }
+      setMessage(`Authorization is still pending. Finish it in the browser, then use Refresh status.`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Unable to connect ${next}.`)
+    } finally { setBusy(false) }
   }
 
   if (!target) return null
