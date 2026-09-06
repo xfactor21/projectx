@@ -1,3 +1,4 @@
+import { getDesktopHost } from './desktop'
 import { loadSession } from './supabase'
 import { openHostedLink } from './externalLinks'
 
@@ -11,13 +12,24 @@ export type ProviderConnectionState = {
   checkedAt: string
 }
 
+const HOSTED_API_ORIGIN = (import.meta.env.VITE_PROJECTX_API_ORIGIN || 'https://projectx-tau-six.vercel.app').replace(/\/$/, '')
+
+function isNativeShell() {
+  if (getDesktopHost()) return true
+  return Boolean((window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.())
+}
+
+function apiUrl(path: string) {
+  return isNativeShell() ? `${HOSTED_API_ORIGIN}${path}` : path
+}
+
 export async function fetchProviderConnection(provider: ProviderId, includeResources = false): Promise<ProviderConnectionState> {
   const checkedAt = new Date().toISOString()
   const session = loadSession()
   if (!session) return { provider, connected: false, resourceCount: 0, message: 'Sign in to project.X Cloud to connect.', checkedAt }
   try {
     const endpoint = includeResources ? 'provider-resources' : 'provider-status'
-    const response = await fetch(`/api/${endpoint}?provider=${provider}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const response = await fetch(apiUrl(`/api/${endpoint}?provider=${provider}`), { headers: { Authorization: `Bearer ${session.access_token}` } })
     const body = await response.json() as { connected?: boolean; resources?: unknown[]; message?: string }
     const connected = Boolean(body.connected && response.ok)
     return {
@@ -27,15 +39,25 @@ export async function fetchProviderConnection(provider: ProviderId, includeResou
       message: body.message || (connected ? `${provider === 'github' ? 'GitHub' : 'Vercel'} connected.` : `Connect ${provider}.`),
       checkedAt,
     }
-  } catch {
-    return { provider, connected: false, resourceCount: 0, message: 'Connection status is available in the deployed application.', checkedAt }
+  } catch (error) {
+    return {
+      provider,
+      connected: false,
+      resourceCount: 0,
+      message: error instanceof Error ? `Provider service unreachable: ${error.message}` : 'Provider service is unreachable.',
+      checkedAt,
+    }
   }
 }
 
 export async function connectProvider(provider: ProviderId): Promise<string> {
   const session = loadSession()
   if (!session) throw new Error('Sign in to project.X Cloud before connecting an external provider.')
-  const response = await fetch('/api/provider-connect', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) })
+  const response = await fetch(apiUrl('/api/provider-connect'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider }),
+  })
   const body = await response.json() as { authorizationUrl?: string; message?: string }
   if (!response.ok || !body.authorizationUrl) throw new Error(body.message || `Unable to connect ${provider}.`)
   await openHostedLink(body.authorizationUrl)
