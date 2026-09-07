@@ -17,12 +17,15 @@ test('desktop Supabase sessions use protected persistence, not localStorage', ()
   assert.match(source, /localStorage\.removeItem\(SESSION_KEY\)/)
 })
 
-test('protected desktop session paths are passed explicitly to PowerShell', () => {
+test('Windows cloud sessions use native DPAPI rather than a PowerShell subprocess', () => {
   const source = read('src-tauri/src/secure_session.rs')
-  assert.match(source, /PROJECTX_SESSION_PATH/)
-  assert.match(source, /\$env:PROJECTX_SESSION_PATH/)
-  assert.doesNotMatch(source, /ReadAllBytes\(\$args\[0\]\)/)
-  assert.doesNotMatch(source, /WriteAllBytes\(\$args\[0\]/)
+  const cargo = read('src-tauri/Cargo.toml')
+  assert.match(source, /CryptProtectData/)
+  assert.match(source, /CryptUnprotectData/)
+  assert.match(source, /secure-session\.bin/)
+  assert.doesNotMatch(source, /powershell\.exe/i)
+  assert.match(cargo, /winapi/)
+  assert.match(cargo, /dpapi/)
 })
 
 test('desktop cloud session restores before React mounts', () => {
@@ -41,13 +44,15 @@ test('Companion connection panel signs into cloud directly', () => {
   assert.doesNotMatch(source, /Sign in to project\.X Cloud'\}<\/button>\s*\)\s*=>\s*\{\s*setTarget\(null\);\s*window\.dispatchEvent\(new CustomEvent\('projectx:open-utility'/)
 })
 
-test('native provider auth uses hosted API with explicit CORS support', () => {
+test('native provider auth uses the hosted develop API during v3.1 validation', () => {
   const client = read('src/services/providerConnections.ts')
+  const vercel = read('src/services/vercel.ts')
   const cors = read('api/_cors.ts')
   const connect = read('api/provider-connect.ts')
   assert.match(client, /VITE_PROJECTX_API_ORIGIN/)
-  assert.match(client, /projectx-tau-six\.vercel\.app/)
+  assert.match(client, /projectx-git-develop-xfactor21s-projects\.vercel\.app/)
   assert.match(client, /apiUrl\('\/api\/provider-connect'\)/)
+  assert.match(vercel, /apiUrl\('\/api\/vercel-projects'\)/)
   assert.match(cors, /Access-Control-Allow-Origin/)
   assert.match(cors, /tauri:\/\/localhost/)
   assert.match(connect, /requestOrigin\(request\)/)
