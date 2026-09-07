@@ -16,6 +16,7 @@ function readHostStatus(): HostStatus | null {
 }
 
 function delay(ms: number) { return new Promise((resolve) => window.setTimeout(resolve, ms)) }
+function providerLabel(provider: ProviderId) { return provider === 'github' ? 'GitHub' : 'Vercel' }
 
 export default function ConnectionCenter() {
   const [target, setTarget] = useState<ConnectionTarget | null>(null)
@@ -34,6 +35,7 @@ export default function ConnectionCenter() {
       if (!next || !['companion', 'github', 'vercel'].includes(next)) return
       setSession(loadSession())
       setTarget(next)
+      setProvider(null)
       setMessage('')
       if (next === 'companion') setHost(readHostStatus())
       else void refresh(next)
@@ -71,8 +73,12 @@ export default function ConnectionCenter() {
       const next = await signInWithPassword(email.trim(), password)
       setSession(next)
       setPassword('')
-      setMessage('Signed in. Companion is reconnecting now.')
-      if (target === 'github' || target === 'vercel') await refresh(target)
+      if (target === 'github' || target === 'vercel') {
+        setMessage(`project.X identity verified. Now authorize ${providerLabel(target)} separately below.`)
+        await refresh(target)
+      } else {
+        setMessage('Signed in and securely saved on this Windows account. Companion is reconnecting now.')
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed.')
     } finally { setBusy(false) }
@@ -81,20 +87,21 @@ export default function ConnectionCenter() {
   async function connect(next: ProviderId) {
     setBusy(true)
     try {
-      setMessage(await connectProvider(next))
-      setMessage(`${next === 'github' ? 'GitHub' : 'Vercel'} authorization opened. Waiting for completion…`)
+      await connectProvider(next)
+      setMessage(`${providerLabel(next)} opened in your browser. Complete its authorization there; project.X is watching for the callback.`)
       for (let attempt = 0; attempt < 45; attempt += 1) {
         await delay(2_000)
         const state = await fetchProviderConnection(next, true)
         setProvider(state)
         if (state.connected) {
-          setMessage(`${next === 'github' ? 'GitHub' : 'Vercel'} connected successfully.`)
+          setMessage(`${providerLabel(next)} authorization completed. ${state.resourceCount} accessible ${next === 'github' ? 'repositories' : 'projects'} detected.`)
+          window.dispatchEvent(new CustomEvent('projectx:provider-changed'))
           return
         }
       }
-      setMessage(`Authorization is still pending. Finish it in the browser, then use Refresh status.`)
+      setMessage(`${providerLabel(next)} authorization is still pending. Finish the provider's browser flow, then use Check authorization.`)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : `Unable to connect ${next}.`)
+      setMessage(error instanceof Error ? error.message : `Unable to connect ${providerLabel(next)}.`)
     } finally { setBusy(false) }
   }
 
@@ -103,8 +110,8 @@ export default function ConnectionCenter() {
   const hostOnline = host?.status === 'online' && Boolean(host.updatedAt) && clock - new Date(host.updatedAt).getTime() < HOST_FRESH_MS
   const providerConnected = target !== 'companion' && provider?.provider === target && provider.connected
   const authForm = !session ? <div className="connection-inline-auth">
-    <label><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-    <label><span>Password</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
+    <label><span>project.X email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+    <label><span>project.X password</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
     <button className="connection-primary" type="button" disabled={busy || !isSupabaseConfigured()} onClick={() => void login()}>{busy ? 'Signing in…' : 'Sign in to project.X Cloud'}</button>
   </div> : null
 
@@ -114,14 +121,21 @@ export default function ConnectionCenter() {
       {target === 'companion' ? <>
         <div className={`connection-state ${hostOnline ? 'online' : host?.status === 'error' ? 'error' : 'idle'}`}><i/><div><strong>{hostOnline ? 'Windows host is available' : host?.status === 'error' ? 'Companion needs attention' : 'Waiting for Companion'}</strong><p>{host?.detail || 'Sign in on this PC and the Companion with the same project.X account.'}</p><small>{host?.updatedAt ? `Last recorded ${new Date(host.updatedAt).toLocaleString()}` : 'No host check recorded yet'}</small></div></div>
         <div className="connection-facts"><span>Cloud account<b>{session ? 'SIGNED IN' : isSupabaseConfigured() ? 'SIGNED OUT' : 'UNAVAILABLE'}</b></span><span>Local projects<b>{host?.projectCount ?? 0}</b></span></div>
-        {authForm}
-        {session && <button className="connection-primary" type="button" onClick={() => { setTarget(null); window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'cloud', openCloud: true } })) }}>Manage cloud account</button>}
-      </> : <>
-        <div className={`connection-state ${providerConnected ? 'online' : 'idle'}`}><i/><div><strong>{providerConnected ? `${title} connected` : `${title} is not connected`}</strong><p>{provider?.message || `Checking ${title} connection…`}</p><small>{provider?.checkedAt ? `Last checked ${new Date(provider.checkedAt).toLocaleString()}` : 'Not checked yet'}</small></div></div>
-        <div className="connection-facts"><span>Accessible {target === 'github' ? 'repositories' : 'projects'}<b>{provider?.resourceCount ?? 0}</b></span><span>Permission model<b>USER SCOPED</b></span></div>
         {message && <p className="connection-message">{message}</p>}
         {authForm}
-        {session && <div className="connection-actions"><button className="connection-primary" type="button" disabled={busy} onClick={() => void connect(target)}>{providerConnected ? `Reconnect ${title}` : `Connect ${title}`}</button><button type="button" disabled={busy} onClick={() => void refresh(target)}>Refresh status</button></div>}
+        {session && <button className="connection-primary" type="button" onClick={() => { setTarget(null); window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'cloud', openCloud: true } })) }}>Manage project.X Cloud account</button>}
+      </> : <>
+        <div className="provider-auth-flow" aria-label={`${title} authorization steps`}>
+          <div className={`provider-auth-step ${session ? 'complete' : 'active'}`}><b>1</b><div><strong>project.X identity</strong><p>{session ? `Signed in as ${session.user.email || 'project.X user'}. This does not sign you into ${title}.` : `First identify your project.X account. This is only the prerequisite for storing your ${title} connection.`}</p></div><span>{session ? 'READY' : 'REQUIRED'}</span></div>
+          <div className={`provider-auth-step ${providerConnected ? 'complete' : session ? 'active' : 'locked'}`}><b>2</b><div><strong>{title} authorization</strong><p>{providerConnected ? `${title} granted project.X access to your user-scoped resources.` : session ? `Authorize directly with ${title} in your browser. Your project.X password is never used as your ${title} login.` : `Available after project.X identity is verified.`}</p></div><span>{providerConnected ? 'CONNECTED' : session ? 'AUTHORIZE' : 'LOCKED'}</span></div>
+        </div>
+        {authForm}
+        {session && <>
+          <div className={`connection-state ${providerConnected ? 'online' : 'idle'}`}><i/><div><strong>{providerConnected ? `${title} connected` : `${title} authorization not active`}</strong><p>{provider?.message || `Checking ${title} authorization…`}</p><small>{provider?.checkedAt ? `Last checked ${new Date(provider.checkedAt).toLocaleString()}` : 'Not checked yet'}</small></div></div>
+          <div className="connection-facts"><span>Accessible {target === 'github' ? 'repositories' : 'projects'}<b>{provider?.resourceCount ?? 0}</b></span><span>Provider permission<b>USER SCOPED</b></span></div>
+          <div className="connection-actions"><button className="connection-primary" type="button" disabled={busy} onClick={() => void connect(target)}>{busy ? 'Waiting…' : providerConnected ? `Re-authorize ${title}` : `Authorize ${title} in browser`}</button><button type="button" disabled={busy} onClick={() => void refresh(target)}>Check authorization</button></div>
+        </>}
+        {message && <p className="connection-message">{message}</p>}
       </>}
     </section>
   </div>, document.body)
