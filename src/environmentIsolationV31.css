@@ -1,0 +1,28 @@
+/* v3.1 environment isolation: ambient worlds are visible behind the shell/content,
+   and environment-only elements no longer reuse project-renderer class names. */
+.theme-environment{z-index:0!important}
+.workspace-v3{position:relative!important;z-index:2!important;background:transparent!important}
+.workspace-v3 .v2-workspace{background:linear-gradient(180deg,rgba(7,8,11,.82),rgba(7,8,11,.64) 28%,rgba(7,8,11,.38) 58%,rgba(7,8,11,.68))!important}
+.workspace-v3 .v2-sidebar{z-index:90!important}
+
+.env-storefront .env-store-awning{position:absolute;left:18%;right:7%;top:8%;height:54px;display:grid;grid-template-columns:repeat(6,1fr);transform:perspective(500px) rotateX(-11deg);box-shadow:0 18px 30px rgba(0,0,0,.3);background:repeating-linear-gradient(90deg,#e4b068 0 16.66%,#5a251d 16.66% 33.33%)}
+.env-gallery .env-gallery-ceiling{position:absolute;left:12%;right:0;top:0;height:12%;background:repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px 140px),linear-gradient(#0c0915,#05040a);border-bottom:1px solid rgba(184,140,255,.08)}
+.env-gallery .env-gallery-plaque{position:absolute;left:17%;top:3.4%;color:rgba(225,216,255,.5);font:700 9px/1 var(--mono,monospace);letter-spacing:.2em}
+
+/* Permanent application chrome receives only a translucent echo of the scene. */
+.theme-storefront .v2-sidebar,.theme-storefront .workspace-brand-row,.theme-storefront .v2-topbar{background:linear-gradient(180deg,rgba(18,11,9,.94),rgba(8,8,10,.88))!important}
+.theme-xfactor .v2-sidebar,.theme-xfactor .workspace-brand-row,.theme-xfactor .v2-topbar{background:linear-gradient(180deg,rgba(12,4,17,.94),rgba(7,6,11,.88))!important}
+.theme-planetx .v2-sidebar,.theme-planetx .workspace-brand-row,.theme-planetx .v2-topbar{background:linear-gradient(180deg,rgba(4,9,19,.94),rgba(6,6,13,.88))!important}
+.theme-vending .v2-sidebar,.theme-vending .workspace-brand-row,.theme-vending .v2-topbar{background:linear-gradient(180deg,rgba(3,10,11,.94),rgba(5,8,10,.9))!important}
+.theme-3d .v2-sidebar,.theme-3d .workspace-brand-row,.theme-3d .v2-topbar{background:linear-gradient(180deg,rgba(10,7,16,.94),rgba(7,7,11,.9))!important}
+
+/* True persistent shell: sidebar and both top chrome rows remain while project world scrolls. */
+.workspace-v3 .workspace-brand-row{position:fixed!important;left:250px;right:0;top:0;z-index:85!important;box-sizing:border-box;min-height:54px;margin:0!important;padding:10px clamp(22px,4vw,58px)!important}
+.workspace-v3 .v2-workspace{padding-top:78px!important}
+.workspace-v3 .v2-topbar{position:sticky!important;top:54px;z-index:75!important;margin-left:calc(-1 * clamp(22px,4vw,58px));margin-right:calc(-1 * clamp(22px,4vw,58px));padding:16px clamp(22px,4vw,58px) 14px!important;border-bottom:1px solid rgba(255,255,255,.055);backdrop-filter:blur(20px)}
+
+@media(max-width:900px){
+  .workspace-v3 .workspace-brand-row{position:sticky!important;left:auto;right:auto;top:0;margin-inline:calc(-1 * clamp(18px,4vw,34px))!important}
+  .workspace-v3 .v2-workspace{padding-top:0!important}
+  .workspace-v3 .v2-topbar{top:54px}
+}
