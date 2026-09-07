@@ -58,14 +58,13 @@ import './v28.css'
 import './v29.css'
 import './phase2Themes.css'
 import './themeImmersionRound.css'
+import './desktopShellV31.css'
 
 async function start() {
   installTauriDesktopBridge()
   applySettings()
 
   // Restore the protected desktop cloud session before React reads auth state.
-  // Without this await, components could mount as signed-out even though a valid
-  // protected session was restored a moment later.
   await bootstrapSecureSession()
 
   window.addEventListener('projectx:open-add-project', () => {
