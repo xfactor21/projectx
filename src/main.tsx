@@ -59,6 +59,7 @@ import './v29.css'
 import './phase2Themes.css'
 import './themeImmersionRound.css'
 import './desktopShellV31.css'
+import './providerAuthV31.css'
 
 async function start() {
   installTauriDesktopBridge()
