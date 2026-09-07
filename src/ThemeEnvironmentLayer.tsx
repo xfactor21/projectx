@@ -28,7 +28,7 @@ export default function ThemeEnvironmentLayer() {
     <div className="street-car car-one"><i/><i/></div><div className="street-car car-two"><i/><i/></div>
     <div className="street-bike"><i/><b/></div>
     <div className="pedestrian ped-one"><i/></div><div className="pedestrian ped-two"><i/></div><div className="pedestrian ped-three"><i/></div>
-    <div className="store-awning"/><div className="store-open-sign">OPEN // BUILDS</div>
+    <div className="env-store-awning"/><div className="store-open-sign">OPEN // BUILDS</div>
   </div>
 
   if (theme === 'Vending') return <div className="theme-environment env-vending" aria-hidden="true">
@@ -47,8 +47,8 @@ export default function ThemeEnvironmentLayer() {
   </div>
 
   if (theme === '3D') return <div className="theme-environment env-gallery" aria-hidden="true">
-    <div className="gallery-ceiling"/><div className="gallery-beam beam-one"/><div className="gallery-beam beam-two"/><div className="gallery-beam beam-three"/>
-    <div className="gallery-horizon"/><div className="gallery-plaque">PROJECT.X / DIGITAL EXHIBITION</div><div className="gallery-room-number">ROOM 05</div>
+    <div className="env-gallery-ceiling"/><div className="gallery-beam beam-one"/><div className="gallery-beam beam-two"/><div className="gallery-beam beam-three"/>
+    <div className="gallery-horizon"/><div className="env-gallery-plaque">PROJECT.X / DIGITAL EXHIBITION</div><div className="gallery-room-number">ROOM 05</div>
     <div className="gallery-visitor one"><i/></div><div className="gallery-visitor two"><i/></div><div className="gallery-orb one"/><div className="gallery-orb two"/>
   </div>
 
