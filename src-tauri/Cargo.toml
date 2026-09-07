@@ -16,6 +16,9 @@ rfd = "0.15"
 base64 = "0.22"
 url = "2"
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["dpapi", "wincrypt", "winbase"] }
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
