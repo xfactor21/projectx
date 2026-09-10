@@ -4,7 +4,16 @@ import { connectProvider, fetchProviderConnection, type ProviderConnectionState,
 import { isSupabaseConfigured, loadSession, signInWithPassword, type SupabaseSession } from './services/supabase'
 
 type ConnectionTarget = 'companion' | ProviderId
-type HostStatus = { status: 'connecting' | 'online' | 'error'; detail: string; projectCount: number; updatedAt: string }
+type HostStatus = {
+  status: 'connecting' | 'online' | 'error'
+  detail: string
+  projectCount: number
+  updatedAt: string
+  hostOnline?: boolean
+  cloudOnline?: boolean
+  companionConnected?: boolean
+  companionLastSeenAt?: string | null
+}
 const HOST_STATUS_KEY = 'projectx.companion.host-status.v1'
 const HOST_FRESH_MS = 30_000
 
@@ -77,7 +86,7 @@ export default function ConnectionCenter() {
         setMessage(`project.X identity verified. Now authorize ${providerLabel(target)} separately below.`)
         await refresh(target)
       } else {
-        setMessage('Signed in and securely saved on this Windows account. Companion is reconnecting now.')
+        setMessage('Signed in and securely saved on this Windows account. Windows host and Companion presence are checked separately.')
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed.')
@@ -107,7 +116,10 @@ export default function ConnectionCenter() {
 
   if (!target) return null
   const title = target === 'companion' ? 'Companion' : target === 'github' ? 'GitHub' : 'Vercel'
-  const hostOnline = host?.status === 'online' && Boolean(host.updatedAt) && clock - new Date(host.updatedAt).getTime() < HOST_FRESH_MS
+  const heartbeatFresh = Boolean(host?.updatedAt) && clock - new Date(host?.updatedAt || 0).getTime() < HOST_FRESH_MS
+  const hostOnline = Boolean(host?.hostOnline) && heartbeatFresh
+  const cloudOnline = Boolean(host?.cloudOnline) && heartbeatFresh
+  const companionOnline = Boolean(host?.companionConnected) && Boolean(host?.companionLastSeenAt) && clock - new Date(host?.companionLastSeenAt || 0).getTime() < HOST_FRESH_MS
   const providerConnected = target !== 'companion' && provider?.provider === target && provider.connected
   const authForm = !session ? <div className="connection-inline-auth">
     <label><span>project.X email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
@@ -119,14 +131,14 @@ export default function ConnectionCenter() {
     <section className={`connection-center connection-${target}`} role="dialog" aria-modal="true" aria-label={`${title} connection`}>
       <header><div><small>PROJECT.X CONNECTION</small><h2>{title}</h2></div><button type="button" onClick={() => setTarget(null)} aria-label="Close connection panel">×</button></header>
       {target === 'companion' ? <>
-        <div className={`connection-state ${hostOnline ? 'online' : host?.status === 'error' ? 'error' : 'idle'}`}><i/><div><strong>{hostOnline ? 'Windows host is available' : host?.status === 'error' ? 'Companion needs attention' : 'Waiting for Companion'}</strong><p>{host?.detail || 'Sign in on this PC and the Companion with the same project.X account.'}</p><small>{host?.updatedAt ? `Last recorded ${new Date(host.updatedAt).toLocaleString()}` : 'No host check recorded yet'}</small></div></div>
-        <div className="connection-facts"><span>Cloud account<b>{session ? 'SIGNED IN' : isSupabaseConfigured() ? 'SIGNED OUT' : 'UNAVAILABLE'}</b></span><span>Local projects<b>{host?.projectCount ?? 0}</b></span></div>
+        <div className={`connection-state ${companionOnline ? 'online' : host?.status === 'error' ? 'error' : 'idle'}`}><i/><div><strong>{companionOnline ? 'Android Companion connected' : hostOnline ? 'Windows host online — Companion offline' : host?.status === 'error' ? 'Connection needs attention' : 'Waiting for Windows host and Companion'}</strong><p>{host?.detail || 'Cloud access, Windows host availability, and Android Companion presence are tracked separately.'}</p><small>{host?.companionLastSeenAt ? `Companion last seen ${new Date(host.companionLastSeenAt).toLocaleString()}` : host?.updatedAt ? `Windows host checked ${new Date(host.updatedAt).toLocaleString()}` : 'No device check recorded yet'}</small></div></div>
+        <div className="connection-facts"><span>Cloud account<b>{session ? 'SIGNED IN' : isSupabaseConfigured() ? 'SIGNED OUT' : 'UNAVAILABLE'}</b></span><span>Cloud access<b>{cloudOnline ? 'ONLINE' : session ? 'CHECKING' : 'OFFLINE'}</b></span><span>Windows host<b>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></span><span>Companion<b>{companionOnline ? 'CONNECTED' : 'NOT CONNECTED'}</b></span><span>Local projects<b>{host?.projectCount ?? 0}</b></span></div>
         {message && <p className="connection-message">{message}</p>}
         {authForm}
         {session && <button className="connection-primary" type="button" onClick={() => { setTarget(null); window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'cloud', openCloud: true } })) }}>Manage project.X Cloud account</button>}
       </> : <>
         <div className="provider-auth-flow" aria-label={`${title} authorization steps`}>
-          <div className={`provider-auth-step ${session ? 'complete' : 'active'}`}><b>1</b><div><strong>project.X identity</strong><p>{session ? `Signed in as ${session.user.email || 'project.X user'}. This does not sign you into ${title}.` : `First identify your project.X account. This is only the prerequisite for storing your ${title} connection.`}</p></div><span>{session ? 'READY' : 'REQUIRED'}</span></div>
+          <div className={`provider-auth-step ${session ? 'complete' : 'active'}`}><b>1</b><div><strong>project.X identity</strong><p>{session ? `Signed in as ${session.user.email || 'project.X user'}. This does not sign you into ${title}.` : `First identify your project.X account. This only tells project.X which user owns the ${title} connection.`}</p></div><span>{session ? 'READY' : 'REQUIRED'}</span></div>
           <div className={`provider-auth-step ${providerConnected ? 'complete' : session ? 'active' : 'locked'}`}><b>2</b><div><strong>{title} authorization</strong><p>{providerConnected ? `${title} granted project.X access to your user-scoped resources.` : session ? `Authorize directly with ${title} in your browser. Your project.X password is never used as your ${title} login.` : `Available after project.X identity is verified.`}</p></div><span>{providerConnected ? 'CONNECTED' : session ? 'AUTHORIZE' : 'LOCKED'}</span></div>
         </div>
         {authForm}
