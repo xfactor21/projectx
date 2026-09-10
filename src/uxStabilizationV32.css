@@ -1,0 +1,114 @@
+/* v3.2 stabilization: keep all environments selectable, keep ambient worlds behind content,
+   and make connection/auth dialogs readable at desktop and phone-scale widths. */
+
+/* Theme selector must never collapse to only the final two themes. */
+.workspace-v3 .v2-theme-deck{
+  display:grid!important;
+  grid-template-columns:repeat(7,minmax(92px,1fr))!important;
+  gap:8px!important;
+  width:100%!important;
+  max-width:none!important;
+  overflow:visible!important;
+  position:relative!important;
+  z-index:12!important;
+  margin:0 0 18px!important;
+}
+.workspace-v3 .v2-theme-deck button{
+  min-width:0!important;
+  min-height:72px!important;
+  overflow:hidden!important;
+}
+.workspace-v3 .v2-theme-deck button i,
+.workspace-v3 .v2-theme-deck button strong,
+.workspace-v3 .v2-theme-deck button span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.workspace-v3 .v2-theme-deck button span{white-space:normal;line-height:1.25}
+
+/* Ambient environment is atmosphere, not a foreground layer. */
+.workspace-v3 .v2-workspace{
+  background:linear-gradient(180deg,rgba(7,8,11,.90),rgba(7,8,11,.76) 26%,rgba(7,8,11,.54) 56%,rgba(7,8,11,.78))!important;
+}
+.theme-environment{opacity:.72!important}
+.env-storefront .street-car,
+.env-storefront .street-bike,
+.env-storefront .pedestrian{opacity:.42!important;filter:saturate(.9) brightness(.82)}
+.env-storefront .store-window-glow{opacity:.52!important}
+.env-storefront .store-sign,.env-storefront .store-open-sign{opacity:.72!important}
+
+/* Remove the distracting vertical stripe artifacts from the storefront shell/world. */
+.env-storefront .store-brick-wall{display:none!important}
+.env-storefront .store-sidewalk{
+  background:linear-gradient(180deg,#403d3d,#242429)!important;
+}
+.theme-storefront .storefront-street{
+  background:
+    linear-gradient(180deg,rgba(20,25,34,.5) 0 48%,rgba(31,24,22,.56) 48% 66%,rgba(9,9,12,.94) 66%),
+    radial-gradient(ellipse at 50% 30%,rgba(255,190,118,.10),transparent 58%)!important;
+}
+
+/* xFactor/planet.X should carry into the rest of the shell without obscuring controls. */
+.theme-xfactor .v2-workspace{background:linear-gradient(180deg,rgba(9,3,14,.88),rgba(8,3,13,.64) 46%,rgba(5,3,9,.82))!important}
+.theme-planetx .v2-workspace{background:linear-gradient(180deg,rgba(3,8,17,.88),rgba(3,8,16,.58) 46%,rgba(4,5,11,.82))!important}
+.theme-xfactor .xfactor-grid{opacity:.34!important}
+.theme-xfactor .xfactor-rain{opacity:.08!important}
+.theme-planetx .planetx-stars{opacity:.58!important}
+
+/* Connection/provider dialogs: prevent labels, fields and copy from bleeding together. */
+.connection-center{
+  width:min(760px,calc(100vw - 32px))!important;
+  max-height:calc(100vh - 32px)!important;
+  overflow:auto!important;
+  box-sizing:border-box!important;
+}
+.connection-center *{box-sizing:border-box}
+.connection-inline-auth{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+  align-items:end!important;
+  width:100%!important;
+}
+.connection-inline-auth label{
+  display:grid!important;
+  gap:7px!important;
+  min-width:0!important;
+}
+.connection-inline-auth label span{
+  display:block!important;
+  min-width:0!important;
+  overflow-wrap:anywhere!important;
+  white-space:normal!important;
+}
+.connection-inline-auth input{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:46px!important;
+  padding:10px 12px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.connection-inline-auth .connection-primary{grid-column:1/-1;width:100%!important;min-width:0!important}
+.provider-auth-step{min-width:0!important}
+.provider-auth-step>div{min-width:0!important}
+.provider-auth-step p,
+.connection-message,
+.connection-state p{overflow-wrap:anywhere!important;word-break:normal!important;max-width:100%!important}
+.connection-facts{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))!important}
+.connection-actions{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px!important}
+.connection-actions button{width:100%!important;min-width:0!important;white-space:normal!important}
+
+@media(max-width:1180px){
+  .workspace-v3 .v2-theme-deck{grid-template-columns:repeat(4,minmax(110px,1fr))!important}
+}
+@media(max-width:900px){
+  .workspace-v3 .v2-theme-deck{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  .connection-center{width:calc(100vw - 20px)!important;max-height:calc(100vh - 20px)!important}
+  .connection-inline-auth{grid-template-columns:1fr!important}
+  .connection-inline-auth .connection-primary{grid-column:auto}
+  .connection-actions{grid-template-columns:1fr!important}
+  .provider-auth-step{grid-template-columns:30px minmax(0,1fr)!important}
+  .provider-auth-step>span{grid-column:2!important}
+}
