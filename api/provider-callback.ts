@@ -1,7 +1,7 @@
 /// <reference types="node" />
-import { encryptToken, saveProviderConnection, verifyProviderState } from './_provider-store'
-import { fetchWithTimeout } from './_auth'
-import { requestOrigin } from './_cors'
+import { encryptToken, saveProviderConnection, verifyProviderState } from './_provider-store.js'
+import { fetchWithTimeout } from './_auth.js'
+import { requestOrigin } from './_cors.js'
 
 function page(response: any, status: number, title: string, detail: string) {
   const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] || character)
@@ -37,7 +37,7 @@ export default async function handler(request: any, response: any) {
       if (!accountId) throw new Error('Vercel did not return an account or team identifier.')
       await saveProviderConnection({ user_id: state.userId, provider: 'vercel', account_id: accountId, team_id: token.team_id || null, encrypted_access_token: encryptToken(token.access_token), scopes: ['project:read-write', 'deployment:read-write'], updated_at: new Date().toISOString() })
     }
-    page(response, 200, `${state.provider === 'github' ? 'GitHub' : 'Vercel'} connected`, 'Return to project.X and select Refresh. You may close this browser tab.')
+    page(response, 200, `${state.provider === 'github' ? 'GitHub' : 'Vercel'} connected`, 'Return to project.X. The desktop app will detect this authorization automatically; you may close this browser tab.')
   } catch (error) {
     page(response, 400, 'Connection failed', error instanceof Error ? error.message : 'Provider authorization failed.')
   }
