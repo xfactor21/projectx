@@ -55,9 +55,11 @@ import './embeddedPreview.css'
 import './v27.css'
 import './v28.css'
 import './v29.css'
+import { startPlanetXAnalytics } from './services/planetxAnalytics'
 
 installTauriDesktopBridge()
 applySettings()
+startPlanetXAnalytics()
 
 window.addEventListener('projectx:open-add-project', () => {
   window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'projects' } }))
