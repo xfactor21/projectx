@@ -42,4 +42,13 @@ export function startPlanetXAnalytics() {
   }
   window.addEventListener('popstate', trackNavigation)
   window.addEventListener('hashchange', trackNavigation)
+  window.addEventListener('planetx:navigate', trackNavigation)
+  for (const method of ['pushState', 'replaceState'] as const) {
+    const original = history[method]
+    history[method] = function (...args: Parameters<History[typeof method]>) {
+      const result = original.apply(this, args)
+      window.dispatchEvent(new Event('planetx:navigate'))
+      return result
+    }
+  }
 }
