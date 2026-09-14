@@ -44,13 +44,14 @@ test('Companion connection panel signs into cloud directly', () => {
   assert.doesNotMatch(source, /Sign in to project\.X Cloud'\}<\/button>\s*\)\s*=>\s*\{\s*setTarget\(null\);\s*window\.dispatchEvent\(new CustomEvent\('projectx:open-utility'/)
 })
 
-test('native provider auth uses the hosted develop API during v3.1 validation', () => {
+test('native provider auth uses the stable production API', () => {
   const client = read('src/services/providerConnections.ts')
   const vercel = read('src/services/vercel.ts')
   const cors = read('api/_cors.ts')
   const connect = read('api/provider-connect.ts')
   assert.match(client, /VITE_PROJECTX_API_ORIGIN/)
-  assert.match(client, /projectx-git-develop-xfactor21s-projects\.vercel\.app/)
+  assert.match(client, /projectx-tau-six\.vercel\.app/)
+  assert.doesNotMatch(client, /projectx-git-develop-xfactor21s-projects\.vercel\.app/)
   assert.match(client, /apiUrl\('\/api\/provider-connect'\)/)
   assert.match(vercel, /apiUrl\('\/api\/vercel-projects'\)/)
   assert.match(cors, /Access-Control-Allow-Origin/)
