@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
   const upstream = await fetch(INGEST_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-PlanetX-Analytics-Key': key },
-    body: JSON.stringify(req.body),
+    body: JSON.stringify({ ...req.body, source_product: 'project-x', source_surface: 'web-app' }),
   })
   const body = await upstream.text()
   res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body)
