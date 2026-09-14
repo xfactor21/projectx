@@ -12,11 +12,10 @@ export type ProviderConnectionState = {
   checkedAt: string
 }
 
-// Internal desktop/Companion builds track the stable develop branch alias while
-// v3.1 is being validated. The old production alias can lag behind develop and
-// was the reason native provider requests were hitting an API surface that did
-// not contain the current OAuth/CORS handlers.
-const HOSTED_API_ORIGIN = (import.meta.env.VITE_PROJECTX_API_ORIGIN || 'https://projectx-git-develop-xfactor21s-projects.vercel.app').replace(/\/$/, '')
+// Native project.X builds use the stable production API surface for provider
+// authorization. Preview aliases do not necessarily carry the production OAuth
+// and cloud-auth environment, so they must never be the desktop default.
+const HOSTED_API_ORIGIN = (import.meta.env.VITE_PROJECTX_API_ORIGIN || 'https://projectx-tau-six.vercel.app').replace(/\/$/, '')
 
 function isNativeShell() {
   if (getDesktopHost()) return true
