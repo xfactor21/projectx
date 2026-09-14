@@ -1,7 +1,7 @@
 /// <reference types="node" />
-import { requireUser } from './_auth'
-import { applyProviderCors, requestOrigin } from './_cors'
-import { createProviderState } from './_provider-store'
+import { requireUser } from './_auth.js'
+import { applyProviderCors, requestOrigin } from './_cors.js'
+import { createProviderState } from './_provider-store.js'
 
 export default async function handler(request: any, response: any) {
   if (applyProviderCors(request, response)) return
