@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto'
-import { fetchWithTimeout } from './_auth'
+import { fetchWithTimeout } from './_auth.js'
 
 type Provider = 'github' | 'vercel'
 type StatePayload = { userId: string; provider: Provider; expiresAt: number; nonce: string }
