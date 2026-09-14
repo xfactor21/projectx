@@ -1,30 +1,66 @@
 /* v3.2 stabilization: keep all environments selectable, keep ambient worlds behind content,
    and make connection/auth dialogs readable at desktop and phone-scale widths. */
 
-/* Theme selector must never collapse to only the final two themes. */
+/* Theme selector is a real toolbar with reserved layout space, not a decorative strip. */
 .workspace-v3 .v2-theme-deck{
   display:grid!important;
-  grid-template-columns:repeat(7,minmax(92px,1fr))!important;
-  gap:8px!important;
+  grid-template-columns:repeat(7,minmax(112px,1fr))!important;
+  grid-auto-rows:minmax(82px,auto)!important;
+  align-items:stretch!important;
+  gap:10px!important;
   width:100%!important;
   max-width:none!important;
+  min-height:106px!important;
+  height:auto!important;
+  max-height:none!important;
   overflow:visible!important;
   position:relative!important;
-  z-index:12!important;
-  margin:0 0 18px!important;
+  inset:auto!important;
+  z-index:24!important;
+  isolation:isolate!important;
+  clear:both!important;
+  box-sizing:border-box!important;
+  margin:18px 0 22px!important;
+  padding:12px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:14px!important;
+  background:rgba(5,8,12,.92)!important;
+  box-shadow:0 16px 40px rgba(0,0,0,.22)!important;
 }
 .workspace-v3 .v2-theme-deck button{
   display:grid!important;
+  grid-template-columns:26px minmax(0,1fr)!important;
+  grid-template-rows:auto 1fr!important;
+  align-content:center!important;
+  align-items:center!important;
+  gap:4px 9px!important;
   visibility:visible!important;
   opacity:1!important;
+  position:relative!important;
+  inset:auto!important;
+  transform:none!important;
   min-width:0!important;
-  min-height:72px!important;
+  min-height:82px!important;
+  height:auto!important;
+  max-height:none!important;
+  padding:12px 13px!important;
   overflow:hidden!important;
+  border:1px solid rgba(255,255,255,.11)!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.035)!important;
+  color:#eef4fa!important;
+  text-align:left!important;
+  cursor:pointer!important;
 }
+.workspace-v3 .v2-theme-deck button:hover{border-color:rgba(41,224,255,.38)!important;background:rgba(41,224,255,.065)!important}
+.workspace-v3 .v2-theme-deck button.active{border-color:rgba(255,62,176,.62)!important;background:linear-gradient(135deg,rgba(255,62,176,.14),rgba(41,224,255,.07))!important;box-shadow:inset 0 0 22px rgba(255,62,176,.05)!important}
+.workspace-v3 .v2-theme-deck button i{grid-row:1/-1;align-self:center;color:#29e0ff!important;font:800 10px/1 var(--mono,monospace)!important;font-style:normal!important}
+.workspace-v3 .v2-theme-deck button strong{display:block!important;color:#f7f9fc!important;font-size:12px!important;line-height:1.15!important}
+.workspace-v3 .v2-theme-deck button span{display:block!important;color:#8e98a7!important;font-size:9px!important;line-height:1.3!important;white-space:normal!important}
 .workspace-v3 .v2-theme-deck button i,
 .workspace-v3 .v2-theme-deck button strong,
-.workspace-v3 .v2-theme-deck button span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.workspace-v3 .v2-theme-deck button span{white-space:normal;line-height:1.25}
+.workspace-v3 .v2-theme-deck button span{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.workspace-v3 .v2-stats{position:relative!important;z-index:12!important;clear:both!important;margin-top:0!important}
 
 /* Ambient environment is atmosphere, not a foreground layer. */
 .workspace-v3 .v2-workspace{
@@ -101,13 +137,14 @@
 .connection-actions{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px!important}
 .connection-actions button{width:100%!important;min-width:0!important;white-space:normal!important}
 
-@media(max-width:1180px){
-  .workspace-v3 .v2-theme-deck{grid-template-columns:repeat(4,minmax(110px,1fr))!important}
+@media(max-width:1380px){
+  .workspace-v3 .v2-theme-deck{grid-template-columns:repeat(4,minmax(130px,1fr))!important}
 }
 @media(max-width:900px){
-  .workspace-v3 .v2-theme-deck{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .workspace-v3 .v2-theme-deck{grid-template-columns:repeat(2,minmax(0,1fr))!important;min-height:0!important}
 }
 @media(max-width:620px){
+  .workspace-v3 .v2-theme-deck{grid-template-columns:1fr!important;padding:9px!important}
   .connection-center{width:calc(100vw - 20px)!important;max-height:calc(100vh - 20px)!important}
   .connection-inline-auth{grid-template-columns:1fr!important}
   .connection-inline-auth .connection-primary{grid-column:auto}
