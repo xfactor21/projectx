@@ -3,7 +3,7 @@ const INGEST_URL = 'https://lufvkrnwqbqdaqcgljxt.supabase.co/functions/v1/planet
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   const key = process.env.PLANETX_ANALYTICS_INGEST_KEY
-  const oidc = process.env.VERCEL_OIDC_TOKEN
+  const oidc = String(req.headers['x-vercel-oidc-token'] || process.env.VERCEL_OIDC_TOKEN || '')
   if (!key && !oidc) return res.status(503).json({ error: 'Analytics is not configured' })
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (key) headers['X-PlanetX-Analytics-Key'] = key
