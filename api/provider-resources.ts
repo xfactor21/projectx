@@ -1,7 +1,7 @@
 /// <reference types="node" />
-import { fetchWithTimeout, requireUser } from './_auth'
-import { applyProviderCors } from './_cors'
-import { loadProviderConnection } from './_provider-store'
+import { fetchWithTimeout, requireUser } from './_auth.js'
+import { applyProviderCors } from './_cors.js'
+import { loadProviderConnection } from './_provider-store.js'
 
 export default async function handler(request: any, response: any) {
   if (applyProviderCors(request, response)) return
