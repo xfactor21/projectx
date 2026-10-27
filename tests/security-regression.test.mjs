@@ -106,3 +106,22 @@ test('native Vercel deployment API uses production origin and native-safe CORS',
   assert.match(api, /\.\/_auth\.js/)
   assert.match(api, /\.\/_provider-store\.js/)
 })
+
+
+test('cloud reconciliation polls without forcing recurring inventory writes', () => {
+  const sync = read('src/services/projectCloudSync.ts')
+  const worker = read('src/CompanionDesktopWorker.tsx')
+  assert.doesNotMatch(sync, /syncWindow/)
+  assert.match(worker, /reconcileCloudProjectInventory/)
+  assert.match(worker, /CLOUD_RECONCILE_MS = 15_000/)
+  assert.match(worker, /if \(reconciled\.changed\) syncedInventory = ''/)
+})
+
+test('desktop connection status exposes cloud and local inventory separately', () => {
+  const worker = read('src/CompanionDesktopWorker.tsx')
+  const center = read('src/ConnectionCenter.tsx')
+  assert.match(worker, /cloudProjectCount/)
+  assert.match(worker, /localProjectCount/)
+  assert.match(center, /Cloud projects/)
+  assert.match(center, /Desktop records/)
+})
