@@ -1,4 +1,4 @@
-// project.X v3.01 stabilization: shell, provider, cloud/Companion, health and roadmap completion pass.
+// project.X v3.01 stabilization: six-phase shell, provider, cloud/Companion, health and roadmap completion candidate.
 export const APP_VERSION = '3.01'
 export const APP_SEMVER = '3.0.1'
 export const BUILD_DATE_TAG = 'Oct-27'
