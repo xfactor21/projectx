@@ -27,7 +27,9 @@ export default function EmbeddedPreview() {
   if (!preview) return null
 
   async function copyUrl() {
-    try { await navigator.clipboard.writeText(preview.url); setCopied(true); window.setTimeout(() => setCopied(false), 1400) }
+    const url = preview?.url
+    if (!url) return
+    try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1400) }
     catch { setMessage('Unable to copy the preview URL. Use Open in browser instead.') }
   }
 
