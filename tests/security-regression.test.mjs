@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 
 const read = (path) => fs.readFileSync(path, 'utf8')
 
-test('release version is v3.0 after hardening', () => {
+test('release version is v3.01 after stabilization', () => {
   assert.equal(JSON.parse(read('package.json')).version, '3.0.1')
 })
 
