@@ -85,3 +85,24 @@ test('orphan projectx gitlink is gone', () => {
   const indexed = execFileSync('git', ['ls-files', '-s', 'projectx'], { encoding: 'utf8' }).trim()
   assert.equal(indexed, '')
 })
+
+
+test('provider UX distinguishes disconnected, expired and unavailable states', () => {
+  const client = read('src/services/providerConnections.ts')
+  const center = read('src/ConnectionCenter.tsx')
+  assert.match(client, /status: connected \? 'connected'/)
+  assert.match(client, /'expired'/)
+  assert.match(client, /'unavailable'/)
+  assert.match(center, /authorization expired/)
+  assert.match(center, /service unavailable/)
+})
+
+test('native Vercel deployment API uses production origin and native-safe CORS', () => {
+  const client = read('src/services/vercel.ts')
+  const api = read('api/vercel-projects.ts')
+  assert.match(client, /projectx-tau-six\.vercel\.app/)
+  assert.doesNotMatch(client, /projectx-git-develop-xfactor21s-projects/)
+  assert.match(api, /applyProviderCors/)
+  assert.match(api, /\.\/_auth\.js/)
+  assert.match(api, /\.\/_provider-store\.js/)
+})
