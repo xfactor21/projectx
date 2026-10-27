@@ -2,8 +2,6 @@ import { fetchCloudProjectsIncludingDeleted, getFreshSession, upsertCloudProject
 import type { CloudProject, SupabaseSession } from './supabase'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
-const RECONCILE_WINDOW_MS = 15_000
-
 type LocalProject = {
   id: string
   name?: string
@@ -88,7 +86,7 @@ export function cloudProjectPayload(session: SupabaseSession) {
 
 export function projectInventorySignature() {
   const projects = cloudProjectPayload({ user: { id: '' }, access_token: '' }).map(({ user_id: _userId, ...project }) => project)
-  return JSON.stringify({ syncWindow: Math.floor(Date.now() / RECONCILE_WINDOW_MS), projects })
+  return JSON.stringify(projects)
 }
 
 export async function reconcileCloudProjectInventory(session?: SupabaseSession | null) {
