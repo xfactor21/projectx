@@ -150,3 +150,24 @@ test('v3.01 build identity matches app native and artifact metadata', () => {
   assert.match(windows, /projectX_v3\.01_six-phase-stabilization_Oct-27/)
   assert.match(android, /PROJECTX_ANDROID_VERSION: 3\.0\.1/)
 })
+
+
+test('new project automation initializes Git when available without requiring Git for creation', () => {
+  const source = read('src-tauri/src/imports.rs')
+  assert.match(source, /Project files were created, but Git initialization failed/)
+  assert.match(source, /init\.current_dir\(&destination\)\.args\(\["init"\]\)/)
+  assert.match(source, /add\.current_dir\(&destination\)\.args\(\["add", "-A"\]\)/)
+})
+
+test('project intelligence identifies ambiguous duplicate and cloud-only records', () => {
+  const source = read('src/ProjectIntelDock.tsx')
+  assert.match(source, /Review possible duplicates/)
+  assert.match(source, /Cloud-only record has no local source or repository provenance/)
+})
+
+test('embedded preview exposes viewport presets and copyable preview URL', () => {
+  const source = read('src/EmbeddedPreview.tsx')
+  assert.match(source, /Tablet preview/)
+  assert.match(source, /Phone preview/)
+  assert.match(source, /navigator\.clipboard\.writeText/)
+})
