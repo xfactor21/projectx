@@ -41,7 +41,7 @@ function readTheme():ThemeMode{const raw=localStorage.getItem(VIEW_KEY);const sa
 function sourceLabel(project:Project,source?:LocalSource){if(source?.kind==='managed')return'MANAGED LOCAL';if(source?.kind==='zip')return'INITIALIZED LOCAL';if(source?.kind==='generated')return'PROJECT.X CREATED';if(source?.kind==='desktop')return'LOCAL PROJECT';if(source?.kind==='browser')return'LOCAL BROWSER';if(project.github||project.repoUrl?.includes('github.com'))return'GITHUB REMOTE';return'CLOUD / RECORD'}
 function openLauncher(){window.dispatchEvent(new CustomEvent('projectx:open-add-project'))}
 function preferredRunScript(scripts:string[]=[]){return ['dev','web','start','serve'].find((script)=>scripts.includes(script))||''}
-type HostStatus={status:'connecting'|'online'|'error';detail:string;projectCount:number;updatedAt:string}
+type HostStatus={status:'connecting'|'online'|'error';detail:string;projectCount:number;updatedAt:string;hostOnline?:boolean;cloudOnline?:boolean;companionConnected?:boolean;companionLastSeenAt?:string|null;cloudProjectCount?:number;localProjectCount?:number}
 function readHostStatus():HostStatus|null{try{const parsed=JSON.parse(localStorage.getItem(HOST_STATUS_KEY)||'null');return parsed&&typeof parsed.detail==='string'?parsed:null}catch{return null}}
 function connectionAge(value:string|undefined,now:number){if(!value)return'not checked';const elapsed=Math.max(0,now-new Date(value).getTime());if(elapsed<60_000)return'just now';if(elapsed<3_600_000)return`${Math.floor(elapsed/60_000)}m ago`;if(elapsed<86_400_000)return`${Math.floor(elapsed/3_600_000)}h ago`;return`${Math.floor(elapsed/86_400_000)}d ago`}
 
