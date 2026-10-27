@@ -19,6 +19,7 @@ import ConnectionCenter from './ConnectionCenter.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import { applySettings } from './services/settings'
 import { bootstrapSecureSession } from './services/supabase'
+import { startPlanetXAnalytics } from './services/planetxAnalytics'
 import './viewModes.css'
 import './immersiveThemes.css'
 import './workspaceV2.css'
@@ -68,6 +69,7 @@ import './projectHealthV301.css'
 async function start() {
   installTauriDesktopBridge()
   applySettings()
+  startPlanetXAnalytics()
 
   // Restore the protected desktop cloud session before React reads auth state.
   await bootstrapSecureSession()
