@@ -4,6 +4,8 @@ project.X is a standalone Windows project manager built with Tauri, React, TypeS
 
 This README describes only functionality that exists in the current codebase.
 
+Current stabilization build: **v3.01** (`3.0.1`), with Windows and Android artifacts named `projectX_v3.01_six-phase-stabilization_Oct-27`.
+
 ## Requirements
 
 - Node.js. GitHub Actions verifies the project with Node 22.
