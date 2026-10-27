@@ -197,6 +197,7 @@ export default function CompanionDesktopWorker() {
     let running = false
     let syncedInventory = ''
     let lastReconciledAt = 0
+    let lastCloudProjectCount = 0
 
     async function tick() {
       if (stopped || running || !loadSession()) return
@@ -206,10 +207,11 @@ export default function CompanionDesktopWorker() {
         const session = await getFreshSession(loadSession())
         if (!session) return
         const sources = localSources()
-        let cloudProjectCount = 0
+        let cloudProjectCount = lastCloudProjectCount
         if (Date.now() - lastReconciledAt >= CLOUD_RECONCILE_MS) {
           const reconciled = await reconcileCloudProjectInventory(session)
           cloudProjectCount = reconciled.cloudCount
+          lastCloudProjectCount = reconciled.cloudCount
           lastReconciledAt = Date.now()
           if (reconciled.changed) syncedInventory = ''
         }
@@ -218,6 +220,7 @@ export default function CompanionDesktopWorker() {
           const synced = await syncLocalProjects(session)
           syncedInventory = projectInventorySignature()
           cloudProjectCount = Math.max(cloudProjectCount, synced.count)
+          lastCloudProjectCount = cloudProjectCount
           publishHostStatus('connecting', `Cloud online. Synced ${synced.count} project records. Checking Companion presence…`, synced.count, { hostOnline: true, cloudOnline: true, companionConnected: false, cloudProjectCount, localProjectCount: synced.count })
         }
         await registerCompanionDevice({
@@ -250,7 +253,7 @@ export default function CompanionDesktopWorker() {
             ? `Android Companion connected. Windows host online with ${sources.length} local project${sources.length === 1 ? '' : 's'}.`
             : `Windows host online and project.X Cloud is reachable. Companion is not currently connected.`,
           sources.length,
-          { hostOnline: true, cloudOnline: true, companionConnected, companionLastSeenAt, cloudProjectCount, localProjectCount: projectInventorySignature() ? readArray<StoredProject>(PROJECTS_KEY).filter((project)=>!(project as { archived?: boolean }).archived).length : 0 },
+          { hostOnline: true, cloudOnline: true, companionConnected, companionLastSeenAt, cloudProjectCount, localProjectCount: readArray<StoredProject>(PROJECTS_KEY).filter((project)=>!(project as { archived?: boolean }).archived).length },
         )
       } catch (error) {
         const detail = errorMessage(error)
