@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process'
 const read = (path) => fs.readFileSync(path, 'utf8')
 
 test('release version is v3.0 after hardening', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '3.0.0')
+  assert.equal(JSON.parse(read('package.json')).version, '3.0.1')
 })
 
 test('desktop Supabase sessions use protected persistence, not localStorage', () => {
@@ -134,4 +134,19 @@ test('project cards expose build runtime git and deployment as separate health f
   assert.match(bar, />GIT</)
   assert.match(bar, />DEPLOY</)
   assert.match(bar, /Cloud\/remote record/)
+})
+
+
+test('v3.01 build identity matches app native and artifact metadata', () => {
+  const version = read('src/version.ts')
+  const tauri = read('src-tauri/tauri.conf.json')
+  const cargo = read('src-tauri/Cargo.toml')
+  const windows = read('.github/workflows/windows-desktop.yml')
+  const android = read('.github/workflows/android-companion.yml')
+  assert.match(version, /APP_VERSION = '3\.01'/)
+  assert.match(version, /APP_SEMVER = '3\.0\.1'/)
+  assert.match(tauri, /"version": "3\.0\.1"/)
+  assert.match(cargo, /version = "3\.0\.1"/)
+  assert.match(windows, /projectX_v3\.01_six-phase-stabilization_Oct-27/)
+  assert.match(android, /PROJECTX_ANDROID_VERSION: 3\.0\.1/)
 })
