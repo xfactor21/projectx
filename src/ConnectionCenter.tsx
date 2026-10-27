@@ -13,6 +13,8 @@ type HostStatus = {
   cloudOnline?: boolean
   companionConnected?: boolean
   companionLastSeenAt?: string | null
+  cloudProjectCount?: number
+  localProjectCount?: number
 }
 const HOST_STATUS_KEY = 'projectx.companion.host-status.v1'
 const HOST_FRESH_MS = 30_000
@@ -134,7 +136,7 @@ export default function ConnectionCenter() {
       <header><div><small>PROJECT.X CONNECTION</small><h2>{title}</h2></div><button type="button" onClick={() => setTarget(null)} aria-label="Close connection panel">×</button></header>
       {target === 'companion' ? <>
         <div className={`connection-state ${companionOnline ? 'online' : host?.status === 'error' ? 'error' : 'idle'}`}><i/><div><strong>{companionOnline ? 'Android Companion connected' : hostOnline ? 'Windows host online — Companion offline' : host?.status === 'error' ? 'Connection needs attention' : 'Waiting for Windows host and Companion'}</strong><p>{host?.detail || 'Cloud access, Windows host availability, and Android Companion presence are tracked separately.'}</p><small>{host?.companionLastSeenAt ? `Companion last seen ${new Date(host.companionLastSeenAt).toLocaleString()}` : host?.updatedAt ? `Windows host checked ${new Date(host.updatedAt).toLocaleString()}` : 'No device check recorded yet'}</small></div></div>
-        <div className="connection-facts"><span>Cloud account<b>{session ? 'SIGNED IN' : isSupabaseConfigured() ? 'SIGNED OUT' : 'UNAVAILABLE'}</b></span><span>Cloud access<b>{cloudOnline ? 'ONLINE' : session ? 'CHECKING' : 'OFFLINE'}</b></span><span>Windows host<b>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></span><span>Companion<b>{companionOnline ? 'CONNECTED' : 'NOT CONNECTED'}</b></span><span>Local projects<b>{host?.projectCount ?? 0}</b></span></div>
+        <div className="connection-facts"><span>Cloud account<b>{session ? 'SIGNED IN' : isSupabaseConfigured() ? 'SIGNED OUT' : 'UNAVAILABLE'}</b></span><span>Cloud access<b>{cloudOnline ? 'ONLINE' : session ? 'CHECKING' : 'OFFLINE'}</b></span><span>Windows host<b>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></span><span>Companion<b>{companionOnline ? 'CONNECTED' : 'NOT CONNECTED'}</b></span><span>Cloud projects<b>{host?.cloudProjectCount ?? '—'}</b></span><span>Desktop records<b>{host?.localProjectCount ?? host?.projectCount ?? 0}</b></span></div>
         {message && <p className="connection-message">{message}</p>}
         {authForm}
         {session && <button className="connection-primary" type="button" onClick={() => { setTarget(null); window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'cloud', openCloud: true } })) }}>Manage project.X Cloud account</button>}
