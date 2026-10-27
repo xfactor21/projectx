@@ -3,7 +3,7 @@ import { getDesktopHost } from './services/desktop'
 import { claimPendingActions, listCompanionDevices, registerCompanionDevice, updateRemoteAction } from './services/companion'
 import { createCompanionZipSignedUrl, deleteCompanionZip } from './services/companionPackages'
 import { getFreshSession, loadSession, upsertCloudProjects } from './services/supabase'
-import { projectInventorySignature, syncLocalProjects } from './services/projectCloudSync'
+import { projectInventorySignature, reconcileCloudProjectInventory, syncLocalProjects } from './services/projectCloudSync'
 import type { RemoteAction } from './services/companion'
 import type { DesktopProjectSummary } from './services/desktop'
 import { recordRunTask } from './services/runTasks'
@@ -13,6 +13,7 @@ const LOCAL_KEY = 'projectx.local.sources.v1'
 const PROJECTS_KEY = 'projectx.projects.v1'
 const HOST_STATUS_KEY = 'projectx.companion.host-status.v1'
 const COMPANION_FRESH_MS = 30_000
+const CLOUD_RECONCILE_MS = 15_000
 
 type LocalSource = {
   projectId: string
@@ -63,7 +64,7 @@ function publishHostStatus(
   status: 'connecting' | 'online' | 'error',
   detail: string,
   projectCount = 0,
-  extra: { hostOnline?: boolean; cloudOnline?: boolean; companionConnected?: boolean; companionLastSeenAt?: string | null } = {},
+  extra: { hostOnline?: boolean; cloudOnline?: boolean; companionConnected?: boolean; companionLastSeenAt?: string | null; cloudProjectCount?: number; localProjectCount?: number } = {},
 ) {
   const value = { status, detail, projectCount, updatedAt: new Date().toISOString(), ...extra }
   localStorage.setItem(HOST_STATUS_KEY, JSON.stringify(value))
@@ -195,6 +196,7 @@ export default function CompanionDesktopWorker() {
     let stopped = false
     let running = false
     let syncedInventory = ''
+    let lastReconciledAt = 0
 
     async function tick() {
       if (stopped || running || !loadSession()) return
@@ -204,11 +206,19 @@ export default function CompanionDesktopWorker() {
         const session = await getFreshSession(loadSession())
         if (!session) return
         const sources = localSources()
+        let cloudProjectCount = 0
+        if (Date.now() - lastReconciledAt >= CLOUD_RECONCILE_MS) {
+          const reconciled = await reconcileCloudProjectInventory(session)
+          cloudProjectCount = reconciled.cloudCount
+          lastReconciledAt = Date.now()
+          if (reconciled.changed) syncedInventory = ''
+        }
         const inventory = projectInventorySignature()
         if (inventory !== syncedInventory) {
           const synced = await syncLocalProjects(session)
-          syncedInventory = inventory
-          publishHostStatus('connecting', `Cloud online. Synced ${synced.count} project records. Checking Companion presence…`, synced.count, { hostOnline: true, cloudOnline: true, companionConnected: false })
+          syncedInventory = projectInventorySignature()
+          cloudProjectCount = Math.max(cloudProjectCount, synced.count)
+          publishHostStatus('connecting', `Cloud online. Synced ${synced.count} project records. Checking Companion presence…`, synced.count, { hostOnline: true, cloudOnline: true, companionConnected: false, cloudProjectCount, localProjectCount: synced.count })
         }
         await registerCompanionDevice({
           device_id: id,
@@ -240,7 +250,7 @@ export default function CompanionDesktopWorker() {
             ? `Android Companion connected. Windows host online with ${sources.length} local project${sources.length === 1 ? '' : 's'}.`
             : `Windows host online and project.X Cloud is reachable. Companion is not currently connected.`,
           sources.length,
-          { hostOnline: true, cloudOnline: true, companionConnected, companionLastSeenAt },
+          { hostOnline: true, cloudOnline: true, companionConnected, companionLastSeenAt, cloudProjectCount, localProjectCount: projectInventorySignature() ? readArray<StoredProject>(PROJECTS_KEY).filter((project)=>!(project as { archived?: boolean }).archived).length : 0 },
         )
       } catch (error) {
         const detail = errorMessage(error)
