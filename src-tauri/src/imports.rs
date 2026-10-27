@@ -579,6 +579,22 @@ pub(crate) fn create_vite_project(
     }
     authorize_root(&app, &state, &destination)?;
     let install_result = install_dependencies(&destination, "npm")?;
+    // A project created by project.X should be repository-ready without requiring
+    // the user to remember a separate initialization step. Git remains optional:
+    // project creation succeeds when Git is not installed.
+    let mut git_version = Command::new("git");
+    git_version.arg("--version");
+    if matches!(command_output_with_timeout(&mut git_version, Duration::from_secs(10)), Ok(result) if result.ok) {
+        let mut init = Command::new("git");
+        init.current_dir(&destination).args(["init"]);
+        let initialized = command_output_with_timeout(&mut init, Duration::from_secs(20))?;
+        if !initialized.ok {
+            return Err(format!("Project files were created, but Git initialization failed: {}", initialized.output));
+        }
+        let mut add = Command::new("git");
+        add.current_dir(&destination).args(["add", "-A"]);
+        let _ = command_output_with_timeout(&mut add, Duration::from_secs(30));
+    }
     Ok(ProjectInitializationResult {
         summary: inspect_inner(&destination)?,
         package_manager: Some("npm".into()),
