@@ -125,3 +125,13 @@ test('desktop connection status exposes cloud and local inventory separately', (
   assert.match(center, /Cloud projects/)
   assert.match(center, /Desktop records/)
 })
+
+
+test('project cards expose build runtime git and deployment as separate health facts', () => {
+  const bar = read('src/ProjectStatusBar.tsx')
+  assert.match(bar, />BUILD</)
+  assert.match(bar, />RUNTIME</)
+  assert.match(bar, />GIT</)
+  assert.match(bar, />DEPLOY</)
+  assert.match(bar, /Cloud\/remote record/)
+})
