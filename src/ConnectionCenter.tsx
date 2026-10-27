@@ -121,6 +121,8 @@ export default function ConnectionCenter() {
   const cloudOnline = Boolean(host?.cloudOnline) && heartbeatFresh
   const companionOnline = Boolean(host?.companionConnected) && Boolean(host?.companionLastSeenAt) && clock - new Date(host?.companionLastSeenAt || 0).getTime() < HOST_FRESH_MS
   const providerConnected = target !== 'companion' && provider?.provider === target && provider.connected
+  const providerExpired = target !== 'companion' && provider?.provider === target && provider.status === 'expired'
+  const providerUnavailable = target !== 'companion' && provider?.provider === target && provider.status === 'unavailable'
   const authForm = !session ? <div className="connection-inline-auth">
     <label><span>project.X email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
     <label><span>project.X password</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
@@ -143,9 +145,9 @@ export default function ConnectionCenter() {
         </div>
         {authForm}
         {session && <>
-          <div className={`connection-state ${providerConnected ? 'online' : 'idle'}`}><i/><div><strong>{providerConnected ? `${title} connected` : `${title} authorization not active`}</strong><p>{provider?.message || `Checking ${title} authorization…`}</p><small>{provider?.checkedAt ? `Last checked ${new Date(provider.checkedAt).toLocaleString()}` : 'Not checked yet'}</small></div></div>
+          <div className={`connection-state ${providerConnected ? 'online' : providerUnavailable ? 'error' : providerExpired ? 'warning' : 'idle'}`}><i/><div><strong>{providerConnected ? `${title} connected` : providerExpired ? `${title} authorization expired` : providerUnavailable ? `${title} service unavailable` : `${title} not connected`}</strong><p>{provider?.message || `Checking ${title} authorization…`}</p><small>{provider?.checkedAt ? `Last checked ${new Date(provider.checkedAt).toLocaleString()}` : 'Not checked yet'}</small></div></div>
           <div className="connection-facts"><span>Accessible {target === 'github' ? 'repositories' : 'projects'}<b>{provider?.resourceCount ?? 0}</b></span><span>Provider permission<b>USER SCOPED</b></span></div>
-          <div className="connection-actions"><button className="connection-primary" type="button" disabled={busy} onClick={() => void connect(target)}>{busy ? 'Waiting…' : providerConnected ? `Re-authorize ${title}` : `Authorize ${title} in browser`}</button><button type="button" disabled={busy} onClick={() => void refresh(target)}>Check authorization</button></div>
+          <div className="connection-actions"><button className="connection-primary" type="button" disabled={busy} onClick={() => void connect(target)}>{busy ? 'Waiting…' : providerConnected || providerExpired ? `Re-authorize ${title}` : `Authorize ${title} in browser`}</button><button type="button" disabled={busy} onClick={() => void refresh(target)}>Check authorization</button></div>
         </>}
         {message && <p className="connection-message">{message}</p>}
       </>}
