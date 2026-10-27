@@ -18,7 +18,7 @@ export type VercelIntegrationResponse = {
   message?: string
 }
 
-const HOSTED_API_ORIGIN = (import.meta.env.VITE_PROJECTX_API_ORIGIN || 'https://projectx-git-develop-xfactor21s-projects.vercel.app').replace(/\/$/, '')
+const HOSTED_API_ORIGIN = (import.meta.env.VITE_PROJECTX_API_ORIGIN || 'https://projectx-tau-six.vercel.app').replace(/\/$/, '')
 
 function isNativeShell() {
   if (getDesktopHost()) return true
