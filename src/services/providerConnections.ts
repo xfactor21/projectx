@@ -4,8 +4,11 @@ import { openHostedLink } from './externalLinks'
 
 export type ProviderId = 'github' | 'vercel'
 
+export type ProviderConnectionStatus = 'signed_out' | 'disconnected' | 'connected' | 'expired' | 'unavailable'
+
 export type ProviderConnectionState = {
   provider: ProviderId
+  status: ProviderConnectionStatus
   connected: boolean
   resourceCount: number
   message: string
@@ -35,6 +38,7 @@ export async function fetchProviderConnection(provider: ProviderId, includeResou
   const session = loadSession()
   if (!session) return {
     provider,
+    status: 'signed_out',
     connected: false,
     resourceCount: 0,
     message: `project.X Cloud identifies you, but ${providerName(provider)} is a separate connection. Sign in to project.X Cloud first, then authorize ${providerName(provider)}.`,
@@ -45,8 +49,12 @@ export async function fetchProviderConnection(provider: ProviderId, includeResou
     const response = await fetch(apiUrl(`/api/${endpoint}?provider=${provider}`), { headers: { Authorization: `Bearer ${session.access_token}` } })
     const body = await response.json() as { connected?: boolean; resources?: unknown[]; message?: string }
     const connected = Boolean(body.connected && response.ok)
+    const normalizedMessage = String(body.message || '')
+    const expired = !connected && /renew|expired|invalid/i.test(normalizedMessage)
+    const unavailable = !response.ok && response.status >= 500
     return {
       provider,
+      status: connected ? 'connected' : expired ? 'expired' : unavailable ? 'unavailable' : 'disconnected',
       connected,
       resourceCount: Array.isArray(body.resources) ? body.resources.length : 0,
       message: body.message || (connected ? `${providerName(provider)} authorization is active.` : `${providerName(provider)} has not been authorized yet.`),
@@ -55,6 +63,7 @@ export async function fetchProviderConnection(provider: ProviderId, includeResou
   } catch (error) {
     return {
       provider,
+      status: 'unavailable',
       connected: false,
       resourceCount: 0,
       message: error instanceof Error ? `${providerName(provider)} connection service unreachable: ${error.message}` : `${providerName(provider)} connection service is unreachable.`,
