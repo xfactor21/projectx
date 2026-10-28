@@ -57,7 +57,7 @@ export type ArtworkCandidate = {
 
 export type GitHistoryEntry = { hash: string; date: string; subject: string }
 
-export type ProjectFileEntry = { name: string; relativePath: string; isDirectory: boolean; bytes?: number }
+export type ProjectFileEntry = { name: string; relativePath: string; isDirectory: boolean; bytes?: number; modifiedAt?: number }
 
 export type ToolStatus = {
   name: string
@@ -102,8 +102,9 @@ export type DesktopHostBridge = {
   discoverProjectArtwork(path: string): Promise<ArtworkCandidate[]>
   listProjectFiles(root: string, relativePath: string): Promise<ProjectFileEntry[]>
   readProjectText(root: string, relativePath: string): Promise<string>
+  openProjectFile(root: string, relativePath: string): Promise<void>
   toolchainPreflight(): Promise<ToolStatus[]>
-  downloadRemotePackage(url: string, fileName: string): Promise<string>
+  downloadRemotePackage(url: string, fileName: string, expectedSha256?: string): Promise<string>
   removeRemotePackage(path: string): Promise<void>
   saveSecureSession(content: string): Promise<void>
   loadSecureSession(): Promise<string | null>

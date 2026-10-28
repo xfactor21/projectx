@@ -4,6 +4,15 @@ import type { SupabaseSession } from './supabase'
 const BUCKET = 'projectx-companion-packages'
 const MAX_ZIP_BYTES = 100 * 1024 * 1024
 const UPLOAD_TIMEOUT_MS = 180_000
+const UPLOAD_ATTEMPTS = 3
+
+export type CompanionUploadProgress = {
+  attempt: number
+  loaded: number
+  total: number
+  percent: number
+  stage: 'hashing' | 'uploading' | 'verifying'
+}
 
 function requireSession() {
   const session = loadSession()
@@ -29,7 +38,7 @@ function encodedObjectPath(storagePath: string) {
   return storagePath.split('/').map((part) => encodeURIComponent(part)).join('/')
 }
 
-async function storageError(response: Response, fallback: string): Promise<Error> {
+async function storageError(response: { status: number; text(): Promise<string> }, fallback: string): Promise<Error> {
   const detail = await response.text()
   const normalized = detail.toLowerCase()
   if (normalized.includes('bucket') || normalized.includes('not found')) {
@@ -43,32 +52,47 @@ async function storageError(response: Response, fallback: string): Promise<Error
   return new Error(detail || `${fallback} (${response.status}).`)
 }
 
-async function uploadOnce(file: File, session: SupabaseSession, storagePath: string): Promise<Response> {
-  const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
-  try {
-    return await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}/${encodedObjectPath(storagePath)}`, {
-      method: 'POST',
-      headers: {
-        ...baseHeaders(session),
-        'Content-Type': 'application/zip',
-        'x-upsert': 'false',
-        'cache-control': 'no-store',
-      },
-      body: file,
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error('Project upload timed out after 3 minutes. Check the phone connection and try again.')
-    if (error instanceof TypeError) throw new Error('The phone could not reach project.X package storage. Check your connection and retry.')
-    throw error
-  } finally {
-    window.clearTimeout(timeout)
-  }
+type UploadResponse = { ok: boolean; status: number; text(): Promise<string> }
+
+async function uploadOnce(file: File, session: SupabaseSession, storagePath: string, attempt: number, onProgress?: (progress: CompanionUploadProgress) => void): Promise<UploadResponse> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    const timeout = window.setTimeout(() => {
+      request.abort()
+      reject(new Error('Project upload timed out after 3 minutes. Check the phone connection and try again.'))
+    }, UPLOAD_TIMEOUT_MS)
+    request.open('POST', `${getSupabaseUrl()}/storage/v1/object/${BUCKET}/${encodedObjectPath(storagePath)}`)
+    for (const [name, value] of Object.entries(baseHeaders(session))) request.setRequestHeader(name, value)
+    request.setRequestHeader('Content-Type', 'application/zip')
+    request.setRequestHeader('x-upsert', 'false')
+    request.setRequestHeader('cache-control', 'no-store')
+    request.upload.onprogress = (event) => {
+      const total = event.lengthComputable ? event.total : file.size
+      onProgress?.({ attempt, loaded: event.loaded, total, percent: total ? Math.min(99, Math.round((event.loaded / total) * 100)) : 0, stage: 'uploading' })
+    }
+    request.onerror = () => {
+      window.clearTimeout(timeout)
+      reject(new Error('The phone could not reach project.X package storage. Check your connection and retry.'))
+    }
+    request.onabort = () => window.clearTimeout(timeout)
+    request.onload = () => {
+      window.clearTimeout(timeout)
+      const responseText = request.responseText
+      resolve({ ok: request.status >= 200 && request.status < 300, status: request.status, text: async () => responseText })
+    }
+    request.send(file)
+  })
 }
 
-export async function uploadCompanionZip(file: File): Promise<{ storagePath: string; fileName: string; bytes: number }> {
+async function sha256(file: File, onProgress?: (progress: CompanionUploadProgress) => void) {
+  onProgress?.({ attempt: 1, loaded: 0, total: file.size, percent: 0, stage: 'hashing' })
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  const value = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  onProgress?.({ attempt: 1, loaded: file.size, total: file.size, percent: 100, stage: 'hashing' })
+  return value
+}
+
+export async function uploadCompanionZip(file: File, onProgress?: (progress: CompanionUploadProgress) => void): Promise<{ storagePath: string; fileName: string; bytes: number; sha256: string }> {
   if (!file.name.toLowerCase().endsWith('.zip')) throw new Error('Choose a .zip project archive.')
   if (file.size <= 0) throw new Error('The selected ZIP is empty or Android could not read it. Choose the file again from Files.')
   if (file.size > MAX_ZIP_BYTES) throw new Error('Companion ZIP uploads are limited to 100 MB.')
@@ -76,15 +100,32 @@ export async function uploadCompanionZip(file: File): Promise<{ storagePath: str
   let session = await freshSession()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project.zip'
   const storagePath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`
+  const checksum = await sha256(file, onProgress)
 
-  let response = await uploadOnce(file, session, storagePath)
-  if (response.status === 401) {
-    session = await freshSession()
-    response = await uploadOnce(file, session, storagePath)
+  let response: UploadResponse | null = null
+  let lastError: unknown
+  for (let attempt = 1; attempt <= UPLOAD_ATTEMPTS; attempt += 1) {
+    try {
+      response = await uploadOnce(file, session, storagePath, attempt, onProgress)
+      if (response.status === 401) {
+        session = await freshSession()
+        response = await uploadOnce(file, session, storagePath, attempt, onProgress)
+      }
+      if (response.ok) break
+      if (response.status < 500 && response.status !== 408 && response.status !== 429) break
+      lastError = await storageError(response, 'Project upload failed')
+    } catch (error) {
+      lastError = error
+    }
+    if (attempt < UPLOAD_ATTEMPTS) await new Promise((resolve) => window.setTimeout(resolve, 750 * attempt))
   }
-  if (!response.ok) throw await storageError(response, 'Project upload failed')
+  if (!response?.ok) {
+    if (response) throw await storageError(response, 'Project upload failed')
+    throw lastError instanceof Error ? lastError : new Error('Project upload failed after three attempts.')
+  }
 
-  return { storagePath, fileName: file.name, bytes: file.size }
+  onProgress?.({ attempt: 1, loaded: file.size, total: file.size, percent: 100, stage: 'verifying' })
+  return { storagePath, fileName: file.name, bytes: file.size, sha256: checksum }
 }
 
 export async function createCompanionZipSignedUrl(storagePath: string, expiresIn = 600): Promise<string> {
