@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::{fs, path::{Component, Path, PathBuf}};
+use std::{fs, path::{Component, Path, PathBuf}, process::Command, time::UNIX_EPOCH};
 use tauri::State;
 use crate::{ensure_authorized, DesktopState};
 
@@ -10,6 +10,7 @@ pub(crate) struct ProjectFileEntry {
     relative_path: String,
     is_directory: bool,
     bytes: Option<u64>,
+    modified_at: Option<u64>,
 }
 
 fn inside_root(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -47,10 +48,29 @@ pub(crate) fn list_project_files(root: String, relative_path: String, state: Sta
             relative_path: relative.to_string_lossy().replace('\\', "/"),
             is_directory: metadata.is_dir(),
             bytes: if metadata.is_file() { Some(metadata.len()) } else { None },
+            modified_at: metadata.modified().ok().and_then(|value| value.duration_since(UNIX_EPOCH).ok()).map(|value| value.as_millis() as u64),
         });
     }
     entries.sort_by(|a,b| b.is_directory.cmp(&a.is_directory).then_with(|| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase())));
     Ok(entries)
+}
+
+#[tauri::command]
+pub(crate) fn open_project_file(root: String, relative_path: String, state: State<'_, DesktopState>) -> Result<(), String> {
+    let project = ensure_authorized(&state, &root)?;
+    let file = inside_root(&project, &relative_path)?;
+    if !file.is_file() { return Err("Choose a file to open.".into()); }
+    let name = file.file_name().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+    if name == ".env" || name.starts_with(".env.") || name.contains("secret") || name.contains("credential") || name.ends_with(".key") || name.ends_with(".pem") {
+        return Err("Sensitive configuration files cannot be opened from project.X.".into());
+    }
+    #[cfg(target_os = "windows")]
+    let status = Command::new("cmd").args(["/C", "start", ""]).arg(&file).status();
+    #[cfg(target_os = "macos")]
+    let status = Command::new("open").arg(&file).status();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let status = Command::new("xdg-open").arg(&file).status();
+    status.map_err(|error| format!("Unable to open file: {error}"))?.success().then_some(()).ok_or_else(|| "The system application could not open this file.".into())
 }
 
 #[tauri::command]

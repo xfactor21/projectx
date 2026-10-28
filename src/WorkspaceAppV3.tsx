@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ThemeProjectRenderer from './ThemeProjectRenderer'
 import ThemeSwitcher from './ThemeSwitcher'
 import ProjectWorkbook from './ProjectWorkbook'
@@ -44,6 +44,7 @@ function preferredRunScript(scripts:string[]=[]){return ['dev','web','start','se
 type HostStatus={status:'connecting'|'online'|'error';detail:string;projectCount:number;updatedAt:string;hostOnline?:boolean;cloudOnline?:boolean;companionConnected?:boolean;companionLastSeenAt?:string|null;cloudProjectCount?:number;localProjectCount?:number}
 function readHostStatus():HostStatus|null{try{const parsed=JSON.parse(localStorage.getItem(HOST_STATUS_KEY)||'null');return parsed&&typeof parsed.detail==='string'?parsed:null}catch{return null}}
 function connectionAge(value:string|undefined,now:number){if(!value)return'not checked';const elapsed=Math.max(0,now-new Date(value).getTime());if(elapsed<60_000)return'just now';if(elapsed<3_600_000)return`${Math.floor(elapsed/60_000)}m ago`;if(elapsed<86_400_000)return`${Math.floor(elapsed/3_600_000)}h ago`;return`${Math.floor(elapsed/86_400_000)}d ago`}
+function fileGlyph(entry:ProjectFileEntry){if(entry.isDirectory)return'▰';const ext=entry.name.split('.').pop()?.toLowerCase();if(['png','jpg','jpeg','gif','webp','svg','ico'].includes(ext||''))return'◇';if(['md','txt','doc','docx','pdf'].includes(ext||''))return'≡';if(['json','toml','yaml','yml','xml'].includes(ext||''))return'⌘';return'〈/〉'}
 
 export default function WorkspaceAppV3(){
   const desktop=getDesktopHost()
@@ -69,30 +70,12 @@ export default function WorkspaceAppV3(){
   const [fileEntries,setFileEntries]=useState<ProjectFileEntry[]>([])
   const [filePreview,setFilePreview]=useState('')
   const [fileMessage,setFileMessage]=useState('')
+  const [fileQuery,setFileQuery]=useState('')
   const [sortMode,setSortMode]=useState<'name'|'recent'>('name')
   const [filterMode,setFilterMode]=useState<'all'|'local'|'repo'|'running'>('all')
   const [sortMenuOpen,setSortMenuOpen]=useState(false)
 
-  useEffect(()=>{const refresh=()=>{setProjects(readArray(PROJECTS_KEY));setSources(readArray(LOCAL_KEY))};window.addEventListener('storage',refresh);window.addEventListener('projectx:projects-changed',refresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('projectx:projects-changed',refresh)}},[])
-  useEffect(()=>localStorage.setItem(VIEW_KEY,theme),[theme])
-  useEffect(()=>{
-    const open=(event:Event)=>{const detail=(event as CustomEvent<{projectId:string}>).detail;const kind=event.type==='projectx:card-git'?'git':event.type==='projectx:card-files'?'files':'workbook';if(detail?.projectId)setCardDialog({kind,projectId:detail.projectId})}
-    for(const name of ['projectx:card-git','projectx:card-files','projectx:card-workbook'])window.addEventListener(name,open)
-    return()=>{for(const name of ['projectx:card-git','projectx:card-files','projectx:card-workbook'])window.removeEventListener(name,open)}
-  },[])
-  useEffect(()=>{
-    if(!cardDialog)return
-    const project=projects.find(item=>item.id===cardDialog.projectId)
-    if(!project)return
-    if(cardDialog.kind==='files'){setFileDir('');void browseProject(project.id)}
-    if(cardDialog.kind==='git'){
-      const path=sources.find(item=>item.projectId===project.id)?.path
-      if(!desktop||!path){setGitInfo('A local project is required for Git operations.');return}
-      setGitInfo('Checking repository…')
-      void desktop.gitStatus(path).then(info=>setGitInfo(info?'Branch: '+(info.branch||'unknown')+' · '+(info.dirty?'Local changes present':'Working tree clean'):'No Git repository detected')).catch(error=>setGitInfo(errorMessage(error,'Unable to read Git status.')))
-    }
-  },[cardDialog,projects,sources,desktop])
-  async function browseProject(projectId:string,relativePath=''){
+  const browseProject=useCallback(async(projectId:string,relativePath='')=>{
     const path=sources.find(item=>item.projectId===projectId)?.path
     setFilePreview('')
     setFileMessage('Loading project files…')
@@ -101,7 +84,27 @@ export default function WorkspaceAppV3(){
       const items=await desktop.listProjectFiles(path,relativePath)
       setFileDir(relativePath);setFileEntries(items);setFileMessage(items.length?'':'This folder is empty.')
     }catch(error){setFileEntries([]);setFileMessage(errorMessage(error,'Cannot read project folder.'))}
-  }
+  },[desktop,sources])
+
+  useEffect(()=>{const refresh=()=>{setProjects(readArray(PROJECTS_KEY));setSources(readArray(LOCAL_KEY))};window.addEventListener('storage',refresh);window.addEventListener('projectx:projects-changed',refresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('projectx:projects-changed',refresh)}},[])
+  useEffect(()=>localStorage.setItem(VIEW_KEY,theme),[theme])
+  useEffect(()=>{
+    const open=(event:Event)=>{
+      const detail=(event as CustomEvent<{projectId:string}>).detail
+      const kind=event.type==='projectx:card-git'?'git':event.type==='projectx:card-files'?'files':'workbook'
+      if(!detail?.projectId)return
+      setCardDialog({kind,projectId:detail.projectId})
+      if(kind==='files'){setFileDir('');setFileQuery('');void browseProject(detail.projectId)}
+      if(kind==='git'){
+        const path=sources.find(item=>item.projectId===detail.projectId)?.path
+        if(!desktop||!path){setGitInfo('A local project is required for Git operations.');return}
+        setGitInfo('Checking repository…')
+        void desktop.gitStatus(path).then(info=>setGitInfo(info?'Branch: '+(info.branch||'unknown')+' · '+(info.dirty?'Local changes present':'Working tree clean'):'No Git repository detected')).catch(error=>setGitInfo(errorMessage(error,'Unable to read Git status.')))
+      }
+    }
+    for(const name of ['projectx:card-git','projectx:card-files','projectx:card-workbook'])window.addEventListener(name,open)
+    return()=>{for(const name of ['projectx:card-git','projectx:card-files','projectx:card-workbook'])window.removeEventListener(name,open)}
+  },[browseProject,desktop,sources])
   async function previewProjectFile(projectId:string,relativePath:string){
     const path=sources.find(item=>item.projectId===projectId)?.path
     if(!desktop||!path)return
@@ -124,7 +127,7 @@ export default function WorkspaceAppV3(){
   },[cloudState.session])
   useEffect(()=>{const refresh=()=>setHealthMap(readProjectHealth());window.addEventListener(PROJECT_HEALTH_EVENT,refresh);return()=>window.removeEventListener(PROJECT_HEALTH_EVENT,refresh)},[])
   useEffect(()=>{
-    if(!cloudState.session){setCloudActivity([]);setActivityState('idle');return}
+    if(!cloudState.session)return
     let cancelled=false
     const refresh=async()=>{
       setActivityState((current)=>current==='ready'?'ready':'loading')
@@ -177,7 +180,7 @@ export default function WorkspaceAppV3(){
     if(filterMode==='running'&&!readRunTasks().some(task=>task.projectId===project.id))return false
     const text=`${project.name} ${project.kicker||''} ${project.description||''} ${(project.stack||[]).join(' ')}`.toLowerCase()
     return text.includes(query.trim().toLowerCase())
-  }).sort((a,b)=>sortMode==='name'?a.name.localeCompare(b.name):(b.updated||'').localeCompare(a.updated||'')),[projects,nav,query,sortMode])
+  }).sort((a,b)=>sortMode==='name'?a.name.localeCompare(b.name):(b.updated||'').localeCompare(a.updated||'')),[projects,nav,query,sortMode,sourceMap,filterMode])
 
   async function runProject(project:Project){
     const source=sourceMap.get(project.id)
@@ -210,6 +213,7 @@ export default function WorkspaceAppV3(){
   const liveCount=active.filter((project)=>healthFor(project.id,healthMap).deployment.state==='online').length
   const companionOnline=companionState?.status==='online'&&Boolean(companionState.updatedAt)&&connectionClock-new Date(companionState.updatedAt).getTime()<30_000
   const visibleProviderStates=cloudState.session?providerStates:{}
+  const visibleFileEntries=fileEntries.filter((entry)=>entry.name.toLowerCase().includes(fileQuery.trim().toLowerCase()))
   function openDeployment(project:Project){
     window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'cloud'}}))
     window.setTimeout(()=>window.dispatchEvent(new CustomEvent('projectx:open-deployment',{detail:{projectId:project.id}})),0)
@@ -227,7 +231,7 @@ export default function WorkspaceAppV3(){
     <ThemeSwitcher items={themes} value={theme} open={themePickerOpen} onClose={()=>setThemePickerOpen(false)} onChange={(next)=>changeTheme(next as ThemeMode)} />
     {cardDialog&&(()=>{const project=projects.find(item=>item.id===cardDialog.projectId);if(!project)return null;const path=sourceMap.get(project.id)?.path;return <div className="project-card-dialog-backdrop" onMouseDown={()=>setCardDialog(null)}><section className="project-card-dialog" role="dialog" aria-modal="true" aria-label={project.name+' '+cardDialog.kind} onMouseDown={event=>event.stopPropagation()}><header><div><small>PROJECT.X / {cardDialog.kind.toUpperCase()}</small><h2>{project.name}</h2></div><button type="button" onClick={()=>setCardDialog(null)} aria-label="Close">×</button></header>
     {cardDialog.kind==='git'&&<div className="project-card-dialog-body"><p role="status">{gitInfo}</p><div className="card-dialog-actions"><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.gitStatus(path).then(info=>setGitInfo('Branch: '+(info?.branch||'unknown')+' · '+(info?.dirty?'Changes present':'Clean'))).catch(e=>setGitInfo(errorMessage(e,'Git status failed.')))}}>⟳ Status</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path)return;setGitInfo('Fetching remote refs…');void desktop.gitFetch(path).then(result=>setGitInfo(result.output||'Fetch complete.')).catch(e=>setGitInfo(errorMessage(e,'Fetch failed.')))}}>↓ Fetch</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path||!window.confirm('Fast-forward pull for '+project.name+'? Local changes must be committed or stashed first.'))return;setGitInfo('Pulling…');void desktop.gitPull(path).then(result=>setGitInfo(result.output||'Pull complete.')).catch(e=>setGitInfo(errorMessage(e,'Pull failed.')))}}>⇣ Pull</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path||!window.confirm('Push local commits for '+project.name+' to its configured remote?'))return;setGitInfo('Pushing…');void desktop.gitPush(path).then(result=>setGitInfo(result.output||'Push complete.')).catch(e=>setGitInfo(errorMessage(e,'Push failed.')))}}>⇡ Push</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInTerminal(path)}}>Terminal</button></div><form className="git-commit-form" onSubmit={event=>{event.preventDefault();if(!desktop||!path||!commitMessage.trim()||!window.confirm('Stage all local changes and commit to '+project.name+'?'))return;setGitInfo('Creating local commit…');void desktop.gitCommit(path,commitMessage.trim()).then(result=>{setGitInfo(result.output||'Commit completed.');if(result.ok)setCommitMessage('')}).catch(e=>setGitInfo(errorMessage(e,'Commit failed.')))}}><label>Commit message<input value={commitMessage} onChange={event=>setCommitMessage(event.target.value)} placeholder="Describe this change" /></label><button type="submit" disabled={!desktop||!path||!commitMessage.trim()}>Commit changes</button></form><p className="dialog-hint">Fetch updates remote references; Pull uses fast-forward only and rejects dirty worktrees. Push and Commit require confirmation. No automatic synchronization or force-push is performed.</p></div>}
-    {cardDialog.kind==='files'&&<div className="project-card-dialog-body"><div className="file-browser-toolbar"><strong>Project files</strong><button type="button" disabled={!path||!desktop} onClick={()=>void browseProject(project.id,'')}>⌂ Root</button><button type="button" disabled={!fileDir||!desktop} onClick={()=>void browseProject(project.id,fileDir.split('/').slice(0,-1).join('/'))}>↑ Up</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInExplorer(path)}}>Windows Explorer</button></div><code>{fileDir ? '/'+fileDir : '/'} · {path||'No local folder linked'}</code><div className="project-file-list" role="list">{fileEntries.map(entry=><button type="button" role="listitem" key={entry.relativePath} onClick={()=>entry.isDirectory?void browseProject(project.id,entry.relativePath):void previewProjectFile(project.id,entry.relativePath)}><span>{entry.isDirectory?'▣':'▤'} {entry.name}</span><small>{entry.isDirectory?'Folder':entry.bytes?Math.ceil(entry.bytes/1024)+' KB':'File'}</small></button>)}</div>{fileMessage&&<p className="dialog-hint" role="status">{fileMessage}</p>}{filePreview&&<pre className="file-browser-preview">{filePreview}</pre>}<p className="dialog-hint">Read-only. Only files inside the authorized project root can be listed or previewed. Sensitive credentials and large files are excluded.</p></div>}
+    {cardDialog.kind==='files'&&<div className="project-card-dialog-body"><div className="file-browser-toolbar"><strong>Project files</strong><button type="button" disabled={!path||!desktop} onClick={()=>void browseProject(project.id,'')}>⌂ Root</button><button type="button" disabled={!fileDir||!desktop} onClick={()=>void browseProject(project.id,fileDir.split('/').slice(0,-1).join('/'))}>↑ Up</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInExplorer(path)}}>Explorer</button></div><div className="file-browser-breadcrumb"><code>/{fileDir}</code><button type="button" disabled={!fileDir} onClick={()=>void navigator.clipboard.writeText(fileDir||'.').then(()=>setFileMessage('Relative path copied.')).catch(()=>setFileMessage('Clipboard unavailable.'))}>Copy path</button></div><label className="file-browser-search"><span>Filter this folder</span><input value={fileQuery} onChange={event=>setFileQuery(event.target.value)} placeholder="Name or extension…"/></label><div className="project-file-list" role="list">{visibleFileEntries.map(entry=><div className="project-file-row" role="listitem" key={entry.relativePath}><button type="button" onClick={()=>entry.isDirectory?void browseProject(project.id,entry.relativePath):void previewProjectFile(project.id,entry.relativePath)}><span><i aria-hidden="true">{fileGlyph(entry)}</i>{entry.name}</span><small>{entry.isDirectory?'Folder':entry.bytes?Math.ceil(entry.bytes/1024)+' KB':'File'}{entry.modifiedAt?` · ${new Date(entry.modifiedAt).toLocaleDateString()}`:''}</small></button>{!entry.isDirectory&&<button className="file-open-system" type="button" aria-label={'Open '+entry.name+' with system application'} onClick={()=>path&&desktop?.openProjectFile(path,entry.relativePath).catch(error=>setFileMessage(errorMessage(error,'Unable to open file.')))}>↗</button>}</div>)}</div>{fileQuery&&!visibleFileEntries.length&&<p className="dialog-hint">No files in this folder match “{fileQuery}”.</p>}{fileMessage&&<p className="dialog-hint" role="status">{fileMessage}</p>}{filePreview&&<pre className="file-browser-preview">{filePreview}</pre>}<p className="dialog-hint">Read-only. Only files inside the authorized project root can be listed, previewed, or opened. Sensitive credentials and large previews remain blocked.</p></div>}
     {cardDialog.kind==='workbook'&&<ProjectWorkbook key={project.id} projectId={project.id} projectName={project.name} path={path} desktop={desktop}/>} 
     </section></div>})()}
 

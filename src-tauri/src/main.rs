@@ -802,6 +802,7 @@ fn main() {
             artwork::discover_project_artwork,
             file_browser::list_project_files,
             file_browser::read_project_text,
+            file_browser::open_project_file,
             system_tools::toolchain_preflight,
             remote_packages::download_remote_package,
             remote_packages::remove_remote_package,
