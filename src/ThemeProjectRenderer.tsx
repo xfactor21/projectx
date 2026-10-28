@@ -3,7 +3,6 @@ import type { CSSProperties } from 'react'
 import ComicProjectArt from './ComicProjectArt'
 import ProjectStatusBar from './ProjectStatusBar'
 import { healthFor, type ProjectHealth } from './services/projectHealth'
-import { openHostedLink } from './services/externalLinks'
 
 type Project = {
   id: string
@@ -134,6 +133,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
 
   if (theme === 'Storefront') return <section className="storefront-street" aria-label="Project storefront">
     <div className="storefront-skyline" aria-hidden="true" />
+    <header className="storefront-district-sign"><span>PROJECT.X DISTRICT</span><strong>Independent build studios</strong><i>Night shift · {projects.length} lights on</i></header>
     <div className="storefront-row">{projects.map((project, index) => {
       const source = sourceMap.get(project.id)
       return <article className={`store-unit awning-${(index % 4) + 1} ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={{...artStyle(project),'--store-index':index} as CSSProperties}>
@@ -147,6 +147,7 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
       </article>
     })}</div>
     <div className="storefront-sidewalk" aria-hidden="true"><i/><span>PROJECT.X DISTRICT · INDEPENDENT BUILD STUDIOS</span><i/></div>
+    <div className="storefront-road" aria-hidden="true"><span className="road-line line-one"/><span className="road-line line-two"/><div className="district-car car-cyan"><b/><i/><i/></div><div className="district-car car-pink"><b/><i/><i/></div><div className="district-pedestrian walker-one"><i/><b/></div><div className="district-pedestrian walker-two"><i/><b/></div><div className="district-pedestrian walker-three"><i/><b/></div></div>
   </section>
 
   if (theme === 'Vending') return <VendingRenderer projects={projects} sourceMap={sourceMap} desktopOnline={desktopOnline} sourceLabel={sourceLabel} onOpen={onOpen} onRun={onRun} onDeployment={onDeployment} healthMap={healthMap}/>

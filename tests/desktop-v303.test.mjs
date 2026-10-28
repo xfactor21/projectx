@@ -43,8 +43,8 @@ test('Preview exposes an explicit native fallback for sites that block framing',
   assert.match(preview, /openExternalPreview\(preview\.url\)/)
 })
 
-test('v3.04 identity is present', () => {
-  assert.match(version, /APP_VERSION = '3\.04'/)
-  assert.match(version, /APP_SEMVER = '3\.0\.4'/)
-  assert.match(version, /BUILD_DATE_TAG = 'Oct-28'/)
+test('current identity is present', () => {
+  assert.match(version, /APP_VERSION = '3\.05'/)
+  assert.match(version, /APP_SEMVER = '3\.0\.5'/)
+  assert.match(version, /BUILD_DATE_TAG = '10\.28'/)
 })
