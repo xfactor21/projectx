@@ -1,0 +1,21 @@
+{
+  "format": "projectx-workspace-backup",
+  "schemaVersion": 1,
+  "createdAt": "2026-10-28T06:00:00.000Z",
+  "appVersion": "3.0.6",
+  "data": {
+    "projects": [
+      {"id":"visual-01","name":"Neon Atlas","kicker":"FLAGSHIP","description":"Spatial command workspace for distributed creative systems.","detectedVersion":"2.8.0","status":"Active","accent":"#29e0ff","updated":"Today","stack":["React","TypeScript","Three.js"],"progress":84,"repoUrl":"https://github.com/xfactor21/neon-atlas","liveUrl":"https://example.com"},
+      {"id":"visual-02","name":"Signal Bloom","kicker":"EXPERIMENT","description":"Generative identity laboratory with responsive light and sound.","detectedVersion":"1.6.4","status":"Building","accent":"#ff3ead","updated":"2h ago","stack":["Vite","WebGL","Web Audio"],"progress":67},
+      {"id":"visual-03","name":"Orbit Forge","kicker":"TOOLCHAIN","description":"Local-first release and artifact orchestration console.","detectedVersion":"4.1.2","status":"Ready","accent":"#a855f7","updated":"Yesterday","stack":["Rust","Tauri","React"],"progress":93,"repoUrl":"https://github.com/xfactor21/orbit-forge"},
+      {"id":"visual-04","name":"Glass District","kicker":"PLATFORM","description":"Immersive portfolio streetscape for independent studios.","detectedVersion":"3.2.1","status":"Active","accent":"#75ffbd","updated":"Oct 27","stack":["Next.js","Supabase","CSS"],"progress":76,"liveUrl":"https://example.com"},
+      {"id":"visual-05","name":"Pulse Runner","kicker":"MOBILE","description":"Companion control surface for remote development workflows.","detectedVersion":"0.9.8","status":"Testing","accent":"#ff8d4d","updated":"Oct 26","stack":["Android","Capacitor","Kotlin"],"progress":58},
+      {"id":"visual-06","name":"Prism Archive","kicker":"LIBRARY","description":"Searchable visual memory for project artwork and build history.","detectedVersion":"2.0.3","status":"Ready","accent":"#7cc4ff","updated":"Oct 25","stack":["React","IndexedDB","Canvas"],"progress":88},
+      {"id":"visual-07","name":"Night Circuit","kicker":"AUTOMATION","description":"Event-driven build monitor with cinematic operational feedback.","detectedVersion":"1.4.0","status":"Building","accent":"#ff4fd8","updated":"Oct 24","stack":["Node.js","GitHub","Vercel"],"progress":71},
+      {"id":"visual-08","name":"Planet Core","kicker":"SYSTEM","description":"Shared infrastructure and design language for planet.X products.","detectedVersion":"5.0.0","status":"Active","accent":"#36f0ff","updated":"Oct 23","stack":["TypeScript","Design Tokens","CI"],"progress":96}
+    ],
+    "localSources": [],
+    "preferences": {"view":"Grid","sound":false},
+    "workbooks": {}
+  }
+}
