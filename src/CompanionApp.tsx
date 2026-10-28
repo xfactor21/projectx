@@ -17,6 +17,7 @@ const ONBOARDING_KEY = 'projectx.companion.onboarding.v302'
 type PackageMode = 'create' | 'update'
 type CompanionTab = 'projects' | 'actions' | 'activity' | 'settings'
 type ProjectFilter = 'all' | 'pc' | 'cloud'
+type ActionFilter = 'all' | 'active' | 'failed'
 
 function deviceId() {
   try {
@@ -94,6 +95,7 @@ export default function CompanionApp() {
   const [actions, setActions] = useState<RemoteAction[]>([])
   const [query, setQuery] = useState('')
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('all')
+  const [actionFilter, setActionFilter] = useState<ActionFilter>('all')
   const [message, setMessage] = useState(isSupabaseConfigured() ? 'Companion ready.' : 'project.X Cloud is unavailable in this build.')
   const [busy, setBusy] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -235,6 +237,42 @@ export default function CompanionApp() {
     }
   }
 
+  async function cancelAction(action: RemoteAction) {
+    if (!action.id || !['pending', 'approved'].includes(action.status || '')) return
+    if (!window.confirm(`Cancel ${actionLabel(action)}?`)) return
+    setBusy(true)
+    try {
+      await updateRemoteAction(action.id, 'canceled', { canceledByDevice: deviceId() })
+      setMessage(`${actionLabel(action)} canceled.`)
+      await refresh(session, true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to cancel the remote action.')
+    } finally { setBusy(false) }
+  }
+
+  async function retryAction(action: RemoteAction) {
+    if (action.status !== 'failed' || !action.target_device_id) return
+    if (!window.confirm(`Retry ${actionLabel(action)}?`)) return
+    setBusy(true)
+    try {
+      const rows = await queueRemoteAction({
+        project_client_id: action.project_client_id || null,
+        target_device_id: action.target_device_id,
+        action_type: action.action_type,
+        payload: action.payload || {},
+        requested_by_device_id: deviceId(),
+      })
+      const next = rows[0]
+      if (!next?.id) throw new Error('The retry action could not be created.')
+      await updateRemoteAction(next.id, 'approved')
+      setMessage(`${actionLabel(action)} queued again.`)
+      setActionFilter('active')
+      await refresh(session, true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to retry the remote action.')
+    } finally { setBusy(false) }
+  }
+
   async function sendPackage() {
     if (!windowsDevice?.device_id) return setMessage('Open project.X on Windows at least once so Companion knows which PC to target.')
     if (!packageFile) return setMessage('Choose a project ZIP first.')
@@ -308,6 +346,7 @@ export default function CompanionApp() {
   const pendingActions = actions.filter((action) => ['pending', 'approved', 'running'].includes(action.status || ''))
   const activity = actions.filter((action) => ['succeeded', 'failed', 'canceled'].includes(action.status || '')).slice(0, 40)
   const failedCount = actions.filter((action) => action.status === 'failed').length
+  const visibleActions = actions.filter((action) => actionFilter === 'all' ? true : actionFilter === 'active' ? ['pending', 'approved', 'running'].includes(action.status || '') : action.status === 'failed')
   const hostStale = Boolean(windowsDevice && !hostOnline)
 
   function closeOnboarding() {
@@ -402,15 +441,20 @@ export default function CompanionApp() {
       {tab === 'actions' && <section className="companion-list-page">
         <div className="companion-page-heading"><div><small>REMOTE QUEUE</small><h1>Actions</h1></div><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? '…' : '↻'}</button></div>
         <p className="companion-page-copy">Commands sent from this companion to your Windows project.X host.</p>
-        <div className="companion-action-summary"><div><b>{pendingActions.length}</b><span>ACTIVE</span></div><div><b>{failedCount}</b><span>FAILED</span></div><div><b>{actions.length}</b><span>RECENT</span></div></div>
-        <div className="companion-action-list">{actions.length ? actions.slice(0, 50).map((action) => <article key={action.id || `${action.action_type}-${action.created_at}`}>
+        <div className="companion-action-summary"><button type="button" className={actionFilter === 'active' ? 'active' : ''} onClick={() => setActionFilter('active')}><b>{pendingActions.length}</b><span>ACTIVE</span></button><button type="button" className={actionFilter === 'failed' ? 'active' : ''} onClick={() => setActionFilter('failed')}><b>{failedCount}</b><span>FAILED</span></button><button type="button" className={actionFilter === 'all' ? 'active' : ''} onClick={() => setActionFilter('all')}><b>{actions.length}</b><span>ALL</span></button></div>
+        <div className="companion-action-list">{visibleActions.length ? visibleActions.slice(0, 50).map((action) => <article key={action.id || `${action.action_type}-${action.created_at}`}>
           <div><span className={`companion-action-state ${action.status || 'pending'}`}>{action.status || 'pending'}</span><small>{relativeTime(action.updated_at || action.created_at)}</small></div>
           <strong>{actionLabel(action)}</strong>
           <p>{action.project_client_id ? projects.find((project) => project.client_id === action.project_client_id)?.name || action.project_client_id : 'Workspace action'}</p>
-          {action.status === 'running' && Boolean(action.result?.stage) && <code>{String(action.result?.stage)}</code>}
+          {['pending','approved','running'].includes(action.status || '') && <code>{String(action.result?.stage || (action.status === 'running' ? 'Windows host is processing this action.' : 'Waiting for Windows host.'))}</code>}
           {action.status === 'failed' && <code>{String((action.result as { error?: unknown } | null)?.error || 'Action failed on the Windows host.')}</code>}
-          {action.status === 'succeeded' && usableMobileUrl(action.result?.mobileUrl) && <button className="companion-open-result" type="button" onClick={() => setMobilePreview({ name: projects.find((project) => project.client_id === action.project_client_id)?.name || 'Project preview', url: usableMobileUrl(action.result?.mobileUrl)!, revision: Date.now() })}>Open mobile preview</button>}
-        </article>) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>No remote actions yet.</h2></div>}</div>
+          {action.status === 'succeeded' && Boolean(action.result?.output) && <code className="success">{String(action.result?.output).slice(0, 500)}</code>}
+          <div className="companion-action-controls">
+            {['pending','approved'].includes(action.status || '') && <button type="button" disabled={busy} onClick={() => void cancelAction(action)}>Cancel</button>}
+            {action.status === 'failed' && <button type="button" disabled={busy || !hostOnline} onClick={() => void retryAction(action)}>Retry</button>}
+            {action.status === 'succeeded' && usableMobileUrl(action.result?.mobileUrl) && <button className="companion-open-result" type="button" onClick={() => setMobilePreview({ name: projects.find((project) => project.client_id === action.project_client_id)?.name || 'Project preview', url: usableMobileUrl(action.result?.mobileUrl)!, revision: Date.now() })}>Open mobile preview</button>}
+          </div>
+        </article>) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>{actionFilter === 'failed' ? 'No failed actions.' : actionFilter === 'active' ? 'No active actions.' : 'No remote actions yet.'}</h2></div>}</div>
       </section>}
 
       {tab === 'activity' && <section className="companion-list-page">
