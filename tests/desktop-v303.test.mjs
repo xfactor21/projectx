@@ -9,7 +9,7 @@ const density = read('src/desktopDensityV303.css')
 const preview = read('src/EmbeddedPreview.tsx')
 const version = read('src/version.ts')
 
-test('v3.03 workspace uses the compact invisible utility header', () => {
+test('v3.04 workspace uses the compact invisible utility header', () => {
   assert.match(workspace, /desktop-utility-header/)
   assert.doesNotMatch(workspace, /Your project universe/)
   assert.match(workspace, />\+ Project</)
@@ -43,8 +43,8 @@ test('Preview exposes an explicit native fallback for sites that block framing',
   assert.match(preview, /openExternalPreview\(preview\.url\)/)
 })
 
-test('v3.03 identity is present', () => {
-  assert.match(version, /APP_VERSION = '3\.03'/)
-  assert.match(version, /APP_SEMVER = '3\.0\.3'/)
+test('v3.04 identity is present', () => {
+  assert.match(version, /APP_VERSION = '3\.04'/)
+  assert.match(version, /APP_SEMVER = '3\.0\.4'/)
   assert.match(version, /BUILD_DATE_TAG = 'Oct-28'/)
 })
