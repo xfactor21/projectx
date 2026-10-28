@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_v3.03_desktop-density-video-fix_Oct-28
+  PROJECTX_BUILD_NAME: projectX_v3.04_workspace-workbook-redesign_Oct-28
 
 jobs:
   windows-installer:
