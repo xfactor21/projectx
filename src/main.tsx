@@ -66,6 +66,7 @@ import './environmentIsolationV31.css'
 import './uxStabilizationV32.css'
 import './themeSwitcherV301.css'
 import './projectHealthV301.css'
+import './desktopDensityV303.css'
 
 async function start() {
   installTauriDesktopBridge()
