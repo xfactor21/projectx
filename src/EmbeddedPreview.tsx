@@ -57,11 +57,12 @@ export default function EmbeddedPreview() {
         </nav>
         <nav aria-label="Preview controls">
           <button type="button" title="Reload preview" aria-label="Reload preview" onClick={() => setPreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button>
-          <button type="button" title="Copy preview URL" aria-label="Copy preview URL" onClick={() => void copyUrl()}>{copied ? "✓" : "⧉"}</button><button type="button" title="Open in default browser" aria-label="Open in default browser" onClick={() => void desktop?.openExternalPreview(preview.url)}>↗</button>
+          <button type="button" title="Copy preview URL" aria-label="Copy preview URL" onClick={() => void copyUrl()}>{copied ? "✓" : "⧉"}</button><button type="button" title="Open native preview window" aria-label="Open native preview window" onClick={() => void desktop?.openExternalPreview(preview.url)}>↗</button>
           <button type="button" title="Stop server" aria-label="Stop server" disabled={!preview.pid} onClick={() => void stop()}>■</button>
           <button type="button" title="Close preview" aria-label="Close preview" onClick={() => setPreview(null)}>×</button>
         </nav>
       </header>
+      <div className="preview-frame-help"><span><strong>Preview not rendering?</strong> Some dev servers block iframe embedding even while they are running normally.</span><button type="button" onClick={() => void desktop?.openExternalPreview(preview.url)}>Open native preview</button></div>
       <div className={`embedded-preview-stage viewport-${viewport}`}>
         {message && <p>{message}</p>}
         <iframe key={preview.revision} src={preview.url} title={`${preview.projectName} running preview`} allow="clipboard-read; clipboard-write; fullscreen" />
