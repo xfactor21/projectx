@@ -635,6 +635,32 @@ fn git_commit(
         .arg(message);
     command_output(&mut commit)
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GitHistoryEntry {
+    hash: String,
+    date: String,
+    subject: String,
+}
+
+#[tauri::command]
+fn git_history(path: String, state: State<'_, DesktopState>) -> Result<Vec<GitHistoryEntry>, String> {
+    let root = ensure_authorized(&state, &path)?;
+    if git_summary(&root).is_none() { return Ok(Vec::new()); }
+    let mut command = Command::new("git");
+    command.current_dir(root).args(["log", "-n", "50", "--date=short", "--pretty=format:%h%x1f%ad%x1f%s%x1e"]);
+    let result = command_output(&mut command)?;
+    if !result.ok { return Err(result.output); }
+    Ok(result.output.split('\\u{1e}').filter_map(|line| {
+        let mut pieces = line.trim().splitn(3, '\\u{1f}');
+        Some(GitHistoryEntry {
+            hash: pieces.next()?.to_string(),
+            date: pieces.next()?.to_string(),
+            subject: pieces.next()?.chars().take(300).collect(),
+        })
+    }).collect())
+}
+
 #[tauri::command]
 fn git_fetch(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
     let root = ensure_authorized(&state, &path)?;
@@ -707,6 +733,7 @@ fn main() {
             git_push,
             git_fetch,
             git_pull,
+            git_history,
             run_script,
             artwork::discover_project_artwork,
             file_browser::list_project_files,
