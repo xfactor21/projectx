@@ -16,6 +16,7 @@ const ONBOARDING_KEY = 'projectx.companion.onboarding.v302'
 
 type PackageMode = 'create' | 'update'
 type CompanionTab = 'projects' | 'actions' | 'activity' | 'settings'
+type ProjectFilter = 'all' | 'pc' | 'cloud'
 
 function deviceId() {
   try {
@@ -92,6 +93,7 @@ export default function CompanionApp() {
   const [projects, setProjects] = useState<CloudProject[]>([])
   const [actions, setActions] = useState<RemoteAction[]>([])
   const [query, setQuery] = useState('')
+  const [projectFilter, setProjectFilter] = useState<ProjectFilter>('all')
   const [message, setMessage] = useState(isSupabaseConfigured() ? 'Companion ready.' : 'project.X Cloud is unavailable in this build.')
   const [busy, setBusy] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -294,8 +296,12 @@ export default function CompanionApp() {
 
   const visible = useMemo(() => projects.filter((project) => {
     const haystack = `${project.name} ${project.kicker || ''} ${project.description || ''}`.toLowerCase()
-    return haystack.includes(query.trim().toLowerCase()) && !project.archived
-  }), [projects, query])
+    if (!haystack.includes(query.trim().toLowerCase()) || project.archived) return false
+    const onPc = projectIsOnDevice(project, windowsDevice)
+    if (projectFilter === 'pc') return onPc
+    if (projectFilter === 'cloud') return !onPc
+    return true
+  }), [projects, query, projectFilter, windowsDevice, clock])
 
   const hostOnline = useMemo(() => { void clock; return isFresh(windowsDevice) }, [windowsDevice, clock])
   const availableCount = visible.filter((project) => projectIsOnDevice(project, windowsDevice)).length
@@ -359,9 +365,15 @@ export default function CompanionApp() {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects" aria-label="Search projects"/>
           <span>{visible.length}</span>
         </section>
+        <nav className="companion-project-filters" aria-label="Filter projects">
+          <button type="button" className={projectFilter === 'all' ? 'active' : ''} onClick={() => setProjectFilter('all')}>All</button>
+          <button type="button" className={projectFilter === 'pc' ? 'active' : ''} onClick={() => setProjectFilter('pc')}>On PC</button>
+          <button type="button" className={projectFilter === 'cloud' ? 'active' : ''} onClick={() => setProjectFilter('cloud')}>Cloud only</button>
+        </nav>
 
         <section className="companion-projects">{visible.length ? visible.map((project) => {
           const onPc = projectIsOnDevice(project, windowsDevice)
+          const remoteReason = onPc ? '' : hostOnline ? 'This project is in Cloud but is not linked to a local folder on this PC.' : 'Remote controls are unavailable while the Windows host is offline.'
           return <article key={project.client_id}>
             <div className="companion-card-top">
               <span className={`companion-status ${(project.status || 'Building').toLowerCase()}`}>{project.status || 'Building'}</span>
@@ -371,19 +383,20 @@ export default function CompanionApp() {
             <p>{project.description || project.kicker || 'No description yet.'}</p>
             <div className="companion-stack">{Array.isArray(project.stack) && project.stack.slice(0, 4).map((item) => <span key={String(item)}>{String(item)}</span>)}</div>
             <div className="companion-actions companion-project-links">
-              <button type="button" disabled={!project.repo_url} onClick={() => safeOpen(project.repo_url)}>Repo</button>
-              <button type="button" disabled={!onPc} onClick={() => setLaunchProject(project)}>Launch</button>
-              <button type="button" disabled={!project.live_url} onClick={() => safeOpen(project.live_url)}>Published</button>
+              <button type="button" disabled={!project.repo_url} title={project.repo_url ? 'Open repository' : 'No repository is linked to this project.'} onClick={() => safeOpen(project.repo_url)}>Repo</button>
+              <button className="primary" type="button" disabled={!onPc} title={onPc ? 'Choose where to launch this project' : remoteReason} onClick={() => setLaunchProject(project)}>Launch</button>
+              <button type="button" disabled={!project.live_url} title={project.live_url ? 'Open published project' : 'No published URL is saved for this project.'} onClick={() => safeOpen(project.live_url)}>Published</button>
             </div>
             <div className="companion-action-grid">
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'project.open_explorer')}>Open on PC</button>
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'project.open_terminal')}>Terminal</button>
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'git.status')}>Git status</button>
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'script.run', { script: 'build' }, `Run the build script for ${project.name} on your Windows computer?`)}>Build</button>
-              <button className="wide" disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'git.push', {}, `Push the current local Git branch for ${project.name}?`)}>Push current branch</button>
+              <button disabled={busy || !onPc} title={remoteReason || 'Open this project in Explorer on Windows.'} type="button" onClick={() => void requestAction(project, 'project.open_explorer')}>Open on PC</button>
+              <button disabled={busy || !onPc} title={remoteReason || 'Open a terminal in the project folder.'} type="button" onClick={() => void requestAction(project, 'project.open_terminal')}>Terminal</button>
+              <button disabled={busy || !onPc} title={remoteReason || 'Read the current local Git status.'} type="button" onClick={() => void requestAction(project, 'git.status')}>Git status</button>
+              <button className="primary" disabled={busy || !onPc} title={remoteReason || 'Run the project build script on Windows.'} type="button" onClick={() => void requestAction(project, 'script.run', { script: 'build' }, `Run the build script for ${project.name} on your Windows computer?`)}>Build</button>
+              <button className="wide" disabled={busy || !onPc} title={remoteReason || 'Push the current local Git branch after confirmation.'} type="button" onClick={() => void requestAction(project, 'git.push', {}, `Push the current local Git branch for ${project.name}?`)}>Push current branch</button>
+              {!onPc && <small className="companion-control-note">{remoteReason}</small>}
             </div>
           </article>
-        }) : <div className="companion-empty"><span>NO PROJECTS</span><h2>Nothing matches this view.</h2><p>Sync from Windows or clear the search to see your project universe.</p></div>}</section>
+        }) : <div className="companion-empty"><span>NO MATCHES</span><h2>Nothing matches this view.</h2><p>{projectFilter === 'pc' ? 'No matching projects are currently available on the Windows host.' : projectFilter === 'cloud' ? 'No matching cloud-only projects.' : 'Clear the search or refresh your workspace.'}</p><button type="button" onClick={() => { setQuery(''); setProjectFilter('all'); void refresh() }}>Show all + refresh</button></div>}</section>
       </>}
 
       {tab === 'actions' && <section className="companion-list-page">
