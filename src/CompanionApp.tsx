@@ -13,11 +13,13 @@ const HOST_FRESH_MS = 30_000
 const REFRESH_MS = 15_000
 const PENDING_MOBILE_LAUNCH_KEY = 'projectx.companion.pending-mobile-launch.v1'
 const ONBOARDING_KEY = 'projectx.companion.onboarding.v302'
+const MAX_PACKAGE_BYTES = 100 * 1024 * 1024
 
 type PackageMode = 'create' | 'update'
 type CompanionTab = 'projects' | 'actions' | 'activity' | 'settings'
 type ProjectFilter = 'all' | 'pc' | 'cloud'
 type ActionFilter = 'all' | 'active' | 'failed'
+type PackageStep = 'setup' | 'review'
 
 function deviceId() {
   try {
@@ -103,6 +105,8 @@ export default function CompanionApp() {
   const [clock, setClock] = useState(() => Date.now())
   const [tab, setTab] = useState<CompanionTab>('projects')
   const [packageOpen, setPackageOpen] = useState(false)
+  const [packageStep, setPackageStep] = useState<PackageStep>('setup')
+  const [lastPackageActionId, setLastPackageActionId] = useState<string | null>(null)
   const [packageMode, setPackageMode] = useState<PackageMode>('create')
   const [packageTarget, setPackageTarget] = useState('')
   const [packageFile, setPackageFile] = useState<File | null>(null)
@@ -237,6 +241,11 @@ export default function CompanionApp() {
     }
   }
 
+  function openPackage() {
+    setPackageStep('setup')
+    setPackageOpen(true)
+  }
+
   async function cancelAction(action: RemoteAction) {
     if (!action.id || !['pending', 'approved'].includes(action.status || '')) return
     if (!window.confirm(`Cancel ${actionLabel(action)}?`)) return
@@ -291,6 +300,7 @@ export default function CompanionApp() {
       })
       const action = rows[0]
       if (!action?.id) throw new Error('The package action could not be created.')
+      setLastPackageActionId(action.id)
       await updateRemoteAction(action.id, 'approved')
       const offline = !isFresh(windowsDevice)
       setMessage(offline ? `${packageFile.name} queued. ${windowsDevice.name} will receive it when it comes online.` : `${packageFile.name} sent to ${windowsDevice.name}.`)
@@ -346,6 +356,9 @@ export default function CompanionApp() {
   const pendingActions = actions.filter((action) => ['pending', 'approved', 'running'].includes(action.status || ''))
   const activity = actions.filter((action) => ['succeeded', 'failed', 'canceled'].includes(action.status || '')).slice(0, 40)
   const failedCount = actions.filter((action) => action.status === 'failed').length
+  const packageAction = lastPackageActionId ? actions.find((action) => action.id === lastPackageActionId) || null : null
+  const packageFileError = !packageFile ? '' : !packageFile.name.toLowerCase().endsWith('.zip') ? 'Choose a .zip project archive.' : packageFile.size <= 0 ? 'The selected ZIP is empty.' : packageFile.size > MAX_PACKAGE_BYTES ? 'ZIP files are limited to 100 MB.' : ''
+  const packageReady = Boolean(packageFile && !packageFileError && windowsDevice && (packageMode === 'create' || packageTarget))
   const visibleActions = actions.filter((action) => actionFilter === 'all' ? true : actionFilter === 'active' ? ['pending', 'approved', 'running'].includes(action.status || '') : action.status === 'failed')
   const hostStale = Boolean(windowsDevice && !hostOnline)
 
@@ -395,7 +408,7 @@ export default function CompanionApp() {
             <div><b>{pendingActions.length}</b><span>ACTIVE</span></div>
           </div>
           <div className="companion-hero-actions">
-            <button className="companion-send-package" type="button" onClick={() => setPackageOpen(true)}>＋ Send Project ZIP</button>
+            <button className="companion-send-package" type="button" onClick={openPackage}>＋ Send Project ZIP</button>
             <button className="companion-refresh" type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
           </div>
         </section>
@@ -442,6 +455,10 @@ export default function CompanionApp() {
         <div className="companion-page-heading"><div><small>REMOTE QUEUE</small><h1>Actions</h1></div><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? '…' : '↻'}</button></div>
         <p className="companion-page-copy">Commands sent from this companion to your Windows project.X host.</p>
         <div className="companion-action-summary"><button type="button" className={actionFilter === 'active' ? 'active' : ''} onClick={() => setActionFilter('active')}><b>{pendingActions.length}</b><span>ACTIVE</span></button><button type="button" className={actionFilter === 'failed' ? 'active' : ''} onClick={() => setActionFilter('failed')}><b>{failedCount}</b><span>FAILED</span></button><button type="button" className={actionFilter === 'all' ? 'active' : ''} onClick={() => setActionFilter('all')}><b>{actions.length}</b><span>ALL</span></button></div>
+        {packageAction && <section className={`companion-transfer-status ${packageAction.status || 'pending'}`}>
+          <div><small>LAST ZIP HANDOFF</small><strong>{actionLabel(packageAction)}</strong><span>{packageAction.status === 'succeeded' ? 'Windows import complete.' : packageAction.status === 'failed' ? String(packageAction.result?.error || 'Windows import failed.') : packageAction.status === 'running' ? String(packageAction.result?.stage || 'Windows is processing the package.') : 'Upload complete. Waiting for the Windows host.'}</span></div>
+          <b>{(packageAction.status || 'pending').toUpperCase()}</b>
+        </section>}
         <div className="companion-action-list">{visibleActions.length ? visibleActions.slice(0, 50).map((action) => <article key={action.id || `${action.action_type}-${action.created_at}`}>
           <div><span className={`companion-action-state ${action.status || 'pending'}`}>{action.status || 'pending'}</span><small>{relativeTime(action.updated_at || action.created_at)}</small></div>
           <strong>{actionLabel(action)}</strong>
@@ -489,7 +506,7 @@ export default function CompanionApp() {
     <nav className="companion-bottom-nav" aria-label="Companion navigation">
       <button type="button" className={tab === 'projects' ? 'active' : ''} onClick={() => setTab('projects')}><span>▦</span><small>Projects</small></button>
       <button type="button" className={tab === 'actions' ? 'active' : ''} onClick={() => setTab('actions')}><span>↯</span><small>Actions</small>{pendingActions.length > 0 && <i>{pendingActions.length}</i>}</button>
-      <button type="button" className="send" onClick={() => setPackageOpen(true)}><span>＋</span><small>Send ZIP</small></button>
+      <button type="button" className="send" onClick={openPackage}><span>＋</span><small>Send ZIP</small></button>
       <button type="button" className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')}><span>◴</span><small>Activity</small></button>
       <button type="button" className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><span>⚙</span><small>Settings</small></button>
     </nav>
@@ -497,12 +514,26 @@ export default function CompanionApp() {
     {packageOpen && <div className="companion-package-backdrop" onMouseDown={() => !busy && setPackageOpen(false)}>
       <section className="companion-package-sheet" role="dialog" aria-modal="true" aria-label="Send project ZIP" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><small>CLOUD HANDOFF</small><strong>Send project ZIP</strong></div><button type="button" disabled={busy} onClick={() => setPackageOpen(false)} aria-label="Close">×</button></header>
-        <div className="companion-mode-switch"><button className={packageMode === 'create' ? 'active' : ''} type="button" onClick={() => setPackageMode('create')}>Create new</button><button className={packageMode === 'update' ? 'active' : ''} type="button" onClick={() => setPackageMode('update')}>Update existing</button></div>
-        {packageMode === 'update' && <label>Target project<select value={packageTarget} onChange={(event) => setPackageTarget(event.target.value)}><option value="">Choose project…</option>{projects.filter((project) => !project.archived).map((project) => <option key={project.client_id} value={project.client_id}>{project.name}</option>)}</select></label>}
-        <label className="companion-file-picker"><span>{packageFile ? `${packageFile.name} · ${(packageFile.size / 1024 / 1024).toFixed(1)} MB` : 'Choose ZIP from phone'}</span><input type="file" accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream" onClick={(event) => { event.currentTarget.value = '' }} onChange={(event) => setPackageFile(event.target.files?.[0] || null)}/></label>
-        <label className="companion-install-toggle"><input type="checkbox" checked={installDeps} onChange={(event) => setInstallDeps(event.target.checked)}/><span>Install detected dependencies on PC</span></label>
-        <p>{windowsDevice ? `${hostOnline ? 'Online' : 'Offline queue'} → ${windowsDevice.name}` : 'Open project.X Windows once to register a target PC.'}</p>
-        <button className="companion-package-send" type="button" disabled={busy || !packageFile || !windowsDevice || (packageMode === 'update' && !packageTarget)} onClick={() => void sendPackage()}>{busy ? 'Uploading…' : packageMode === 'create' ? 'Upload + create on PC' : 'Upload + update on PC'}</button>
+        {packageStep === 'setup' ? <>
+          <div className="companion-package-step"><span>1</span><div><strong>Choose handoff</strong><small>ZIP upload limit: 100 MB</small></div></div>
+          <div className="companion-mode-switch"><button className={packageMode === 'create' ? 'active' : ''} type="button" onClick={() => setPackageMode('create')}>Create new</button><button className={packageMode === 'update' ? 'active' : ''} type="button" onClick={() => setPackageMode('update')}>Update existing</button></div>
+          {packageMode === 'update' && <label>Target project<select value={packageTarget} onChange={(event) => setPackageTarget(event.target.value)}><option value="">Choose project…</option>{projects.filter((project) => !project.archived).map((project) => <option key={project.client_id} value={project.client_id}>{project.name}</option>)}</select></label>}
+          <label className="companion-file-picker"><span>{packageFile ? `${packageFile.name} · ${(packageFile.size / 1024 / 1024).toFixed(1)} MB` : 'Choose ZIP from phone'}</span><input type="file" accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream" onClick={(event) => { event.currentTarget.value = '' }} onChange={(event) => setPackageFile(event.target.files?.[0] || null)}/></label>
+          {packageFileError && <p className="companion-package-error">{packageFileError}</p>}
+          <label className="companion-install-toggle"><input type="checkbox" checked={installDeps} onChange={(event) => setInstallDeps(event.target.checked)}/><span>Install detected dependencies on PC</span></label>
+          <p>{windowsDevice ? `${hostOnline ? 'Online target' : 'Offline queue'} → ${windowsDevice.name}` : 'Open project.X Windows once to register a target PC.'}</p>
+          <button className="companion-package-send" type="button" disabled={!packageReady} onClick={() => setPackageStep('review')}>Review handoff</button>
+        </> : <>
+          <div className="companion-package-step"><span>2</span><div><strong>Review before upload</strong><small>Upload and Windows import are separate stages.</small></div></div>
+          <dl className="companion-package-review">
+            <div><dt>Mode</dt><dd>{packageMode === 'create' ? 'Create new project' : 'Update existing project'}</dd></div>
+            <div><dt>ZIP</dt><dd>{packageFile?.name} · {packageFile ? (packageFile.size / 1024 / 1024).toFixed(1) : '0'} MB</dd></div>
+            {packageMode === 'update' && <div><dt>Project</dt><dd>{projects.find((project) => project.client_id === packageTarget)?.name || 'Not selected'}</dd></div>}
+            <div><dt>Windows host</dt><dd>{windowsDevice?.name || 'Not registered'} · {hostOnline ? 'online' : 'will queue offline'}</dd></div>
+            <div><dt>Dependencies</dt><dd>{installDeps ? 'Install after import' : 'Do not install'}</dd></div>
+          </dl>
+          <div className="companion-package-review-actions"><button type="button" disabled={busy} onClick={() => setPackageStep('setup')}>Back</button><button className="companion-package-send" type="button" disabled={busy || !packageReady} onClick={() => void sendPackage()}>{busy ? 'Uploading securely…' : 'Upload + send to Windows'}</button></div>
+        </>}
       </section>
     </div>}
     {launchProject && <div className="companion-package-backdrop" onMouseDown={() => !busy && setLaunchProject(null)}>
