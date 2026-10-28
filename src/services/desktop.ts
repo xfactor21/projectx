@@ -2,6 +2,8 @@ export type DesktopProjectSummary = {
   name: string
   path: string
   packageName?: string
+  version?: string
+  description?: string
   scripts?: string[]
   frameworkHints?: string[]
   git?: { branch?: string; remote?: string; dirty?: boolean }
