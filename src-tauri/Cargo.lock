@@ -2719,7 +2719,7 @@ dependencies = [
 
 [[package]]
 name = "projectx-desktop"
-version = "3.0.3"
+version = "3.0.4"
 dependencies = [
  "base64 0.22.1",
  "rfd",
