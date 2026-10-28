@@ -34,7 +34,7 @@ test('connection center exposes separate Cloud Windows and Companion states', ()
 })
 
 test('environments are removed from permanent layout and exposed as a Beta popup', () => {
-  assert.match(switcher, /THEMES <b>BETA<\\/b>/)
+  assert.match(switcher, /THEMES <b>BETA<\/b>/)
   assert.match(switcher, /Switch presentation without changing your project data/)
   assert.match(density, /\.theme-picker-backdrop/)
   assert.match(density, /\.environment-trigger/)
