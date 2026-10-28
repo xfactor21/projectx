@@ -294,3 +294,24 @@
 @media(max-width:900px){.workspace-v3 .v2-sidebar{width:210px!important;min-width:210px!important}.workspace-v3 .command-project-grid{grid-template-columns:1fr!important}}
 @media(max-width:620px){.workspace-v3 .v2-sidebar{width:auto!important;min-width:0!important}.workspace-v3 .toolbar-stats{flex-wrap:wrap}.workspace-v3 .toolbar-stats .v2-stats{flex-basis:100%}.workspace-v3 .command-project-v304{grid-template-columns:110px minmax(0,1fr)!important}.workspace-v3 .command-project-v304 .command-console{padding:14px!important}.workspace-v3 .command-project-v304 .command-console>footer button{flex:1 1 40%}}
 @media(prefers-reduced-motion:reduce){.workspace-v3 .command-project-v304{transition:none!important;transform:none!important}}
+
+.project-card-dialog-backdrop{position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px;background:#030510bd;backdrop-filter:blur(8px)}
+.project-card-dialog{width:min(650px,100%);max-height:calc(100dvh - 48px);overflow-y:auto;border:1px solid #38435b;border-radius:23px;background:linear-gradient(145deg,#171b2b,#0d111a);box-shadow:0 25px 100px #000b;color:#f3f7ff}
+.project-card-dialog>header{display:flex;align-items:flex-start;justify-content:space-between;padding:24px;border-bottom:1px solid #ffffff17}
+.project-card-dialog>header small{color:#44e3f6;font:700 11px monospace;letter-spacing:.15em}
+.project-card-dialog>header h2{font-size:27px;margin:9px 0 0;line-height:1.15}
+.project-card-dialog>header button{width:38px;height:38px;border:1px solid #ffffff2c;border-radius:11px;background:#ffffff0a;color:#fff;font-size:24px;cursor:pointer}
+.project-card-dialog-body{display:grid;gap:16px;padding:24px}
+.project-card-dialog-body p{font-size:14px;color:#c2cbda;line-height:1.55;margin:0}
+.project-card-dialog-body code{padding:13px;border:1px solid #ffffff1c;border-radius:10px;overflow-wrap:anywhere;color:#8beaf4}
+.card-dialog-actions{display:flex;flex-wrap:wrap;gap:10px}
+.card-dialog-actions button,.project-card-dialog-body form button{min-height:42px;padding:0 14px;border:1px solid #34c8f44d;border-radius:10px;background:#29cfff17;color:#e8faff;font-size:13px;font-weight:700;cursor:pointer}
+.card-dialog-actions button:disabled{opacity:.4;cursor:not-allowed}
+.project-card-dialog-body .dialog-hint{font-size:12px;color:#91a0b3}
+.workbook-label{display:grid;gap:9px;font-weight:700;font-size:15px}
+.workbook-label textarea,.project-card-dialog-body form input{width:100%;min-width:0;padding:13px;border:1px solid #ffffff26;border-radius:12px;background:#080d17;color:#fff;font:14px/1.5 system-ui}
+.project-card-dialog-body h3{margin:5px 0 0;font-size:17px}
+.project-card-dialog-body form{display:flex;gap:10px}
+.workbook-tasks{display:grid;gap:8px}
+.workbook-tasks>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid #ffffff1a;border-radius:10px;font-size:14px}
+.workbook-tasks button{border:0;background:transparent;color:#f8aacd;font-size:20px;cursor:pointer}
