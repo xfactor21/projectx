@@ -385,3 +385,38 @@
 .settings-toggle strong{font-size:15px!important}
 .settings-toggle small{font-size:12px!important}
 @media(max-width:680px){.utility-hub .utility-menu{width:calc(100vw - 20px)!important;left:10px!important;top:10px!important}.utility-hub .utility-menu-body{grid-template-columns:1fr!important;max-height:calc(100dvh - 150px)}.utility-hub .utility-menu nav{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.utility-hub .utility-menu nav button{min-height:48px!important;padding:8px!important}.utility-hub .utility-menu nav button span{display:none}.utility-hub .utility-actions .cloud-dock-panel,.utility-hub .utility-actions .local-dock-panel,.utility-hub .utility-actions .artwork-panel,.utility-hub .utility-actions .task-console-panel,.utility-hub .utility-actions .data-backup-panel,.utility-hub .utility-actions .runtime-panel,.utility-hub .utility-actions .desktop-actions-panel,.utility-hub .utility-actions .intel-panel,.utility-hub .utility-actions .analytics-panel,.utility-hub .utility-actions .deploy-panel,.utility-hub .utility-actions .beta-panel{right:12px!important}}
+
+.workbook-v304{display:grid;gap:16px;padding:22px}
+.workbook-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border:1px solid #40dbea35;border-radius:17px;background:linear-gradient(120deg,#16d4ed14,#d63c9e14)}
+.workbook-summary>div{display:grid;gap:5px}
+.workbook-summary small{color:#51e9ff;letter-spacing:.14em;font:800 10px monospace}
+.workbook-summary strong{font-size:21px}
+.workbook-summary span{color:#a9b8cb;font-size:12px}
+.workbook-summary button{min-height:40px;padding:0 14px;border:1px solid #55d8e955;border-radius:10px;background:#25cef413;color:#e4faff;font-weight:700;cursor:pointer}
+.workbook-v304>nav{display:flex;gap:8px;border-bottom:1px solid #ffffff1c;padding-bottom:12px}
+.workbook-v304>nav button{min-height:42px;padding:0 18px;border:1px solid transparent;border-radius:12px;color:#a7b8cb;background:transparent;font:700 14px system-ui;cursor:pointer}
+.workbook-v304>nav button.active{border-color:#3fd9f952;background:#25d3ee18;color:#fff}
+.workbook-pane{display:grid;gap:14px}
+.workbook-pane form{display:flex;gap:10px}
+.workbook-pane form input,.workbook-pane textarea{min-width:0;flex:1;padding:13px 14px;border:1px solid #ffffff27;border-radius:12px;background:#070b14;color:#fff;font:14px/1.5 system-ui}
+.workbook-pane form button{min-height:44px;padding:0 18px;border:1px solid #59ddf74f;border-radius:11px;background:#29c8f21e;color:#effaff;font-weight:700}
+.workbook-pane form button:disabled{opacity:.4}
+.workbook-pane>label{font-weight:700;font-size:14px}
+.workbook-pane>p{margin:0;color:#8d9db0;font-size:13px;line-height:1.5}
+.workbook-filters{display:flex;gap:8px;flex-wrap:wrap}
+.workbook-filters button{min-height:36px;padding:0 12px;border:1px solid #ffffff20;border-radius:10px;background:#ffffff06;color:#bcc8d7;font-size:12px;cursor:pointer}
+.workbook-filters button.active{border-color:#ff6cbd64;background:#ff4daf19;color:#fff}
+.workbook-task-list{display:grid;gap:8px;max-height:260px;overflow-y:auto}
+.workbook-task-list>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px;border:1px solid #ffffff20;border-radius:13px;background:#ffffff06}
+.workbook-task-list label{display:flex;align-items:center;gap:12px;color:#e8f0fa;font-size:14px}
+.workbook-task-list input{width:19px;height:19px;accent-color:#44e2f3}
+.workbook-task-list .done span{text-decoration:line-through;opacity:.58}
+.workbook-task-list>div>button{border:0;background:transparent;color:#ff9fc7;font-size:22px;cursor:pointer}
+.workbook-history{max-height:360px;overflow-y:auto}
+.workbook-history h3{font-size:16px;margin:0}
+.workbook-history article{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid #ffffff18;border-radius:11px}
+.workbook-history article b{font:700 12px monospace;color:#56e0f1}
+.workbook-history article span{font-size:13px;overflow-wrap:anywhere}
+.workbook-history article small{font-size:11px;color:#95a6ba}
+.workbook-v304 .workbook-notice{color:#9eddea;font-size:12px}
+@media(max-width:620px){.workbook-summary{flex-wrap:wrap}.workbook-history article{grid-template-columns:1fr}.workbook-pane form{flex-wrap:wrap}.workbook-pane form input{flex-basis:100%}}
