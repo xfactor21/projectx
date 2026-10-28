@@ -74,6 +74,8 @@ This pass treats the environments as product interfaces, not decorative card ski
 
 The deployed-preview pass caught and corrected two issues that were not visible in source review: the floating Controls orb could render above the environment chooser, and Vending package labels/health signals compressed over procedural artwork. The chooser now fully owns modal focus and visual stacking; Vending packages now use a dedicated glass label plate and a readable two-by-two instrument grid.
 
+The Android release run also exposed an unrelated versioning mistake: the Capacitor asset generator had been tied to the application version and requested a nonexistent package release. The workflow now keeps the verified generator at `3.0.5` while the application remains `3.0.6`.
+
 | Area | Result | Remaining gate |
 |---|---|---|
 | Shared hierarchy | Consistent across every renderer | Visual acceptance on installed Windows build |
