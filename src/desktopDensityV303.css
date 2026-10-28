@@ -420,3 +420,8 @@
 .workbook-history article small{font-size:11px;color:#95a6ba}
 .workbook-v304 .workbook-notice{color:#9eddea;font-size:12px}
 @media(max-width:620px){.workbook-summary{flex-wrap:wrap}.workbook-history article{grid-template-columns:1fr}.workbook-pane form{flex-wrap:wrap}.workbook-pane form input{flex-basis:100%}}
+
+/* Final layout reconciliation: sidebar width and workspace offset must match. */
+@media(min-width:901px){.workspace-v3 .v2-workspace{margin-left:260px!important}}
+@media(min-width:621px) and (max-width:900px){.workspace-v3 .v2-workspace{margin-left:210px!important}}
+@media(max-width:620px){.workspace-v3 .v2-workspace{margin-left:0!important}}
