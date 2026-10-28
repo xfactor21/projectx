@@ -12,7 +12,7 @@ function isRecord(value: unknown): value is JsonRecord {
 
 export function isProjectRecord(value: unknown): value is JsonRecord & { id: string; name: string } {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id.trim() || typeof value.name !== 'string' || !value.name.trim()) return false
-  const stringFields = ['kicker', 'description', 'status', 'accent', 'updated', 'repoUrl', 'liveUrl', 'coverUrl', 'notes', 'artworkSource']
+  const stringFields = ['kicker', 'description', 'detectedVersion', 'descriptionSource', 'status', 'accent', 'updated', 'repoUrl', 'liveUrl', 'coverUrl', 'notes', 'artworkSource']
   if (stringFields.some((field) => value[field] !== undefined && typeof value[field] !== 'string')) return false
   if (['favorite', 'archived'].some((field) => value[field] !== undefined && typeof value[field] !== 'boolean')) return false
   if (value.stack !== undefined && (!Array.isArray(value.stack) || value.stack.some((item) => typeof item !== 'string'))) return false
