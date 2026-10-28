@@ -155,7 +155,7 @@ export default function WorkspaceAppV3(){
     if(nav!=='Archive'&&project.archived)return false
     const text=`${project.name} ${project.kicker||''} ${project.description||''} ${(project.stack||[]).join(' ')}`.toLowerCase()
     return text.includes(query.trim().toLowerCase())
-  }).sort((a,b)=>sortMode==='name'?a.name.localeCompare(b.name):(b.updated||'').localeCompare(a.updated||''))),[projects,nav,query,sortMode])
+  }).sort((a,b)=>sortMode==='name'?a.name.localeCompare(b.name):(b.updated||'').localeCompare(a.updated||'')),[projects,nav,query,sortMode])
 
   async function runProject(project:Project){
     const source=sourceMap.get(project.id)
