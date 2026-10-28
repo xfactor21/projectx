@@ -18,7 +18,7 @@ import { openHostedLink } from './services/externalLinks'
 
 type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'XFactor' | 'PlanetX'
 type NavMode = 'Projects' | 'Favorites' | 'Activity' | 'Archive'
-type Project = { id:string; name:string; kicker?:string; description?:string; status?:string; stack?:string[]; updated?:string; progress?:number; favorite?:boolean; archived?:boolean; repoUrl?:string; liveUrl?:string; coverUrl?:string; github?:unknown }
+type Project = { id:string; name:string; kicker?:string; detectedVersion?:string; description?:string; status?:string; stack?:string[]; updated?:string; progress?:number; favorite?:boolean; archived?:boolean; repoUrl?:string; liveUrl?:string; coverUrl?:string; github?:unknown }
 type LocalSource = { projectId:string; kind?:'desktop'|'browser'|'managed'|'zip'|'generated'; path?:string; scripts?:string[]; hasGit?:boolean; gitBranch?:string }
 
 const PROJECTS_KEY='projectx.projects.v1'
