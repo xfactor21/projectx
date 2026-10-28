@@ -1,3 +1,4 @@
+import { getDesktopHost } from './desktop'
 const BUILD_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
 const BUILD_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
 const CONFIG_KEY = 'projectx.supabase.config.v1'
@@ -5,10 +6,9 @@ const SELF_HOSTING_KEY = 'projectx.supabase.self-hosting.v1'
 const SESSION_KEY = 'projectx.supabase.session.v1'
 
 export type SupabaseConfig = { url: string; publishableKey: string; source: 'self-hosted' | 'managed' | 'none' }
-
 export type SupabaseUser = { id: string; email?: string }
 export type SupabaseSession = { access_token: string; refresh_token?: string; expires_in?: number; expires_at?: number; token_type?: string; user: SupabaseUser }
-export type CloudProject = { id?: string; user_id: string; client_id: string; name: string; kicker?: string; description?: string; status?: 'Live' | 'Building' | 'Concept' | 'Paused'; stack?: unknown; accent?: 'pink' | 'cyan' | 'violet'; progress?: number; favorite?: boolean; archived?: boolean; repo_url?: string; live_url?: string; cover_url?: string; notes?: string; github?: unknown; sort_order?: number; created_at?: string; updated_at?: string }
+export type CloudProject = { id?: string; user_id: string; client_id: string; name: string; kicker?: string; description?: string; status?: 'Live' | 'Building' | 'Concept' | 'Paused'; stack?: unknown; accent?: 'pink' | 'cyan' | 'violet'; progress?: number; favorite?: boolean; archived?: boolean; repo_url?: string; live_url?: string; cover_url?: string; notes?: string; github?: unknown; sort_order?: number; deleted_at?: string | null; created_at?: string; updated_at?: string }
 export type CloudActivity = { id?: string; user_id: string; project_client_id?: string | null; event_type: string; message: string; metadata?: Record<string, unknown>; created_at?: string }
 
 let refreshPromise: Promise<SupabaseSession | null> | null = null
@@ -45,9 +45,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
-  if (!isSelfHostingEnabled() && BUILD_SUPABASE_URL && BUILD_SUPABASE_KEY) {
-    return { url: BUILD_SUPABASE_URL, publishableKey: BUILD_SUPABASE_KEY, source: 'managed' }
-  }
+  if (!isSelfHostingEnabled() && BUILD_SUPABASE_URL && BUILD_SUPABASE_KEY) return { url: BUILD_SUPABASE_URL, publishableKey: BUILD_SUPABASE_KEY, source: 'managed' }
   if (isSelfHostingEnabled()) {
     try {
       const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null') as { url?: unknown; publishableKey?: unknown } | null
@@ -122,22 +120,110 @@ export async function testSupabaseConfig(url: string, publishableKey: string): P
 export function isSupabaseConfigured(): boolean { const config = getSupabaseConfig(); return Boolean(config.url && config.publishableKey) }
 export function getSupabaseUrl(): string { return getSupabaseConfig().url }
 export function getSupabasePublishableKey(): string { return getSupabaseConfig().publishableKey }
-export function loadSession(): SupabaseSession | null { try { const raw = localStorage.getItem(SESSION_KEY); return raw ? parseSession(JSON.parse(raw)) : null } catch { return null } }
+
+function desktopSessionStore(): Storage { return getDesktopHost() ? sessionStorage : localStorage }
+export function loadSession(): SupabaseSession | null {
+  try { const raw = desktopSessionStore().getItem(SESSION_KEY); return raw ? parseSession(JSON.parse(raw)) : null } catch { return null }
+}
+
+function writeSessionToWebStore(session: SupabaseSession | null): void {
+  const desktop = getDesktopHost()
+  const store = desktop ? sessionStorage : localStorage
+  if (!session) store.removeItem(SESSION_KEY)
+  else store.setItem(SESSION_KEY, JSON.stringify(session))
+  if (desktop) localStorage.removeItem(SESSION_KEY)
+}
+
 export function saveSession(session: SupabaseSession | null): void {
-  if (!session) localStorage.removeItem(SESSION_KEY)
-  else localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  const desktop = getDesktopHost()
+  writeSessionToWebStore(session)
+  if (desktop) {
+    if (session) void desktop.saveSecureSession(JSON.stringify(session)).catch((error) => {
+      console.error('Unable to persist protected project.X Cloud session.', error)
+      window.dispatchEvent(new CustomEvent('projectx:supabase-persistence-error', { detail: error instanceof Error ? error.message : String(error) }))
+    })
+    else void desktop.clearSecureSession().catch(() => undefined)
+  }
   window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+}
+
+async function saveSessionVerified(session: SupabaseSession): Promise<void> {
+  const desktop = getDesktopHost()
+  writeSessionToWebStore(session)
+  if (!desktop) {
+    window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+    return
+  }
+  const serialized = JSON.stringify(session)
+  try {
+    await desktop.saveSecureSession(serialized)
+    const reread = await desktop.loadSecureSession()
+    if (!reread) throw new Error('Windows did not return the protected session after saving it.')
+    const parsed = parseSession(JSON.parse(reread))
+    if (!parsed || parsed.user.id !== session.user.id || parsed.refresh_token !== session.refresh_token) {
+      throw new Error('Windows returned a different or invalid protected cloud session.')
+    }
+  } catch (error) {
+    sessionStorage.removeItem(SESSION_KEY)
+    await desktop.clearSecureSession().catch(() => undefined)
+    window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+    throw new Error(`Signed in, but project.X could not persist the Windows session securely: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+}
+
+export async function bootstrapSecureSession(): Promise<void> {
+  const desktop = getDesktopHost()
+  if (!desktop) return
+  const current = sessionStorage.getItem(SESSION_KEY)
+  if (current) {
+    try { if (parseSession(JSON.parse(current))) return } catch { sessionStorage.removeItem(SESSION_KEY) }
+  }
+  const legacy = localStorage.getItem(SESSION_KEY)
+  if (legacy) {
+    try {
+      const parsed = parseSession(JSON.parse(legacy))
+      if (parsed) {
+        await saveSessionVerified(parsed)
+      }
+    } finally { localStorage.removeItem(SESSION_KEY) }
+    return
+  }
+  try {
+    const protectedSession = await desktop.loadSecureSession()
+    if (!protectedSession) return
+    const parsed = parseSession(JSON.parse(protectedSession))
+    if (!parsed) { await desktop.clearSecureSession(); return }
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(parsed))
+    window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+  } catch (error) {
+    sessionStorage.removeItem(SESSION_KEY)
+    console.error('Unable to restore protected project.X Cloud session.', error)
+  }
 }
 
 export async function signUpWithPassword(email: string, password: string): Promise<SupabaseSession | null> {
   const result = await request<unknown>('/auth/v1/signup', { method: 'POST', body: JSON.stringify({ email, password }) })
   const nested = result && typeof result === 'object' && 'session' in result ? (result as { session?: unknown }).session : result
   const session = parseSession(nested)
-  if (session) saveSession(session)
+  if (session) await saveSessionVerified(session)
   return session
 }
-export async function signInWithPassword(email: string, password: string): Promise<SupabaseSession> { const result = await request<unknown>('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) }); const session = parseSession(result); if (!session) throw new Error('Cloud sign-in returned an invalid session. Try again or contact support.'); saveSession(session); return session }
-export async function refreshSession(session = loadSession()): Promise<SupabaseSession | null> { if (!session?.refresh_token) return session; const result = await request<unknown>('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: JSON.stringify({ refresh_token: session.refresh_token }) }); const refreshed = parseSession(result); if (!refreshed) throw new Error('Cloud session refresh returned an invalid response. Sign in again.'); saveSession(refreshed); return refreshed }
+export async function signInWithPassword(email: string, password: string): Promise<SupabaseSession> {
+  const result = await request<unknown>('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email, password }) })
+  const session = parseSession(result)
+  if (!session) throw new Error('Cloud sign-in returned an invalid session. Try again or contact support.')
+  await saveSessionVerified(session)
+  return session
+}
+export async function refreshSession(session = loadSession()): Promise<SupabaseSession | null> {
+  if (!session?.refresh_token) return session
+  const result = await request<unknown>('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: JSON.stringify({ refresh_token: session.refresh_token }) })
+  const refreshed = parseSession(result)
+  if (!refreshed) throw new Error('Cloud session refresh returned an invalid response. Sign in again.')
+  await saveSessionVerified(refreshed)
+  return refreshed
+}
 export async function getFreshSession(session = loadSession()): Promise<SupabaseSession | null> {
   if (!session) return null
   const expiresSoon = session.expires_at ? session.expires_at * 1000 - Date.now() < 5 * 60 * 1000 : false
@@ -146,15 +232,27 @@ export async function getFreshSession(session = loadSession()): Promise<Supabase
   if (!refreshPromise) refreshPromise = refreshSession(session).finally(() => { refreshPromise = null })
   return refreshPromise
 }
-export async function signOut(session = loadSession()): Promise<void> { if (session?.access_token) { try { await request<void>('/auth/v1/logout', { method: 'POST' }, session.access_token) } catch { /* clear local session regardless */ } } saveSession(null) }
+export async function signOut(session = loadSession()): Promise<void> {
+  if (session?.access_token) {
+    try { await request<void>('/auth/v1/logout', { method: 'POST' }, session.access_token) } catch { /* clear local session regardless */ }
+  }
+  const desktop = getDesktopHost()
+  writeSessionToWebStore(null)
+  if (desktop) await desktop.clearSecureSession().catch(() => undefined)
+  window.dispatchEvent(new CustomEvent('projectx:supabase-session-changed'))
+}
 
-export async function fetchCloudProjects(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
+export async function fetchCloudProjects(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&deleted_at=is.null&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
+export async function fetchCloudProjectsIncludingDeleted(session = loadSession()): Promise<CloudProject[]> { if (!session) throw new Error('Sign in before syncing projects.'); return request<CloudProject[]>('/rest/v1/projectx_projects?select=*&order=sort_order.asc,updated_at.desc', { method: 'GET' }, session.access_token) }
 export async function upsertCloudProjects(projects: CloudProject[], session = loadSession()): Promise<CloudProject[]> {
   if (!session) throw new Error('Sign in before syncing projects.')
   if (!projects.length) return []
-  const payload = projects.map((project, index) => ({ ...project, user_id: session.user.id, sort_order: project.sort_order ?? index }))
+  const payload = projects.map((project, index) => ({ ...project, user_id: session.user.id, deleted_at: null, sort_order: project.sort_order ?? index }))
   return request<CloudProject[]>('/rest/v1/projectx_projects?on_conflict=user_id,client_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(payload) }, session.access_token)
 }
-export async function deleteCloudProject(clientId: string, session = loadSession()): Promise<void> { if (!session) throw new Error('Sign in before syncing projects.'); await request<void>(`/rest/v1/projectx_projects?client_id=eq.${encodeURIComponent(clientId)}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }, session.access_token) }
+export async function deleteCloudProject(clientId: string, session = loadSession()): Promise<void> {
+  if (!session) throw new Error('Sign in before syncing projects.')
+  await request<void>('/rest/v1/rpc/projectx_soft_delete_project', { method: 'POST', body: JSON.stringify({ target_client_id: clientId }) }, session.access_token)
+}
 export async function fetchCloudActivity(session = loadSession(), limit = 100): Promise<CloudActivity[]> { if (!session) throw new Error('Sign in before syncing activity.'); return request<CloudActivity[]>(`/rest/v1/projectx_activity?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 500))}`, { method: 'GET' }, session.access_token) }
 export async function appendCloudActivity(activity: Omit<CloudActivity, 'user_id'>, session = loadSession()): Promise<CloudActivity[]> { if (!session) throw new Error('Sign in before syncing activity.'); return request<CloudActivity[]>('/rest/v1/projectx_activity', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ ...activity, user_id: session.user.id }) }, session.access_token) }

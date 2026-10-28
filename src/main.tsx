@@ -18,6 +18,8 @@ import EmbeddedPreview from './EmbeddedPreview.tsx'
 import ConnectionCenter from './ConnectionCenter.tsx'
 import { installTauriDesktopBridge } from './services/tauriDesktop'
 import { applySettings } from './services/settings'
+import { bootstrapSecureSession } from './services/supabase'
+import { startPlanetXAnalytics } from './services/planetxAnalytics'
 import './viewModes.css'
 import './immersiveThemes.css'
 import './workspaceV2.css'
@@ -37,6 +39,7 @@ import './companionV2.css'
 import './companionBrand.css'
 import './companionV17.css'
 import './companionLaunch.css'
+import './companionV302.css'
 import './desktopActions.css'
 import './addProjectLauncher.css'
 import './themeSensory.css'
@@ -55,36 +58,50 @@ import './embeddedPreview.css'
 import './v27.css'
 import './v28.css'
 import './v29.css'
-import { startPlanetXAnalytics } from './services/planetxAnalytics'
+import './phase2Themes.css'
+import './themeImmersionRound.css'
+import './desktopShellV31.css'
+import './providerAuthV31.css'
+import './environmentIsolationV31.css'
+import './uxStabilizationV32.css'
+import './themeSwitcherV301.css'
+import './projectHealthV301.css'
 
-installTauriDesktopBridge()
-applySettings()
-startPlanetXAnalytics()
+async function start() {
+  installTauriDesktopBridge()
+  applySettings()
+  startPlanetXAnalytics()
 
-window.addEventListener('projectx:open-add-project', () => {
-  window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'projects' } }))
-  window.setTimeout(() => document.querySelector<HTMLButtonElement>('.project-launcher-fab')?.click(), 100)
-})
+  // Restore the protected desktop cloud session before React reads auth state.
+  await bootstrapSecureSession()
 
-const capacitorNative = Boolean((window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.())
-const companionMode = capacitorNative || new URLSearchParams(window.location.search).get('mode') === 'companion'
+  window.addEventListener('projectx:open-add-project', () => {
+    window.dispatchEvent(new CustomEvent('projectx:open-utility', { detail: { category: 'projects' } }))
+    window.setTimeout(() => document.querySelector<HTMLButtonElement>('.project-launcher-fab')?.click(), 100)
+  })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      {companionMode ? <><AppSplash /><CompanionApp /></> : <>
-        <AppSplash />
-        <ThemeEnvironmentLayer />
-        <WorkspaceApp />
-        <SurfaceCoordinator />
-        <ArtworkAutoDiscovery />
-        <CompanionDesktopWorker />
-        <EmbeddedPreview />
-        <ConnectionCenter />
-        <UtilityHub />
-        <SettingsPanel />
-        <GitHubDiscoveryModal />
-      </>}
-    </ErrorBoundary>
-  </StrictMode>,
-)
+  const capacitorNative = Boolean((window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.())
+  const companionMode = capacitorNative || new URLSearchParams(window.location.search).get('mode') === 'companion'
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        {companionMode ? <><AppSplash /><CompanionApp /></> : <>
+          <AppSplash />
+          <ThemeEnvironmentLayer />
+          <WorkspaceApp />
+          <SurfaceCoordinator />
+          <ArtworkAutoDiscovery />
+          <CompanionDesktopWorker />
+          <EmbeddedPreview />
+          <ConnectionCenter />
+          <UtilityHub />
+          <SettingsPanel />
+          <GitHubDiscoveryModal />
+        </>}
+      </ErrorBoundary>
+    </StrictMode>,
+  )
+}
+
+void start()

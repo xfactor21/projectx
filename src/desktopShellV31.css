@@ -1,0 +1,182 @@
+/* project.X v3.1 shell architecture
+   The navigation/chrome is a fixed application shell. Only the workspace content scrolls.
+   Theme identity is strongest in the project stage and deliberately quieter in shell chrome. */
+
+.workspace-v3.px-shell{
+  display:block;
+  min-height:100vh;
+  background:#07080b;
+}
+
+.workspace-v3 .v2-sidebar{
+  position:fixed;
+  inset:0 auto 0 0;
+  width:250px;
+  height:100vh;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  z-index:80;
+  background:linear-gradient(180deg,rgba(8,9,13,.97),rgba(7,8,12,.94));
+  box-shadow:18px 0 50px rgba(0,0,0,.22);
+}
+
+.workspace-v3 .v2-workspace{
+  width:auto;
+  min-height:100vh;
+  margin-left:250px;
+  box-sizing:border-box;
+  position:relative;
+  z-index:2;
+}
+
+.workspace-v3 .workspace-brand-row{
+  position:sticky;
+  top:0;
+  z-index:70;
+  margin-inline:calc(-1 * clamp(22px,4vw,58px));
+  padding-inline:clamp(22px,4vw,58px);
+  background:linear-gradient(180deg,rgba(7,8,11,.97),rgba(7,8,11,.91));
+  border-bottom:1px solid rgba(255,255,255,.075);
+  box-shadow:0 18px 45px rgba(0,0,0,.18);
+  backdrop-filter:blur(22px) saturate(1.15);
+}
+
+/* Keep scene art behind content, not behind an opaque full-page slab. */
+.workspace-v3 .v2-workspace{background:transparent}
+.workspace-v3 .topbar,
+.workspace-v3 .v2-theme-deck,
+.workspace-v3 .stats-strip,
+.workspace-v3 .section-heading{position:relative;z-index:3}
+
+/* The environment renderer owns the project viewport. */
+.workspace-v3 .storefront-street,
+.workspace-v3 .vending-machine,
+.workspace-v3 .comic-book,
+.workspace-v3 .gallery-room,
+.workspace-v3 .xfactor-district,
+.workspace-v3 .planetx-command,
+.workspace-v3 .command-project-grid{
+  position:relative;
+  z-index:4;
+  min-height:clamp(520px,66vh,820px);
+  border-radius:24px;
+  overflow:hidden;
+}
+
+/* Quiet theme bleed into permanent shell chrome. */
+.theme-storefront .v2-sidebar{border-right-color:rgba(255,202,128,.22);box-shadow:18px 0 55px rgba(84,45,18,.16)}
+.theme-vending .v2-sidebar{border-right-color:rgba(117,255,189,.18);box-shadow:18px 0 55px rgba(25,88,64,.12)}
+.theme-comic .v2-sidebar{border-right-color:rgba(255,226,92,.2)}
+.theme-3d .v2-sidebar{border-right-color:rgba(184,140,255,.18)}
+.theme-xfactor .v2-sidebar{border-right-color:rgba(255,43,166,.28);box-shadow:18px 0 60px rgba(255,43,166,.1)}
+.theme-planetx .v2-sidebar{border-right-color:rgba(74,244,255,.23);box-shadow:18px 0 60px rgba(74,244,255,.08)}
+
+/* STOREFRONT — a street, not a row of generic cards. */
+.theme-storefront .storefront-street{
+  perspective:1400px;
+  background:
+    linear-gradient(180deg,rgba(18,24,34,.25) 0 50%,rgba(28,24,23,.28) 50% 64%,rgba(8,9,12,.9) 64%),
+    radial-gradient(ellipse at 50% 35%,rgba(255,190,118,.12),transparent 58%);
+  border:1px solid rgba(255,210,150,.14);
+  box-shadow:inset 0 0 90px rgba(0,0,0,.45),0 30px 70px rgba(0,0,0,.25);
+}
+.theme-storefront .storefront-row{
+  min-height:500px;
+  align-items:flex-end;
+  padding:54px 4vw 92px;
+  gap:18px;
+  transform:rotateX(1.5deg);
+  transform-origin:center bottom;
+}
+.theme-storefront .store-unit{
+  min-width:300px;
+  transform:translateZ(calc(var(--store-index,0) * -2px));
+  box-shadow:0 28px 55px rgba(0,0,0,.45),inset 0 0 40px rgba(255,211,138,.035);
+}
+.theme-storefront .store-window{
+  min-height:265px;
+  background-color:rgba(8,9,12,.72);
+  box-shadow:inset 0 0 42px rgba(255,210,155,.08),0 0 22px rgba(255,185,115,.04);
+}
+.theme-storefront .storefront-sidewalk{
+  position:absolute;
+  left:-4%;right:-4%;bottom:-3px;
+  min-height:76px;
+  transform:perspective(700px) rotateX(54deg);
+  transform-origin:bottom;
+  background:repeating-linear-gradient(90deg,#242328 0 110px,#15161a 111px 114px);
+  border-top:2px solid rgba(255,255,255,.13);
+}
+
+/* xFACTOR — after-dark district with billboard scale and deliberate asymmetry. */
+.theme-xfactor .xfactor-district{
+  padding:34px;
+  background:
+    linear-gradient(180deg,rgba(6,2,12,.18),rgba(4,2,8,.8)),
+    repeating-linear-gradient(90deg,transparent 0 8%,rgba(255,43,166,.028) 8.1% 8.3%);
+  border:1px solid rgba(255,43,166,.2);
+  box-shadow:inset 0 0 120px rgba(255,43,166,.055),0 30px 90px rgba(0,0,0,.42);
+}
+.theme-xfactor .xfactor-district-header{
+  position:relative;z-index:3;
+  padding:8px 6px 26px;
+  border-bottom:1px solid rgba(255,43,166,.16);
+}
+.theme-xfactor .xfactor-projects{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  grid-auto-rows:minmax(150px,auto);
+  gap:13px;
+  padding-top:24px;
+}
+.theme-xfactor .xfactor-project{
+  grid-column:span 4;
+  min-height:330px;
+  background:linear-gradient(160deg,rgba(20,8,28,.86),rgba(6,5,10,.92));
+  border:1px solid rgba(255,43,166,.15);
+  box-shadow:0 22px 50px rgba(0,0,0,.38);
+}
+.theme-xfactor .xfactor-project:nth-child(5n+1){grid-column:span 5;transform:translateY(12px)}
+.theme-xfactor .xfactor-project:nth-child(5n+2){grid-column:span 3;transform:translateY(-9px)}
+.theme-xfactor .xfactor-project:nth-child(5n+3){grid-column:span 4;transform:translateY(20px)}
+.theme-xfactor .xfactor-billboard{min-height:185px;box-shadow:inset 0 -40px 55px rgba(0,0,0,.42),0 0 28px rgba(255,43,166,.08)}
+.theme-xfactor .xfactor-project::before{
+  content:'// X //';position:absolute;right:10px;top:8px;z-index:2;
+  color:rgba(41,224,255,.32);font:800 8px/1 var(--mono);letter-spacing:.2em;
+}
+
+/* planet.X — orbital command field instead of recolored cards. */
+.theme-planetx .planetx-command{
+  min-height:720px;
+  background:
+    radial-gradient(circle at 50% 48%,rgba(74,244,255,.08),transparent 19%),
+    radial-gradient(circle at 50% 48%,transparent 0 30%,rgba(255,64,181,.055) 30.2% 30.5%,transparent 30.8%),
+    radial-gradient(circle at 50% 48%,transparent 0 44%,rgba(74,244,255,.04) 44.2% 44.5%,transparent 44.8%),
+    linear-gradient(180deg,rgba(3,7,18,.52),rgba(4,3,12,.88));
+  border:1px solid rgba(74,244,255,.16);
+  box-shadow:inset 0 0 140px rgba(29,82,150,.12),0 30px 90px rgba(0,0,0,.4);
+}
+.theme-planetx .planetx-core{filter:drop-shadow(0 0 30px rgba(74,244,255,.16))}
+.theme-planetx .planetx-node{filter:drop-shadow(0 14px 20px rgba(0,0,0,.42))}
+.theme-planetx .planetx-planet{box-shadow:inset 0 0 30px rgba(74,244,255,.09),0 0 24px rgba(255,64,181,.08)}
+
+/* Gallery gets real room depth. */
+.theme-3d .gallery-room{
+  perspective:1500px;
+  background:linear-gradient(180deg,rgba(16,13,23,.76),rgba(8,7,12,.94));
+  box-shadow:inset 0 0 120px rgba(184,140,255,.05);
+}
+.theme-3d .gallery-exhibits{transform:rotateX(1deg);transform-origin:center bottom}
+
+/* Comic is allowed to break the normal shell language inside the stage. */
+.theme-comic .comic-book{box-shadow:0 24px 0 rgba(20,16,15,.22),0 34px 70px rgba(0,0,0,.3)}
+
+/* Vending should read as one machine occupying the room. */
+.theme-vending .vending-machine{box-shadow:inset 0 0 100px rgba(117,255,189,.035),0 30px 80px rgba(0,0,0,.38)}
+
+@media(max-width:900px){
+  .workspace-v3 .v2-sidebar{position:relative;width:100%;height:auto;inset:auto}
+  .workspace-v3 .v2-workspace{margin-left:0}
+  .workspace-v3 .workspace-brand-row{top:0}
+  .theme-xfactor .xfactor-project,.theme-xfactor .xfactor-project:nth-child(n){grid-column:1/-1;transform:none}
+}

@@ -10,6 +10,7 @@ export default function EmbeddedPreview() {
   const [preview, setPreview] = useState<PreviewState | null>(null)
   const [message, setMessage] = useState('')
   const [viewport, setViewport] = useState<ViewportMode>('full')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const open = (event: Event) => {
@@ -24,6 +25,13 @@ export default function EmbeddedPreview() {
   }, [])
 
   if (!preview) return null
+
+  async function copyUrl() {
+    const url = preview?.url
+    if (!url) return
+    try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1400) }
+    catch { setMessage('Unable to copy the preview URL. Use Open in browser instead.') }
+  }
 
   async function stop() {
     if (!desktop || !preview?.pid) return setPreview(null)
@@ -49,7 +57,7 @@ export default function EmbeddedPreview() {
         </nav>
         <nav aria-label="Preview controls">
           <button type="button" title="Reload preview" aria-label="Reload preview" onClick={() => setPreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button>
-          <button type="button" title="Open in default browser" aria-label="Open in default browser" onClick={() => void desktop?.openExternalPreview(preview.url)}>↗</button>
+          <button type="button" title="Copy preview URL" aria-label="Copy preview URL" onClick={() => void copyUrl()}>{copied ? "✓" : "⧉"}</button><button type="button" title="Open in default browser" aria-label="Open in default browser" onClick={() => void desktop?.openExternalPreview(preview.url)}>↗</button>
           <button type="button" title="Stop server" aria-label="Stop server" disabled={!preview.pid} onClick={() => void stop()}>■</button>
           <button type="button" title="Close preview" aria-label="Close preview" onClick={() => setPreview(null)}>×</button>
         </nav>

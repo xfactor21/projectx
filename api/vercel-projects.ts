@@ -1,6 +1,7 @@
 /// <reference types="node" />
-import { fetchWithTimeout, requireUser } from './_auth'
-import { loadProviderConnection } from './_provider-store'
+import { fetchWithTimeout, requireUser } from './_auth.js'
+import { applyProviderCors } from './_cors.js'
+import { loadProviderConnection } from './_provider-store.js'
 
 type VercelDeployment = {
   uid: string
@@ -19,6 +20,7 @@ type VercelResponse = {
 }
 
 export default async function handler(request: any, response: any) {
+  if (applyProviderCors(request, response)) return
   if (request.method !== 'GET') {
     response.status(405).json({ connected: false, deployments: [], message: 'Method not allowed.' })
     return

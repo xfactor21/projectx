@@ -6,14 +6,20 @@ import { APP_VERSION } from './version'
 import type { CloudProject, SupabaseSession } from './services/supabase'
 import type { CompanionDevice, RemoteAction } from './services/companion'
 import appIcon from './assets/brand/app-icon.png'
+import CompanionOnboarding from './CompanionOnboarding'
 
 const DEVICE_KEY = 'projectx.companion.device.v1'
 const HOST_FRESH_MS = 30_000
 const REFRESH_MS = 15_000
 const PENDING_MOBILE_LAUNCH_KEY = 'projectx.companion.pending-mobile-launch.v1'
+const ONBOARDING_KEY = 'projectx.companion.onboarding.v302'
+const MAX_PACKAGE_BYTES = 100 * 1024 * 1024
 
 type PackageMode = 'create' | 'update'
 type CompanionTab = 'projects' | 'actions' | 'activity' | 'settings'
+type ProjectFilter = 'all' | 'pc' | 'cloud'
+type ActionFilter = 'all' | 'active' | 'failed'
+type PackageStep = 'setup' | 'review'
 
 function deviceId() {
   try {
@@ -90,6 +96,8 @@ export default function CompanionApp() {
   const [projects, setProjects] = useState<CloudProject[]>([])
   const [actions, setActions] = useState<RemoteAction[]>([])
   const [query, setQuery] = useState('')
+  const [projectFilter, setProjectFilter] = useState<ProjectFilter>('all')
+  const [actionFilter, setActionFilter] = useState<ActionFilter>('all')
   const [message, setMessage] = useState(isSupabaseConfigured() ? 'Companion ready.' : 'project.X Cloud is unavailable in this build.')
   const [busy, setBusy] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -97,6 +105,8 @@ export default function CompanionApp() {
   const [clock, setClock] = useState(() => Date.now())
   const [tab, setTab] = useState<CompanionTab>('projects')
   const [packageOpen, setPackageOpen] = useState(false)
+  const [packageStep, setPackageStep] = useState<PackageStep>('setup')
+  const [lastPackageActionId, setLastPackageActionId] = useState<string | null>(null)
   const [packageMode, setPackageMode] = useState<PackageMode>('create')
   const [packageTarget, setPackageTarget] = useState('')
   const [packageFile, setPackageFile] = useState<File | null>(null)
@@ -104,6 +114,8 @@ export default function CompanionApp() {
   const [configured, setConfigured] = useState(isSupabaseConfigured)
   const [launchProject, setLaunchProject] = useState<CloudProject | null>(null)
   const [mobilePreview, setMobilePreview] = useState<{ name: string; url: string; revision: number } | null>(null)
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+  const [onboardingOpen, setOnboardingOpen] = useState(() => localStorage.getItem(ONBOARDING_KEY) !== 'done')
   const refreshLock = useRef(false)
 
   async function refresh(current = session, quiet = false) {
@@ -117,6 +129,7 @@ export default function CompanionApp() {
       if (activeSession.access_token !== current.access_token) setSession(activeSession)
       const cloud = await fetchCloudProjects(activeSession)
       setProjects(cloud)
+      setLastSyncedAt(Date.now())
       try {
         await registerCompanionDevice({
           device_id: deviceId(),
@@ -228,6 +241,47 @@ export default function CompanionApp() {
     }
   }
 
+  function openPackage() {
+    setPackageStep('setup')
+    setPackageOpen(true)
+  }
+
+  async function cancelAction(action: RemoteAction) {
+    if (!action.id || !['pending', 'approved'].includes(action.status || '')) return
+    if (!window.confirm(`Cancel ${actionLabel(action)}?`)) return
+    setBusy(true)
+    try {
+      await updateRemoteAction(action.id, 'canceled', { canceledByDevice: deviceId() })
+      setMessage(`${actionLabel(action)} canceled.`)
+      await refresh(session, true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to cancel the remote action.')
+    } finally { setBusy(false) }
+  }
+
+  async function retryAction(action: RemoteAction) {
+    if (action.status !== 'failed' || !action.target_device_id) return
+    if (!window.confirm(`Retry ${actionLabel(action)}?`)) return
+    setBusy(true)
+    try {
+      const rows = await queueRemoteAction({
+        project_client_id: action.project_client_id || null,
+        target_device_id: action.target_device_id,
+        action_type: action.action_type,
+        payload: action.payload || {},
+        requested_by_device_id: deviceId(),
+      })
+      const next = rows[0]
+      if (!next?.id) throw new Error('The retry action could not be created.')
+      await updateRemoteAction(next.id, 'approved')
+      setMessage(`${actionLabel(action)} queued again.`)
+      setActionFilter('active')
+      await refresh(session, true)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to retry the remote action.')
+    } finally { setBusy(false) }
+  }
+
   async function sendPackage() {
     if (!windowsDevice?.device_id) return setMessage('Open project.X on Windows at least once so Companion knows which PC to target.')
     if (!packageFile) return setMessage('Choose a project ZIP first.')
@@ -246,6 +300,7 @@ export default function CompanionApp() {
       })
       const action = rows[0]
       if (!action?.id) throw new Error('The package action could not be created.')
+      setLastPackageActionId(action.id)
       await updateRemoteAction(action.id, 'approved')
       const offline = !isFresh(windowsDevice)
       setMessage(offline ? `${packageFile.name} queued. ${windowsDevice.name} will receive it when it comes online.` : `${packageFile.name} sent to ${windowsDevice.name}.`)
@@ -289,14 +344,28 @@ export default function CompanionApp() {
 
   const visible = useMemo(() => projects.filter((project) => {
     const haystack = `${project.name} ${project.kicker || ''} ${project.description || ''}`.toLowerCase()
-    return haystack.includes(query.trim().toLowerCase()) && !project.archived
-  }), [projects, query])
+    if (!haystack.includes(query.trim().toLowerCase()) || project.archived) return false
+    const onPc = projectIsOnDevice(project, windowsDevice)
+    if (projectFilter === 'pc') return onPc
+    if (projectFilter === 'cloud') return !onPc
+    return true
+  }), [projects, query, projectFilter, windowsDevice, clock])
 
   const hostOnline = useMemo(() => { void clock; return isFresh(windowsDevice) }, [windowsDevice, clock])
   const availableCount = visible.filter((project) => projectIsOnDevice(project, windowsDevice)).length
   const pendingActions = actions.filter((action) => ['pending', 'approved', 'running'].includes(action.status || ''))
   const activity = actions.filter((action) => ['succeeded', 'failed', 'canceled'].includes(action.status || '')).slice(0, 40)
   const failedCount = actions.filter((action) => action.status === 'failed').length
+  const packageAction = lastPackageActionId ? actions.find((action) => action.id === lastPackageActionId) || null : null
+  const packageFileError = !packageFile ? '' : !packageFile.name.toLowerCase().endsWith('.zip') ? 'Choose a .zip project archive.' : packageFile.size <= 0 ? 'The selected ZIP is empty.' : packageFile.size > MAX_PACKAGE_BYTES ? 'ZIP files are limited to 100 MB.' : ''
+  const packageReady = Boolean(packageFile && !packageFileError && windowsDevice && (packageMode === 'create' || packageTarget))
+  const visibleActions = actions.filter((action) => actionFilter === 'all' ? true : actionFilter === 'active' ? ['pending', 'approved', 'running'].includes(action.status || '') : action.status === 'failed')
+  const hostStale = Boolean(windowsDevice && !hostOnline)
+
+  function closeOnboarding() {
+    localStorage.setItem(ONBOARDING_KEY, 'done')
+    setOnboardingOpen(false)
+  }
 
   if (!session) return <main className="companion-shell companion-auth">
     <div className="companion-auth-card">
@@ -306,12 +375,12 @@ export default function CompanionApp() {
         <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
         <button type="button" disabled={busy || !configured} onClick={() => void login()}>{busy ? 'Connecting…' : configured ? 'Connect companion' : 'Cloud service unavailable'}</button>
-        <small className="companion-auth-message">{message}</small>
+        <small className="companion-auth-message" aria-live="polite">{message}</small>
       </section>
     </div>
   </main>
 
-  return <main className="companion-shell companion-v17">
+  return <main className="companion-shell companion-v17 companion-v302">
     <header className="companion-header">
       <button className="companion-brand companion-brand-button" type="button" onClick={() => setTab('projects')} aria-label="Open projects">
         <img src={appIcon} alt=""/><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div>
@@ -322,18 +391,24 @@ export default function CompanionApp() {
     </header>
 
     <section className="companion-page">
+      <section className={`companion-connection-banner ${hostOnline ? 'online' : hostStale ? 'stale' : 'offline'}`}>
+        <i aria-hidden="true"/>
+        <div><strong>{hostOnline ? `${windowsDevice?.name || 'Windows host'} online` : hostStale ? `${windowsDevice?.name || 'Windows host'} last seen ${relativeTime(windowsDevice?.last_seen_at)}` : 'Windows host not connected'}</strong><small>Cloud {session ? 'connected' : 'offline'} · {lastSyncedAt ? `synced ${relativeTime(new Date(lastSyncedAt).toISOString())}` : 'not synced yet'}</small></div>
+        <button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? '…' : 'Refresh'}</button>
+      </section>
       {tab === 'projects' && <>
         <section className="companion-hero">
           <small>REMOTE PROJECT COMMAND</small>
           <h1>Everything you’re building.<br/><em>In your pocket.</em></h1>
-          <p>{message}</p>
+          <p aria-live="polite">{message}</p>
+          <div className="companion-sync-note">Cloud account and Windows host are independent connections.</div>
           <div className="companion-stats">
             <div><b>{visible.length}</b><span>CLOUD</span></div>
             <div><b>{availableCount}</b><span>ON PC</span></div>
             <div><b>{pendingActions.length}</b><span>ACTIVE</span></div>
           </div>
           <div className="companion-hero-actions">
-            <button className="companion-send-package" type="button" onClick={() => setPackageOpen(true)}>＋ Send Project ZIP</button>
+            <button className="companion-send-package" type="button" onClick={openPackage}>＋ Send Project ZIP</button>
             <button className="companion-refresh" type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
           </div>
         </section>
@@ -342,9 +417,15 @@ export default function CompanionApp() {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects" aria-label="Search projects"/>
           <span>{visible.length}</span>
         </section>
+        <nav className="companion-project-filters" aria-label="Filter projects">
+          <button type="button" className={projectFilter === 'all' ? 'active' : ''} onClick={() => setProjectFilter('all')}>All</button>
+          <button type="button" className={projectFilter === 'pc' ? 'active' : ''} onClick={() => setProjectFilter('pc')}>On PC</button>
+          <button type="button" className={projectFilter === 'cloud' ? 'active' : ''} onClick={() => setProjectFilter('cloud')}>Cloud only</button>
+        </nav>
 
         <section className="companion-projects">{visible.length ? visible.map((project) => {
           const onPc = projectIsOnDevice(project, windowsDevice)
+          const remoteReason = onPc ? '' : hostOnline ? 'This project is in Cloud but is not linked to a local folder on this PC.' : 'Remote controls are unavailable while the Windows host is offline.'
           return <article key={project.client_id}>
             <div className="companion-card-top">
               <span className={`companion-status ${(project.status || 'Building').toLowerCase()}`}>{project.status || 'Building'}</span>
@@ -354,33 +435,43 @@ export default function CompanionApp() {
             <p>{project.description || project.kicker || 'No description yet.'}</p>
             <div className="companion-stack">{Array.isArray(project.stack) && project.stack.slice(0, 4).map((item) => <span key={String(item)}>{String(item)}</span>)}</div>
             <div className="companion-actions companion-project-links">
-              <button type="button" disabled={!project.repo_url} onClick={() => safeOpen(project.repo_url)}>Repo</button>
-              <button type="button" disabled={!onPc} onClick={() => setLaunchProject(project)}>Launch</button>
-              <button type="button" disabled={!project.live_url} onClick={() => safeOpen(project.live_url)}>Published</button>
+              <button type="button" disabled={!project.repo_url} title={project.repo_url ? 'Open repository' : 'No repository is linked to this project.'} onClick={() => safeOpen(project.repo_url)}>Repo</button>
+              <button className="primary" type="button" disabled={!onPc} title={onPc ? 'Choose where to launch this project' : remoteReason} onClick={() => setLaunchProject(project)}>Launch</button>
+              <button type="button" disabled={!project.live_url} title={project.live_url ? 'Open published project' : 'No published URL is saved for this project.'} onClick={() => safeOpen(project.live_url)}>Published</button>
             </div>
             <div className="companion-action-grid">
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'project.open_explorer')}>Open on PC</button>
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'project.open_terminal')}>Terminal</button>
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'git.status')}>Git status</button>
-              <button disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'script.run', { script: 'build' }, `Run the build script for ${project.name} on your Windows computer?`)}>Build</button>
-              <button className="wide" disabled={busy || !onPc} type="button" onClick={() => void requestAction(project, 'git.push', {}, `Push the current local Git branch for ${project.name}?`)}>Push current branch</button>
+              <button disabled={busy || !onPc} title={remoteReason || 'Open this project in Explorer on Windows.'} type="button" onClick={() => void requestAction(project, 'project.open_explorer')}>Open on PC</button>
+              <button disabled={busy || !onPc} title={remoteReason || 'Open a terminal in the project folder.'} type="button" onClick={() => void requestAction(project, 'project.open_terminal')}>Terminal</button>
+              <button disabled={busy || !onPc} title={remoteReason || 'Read the current local Git status.'} type="button" onClick={() => void requestAction(project, 'git.status')}>Git status</button>
+              <button className="primary" disabled={busy || !onPc} title={remoteReason || 'Run the project build script on Windows.'} type="button" onClick={() => void requestAction(project, 'script.run', { script: 'build' }, `Run the build script for ${project.name} on your Windows computer?`)}>Build</button>
+              <button className="wide" disabled={busy || !onPc} title={remoteReason || 'Push the current local Git branch after confirmation.'} type="button" onClick={() => void requestAction(project, 'git.push', {}, `Push the current local Git branch for ${project.name}?`)}>Push current branch</button>
+              {!onPc && <small className="companion-control-note">{remoteReason}</small>}
             </div>
           </article>
-        }) : <div className="companion-empty"><span>NO PROJECTS</span><h2>Nothing matches this view.</h2><p>Sync from Windows or clear the search to see your project universe.</p></div>}</section>
+        }) : <div className="companion-empty"><span>NO MATCHES</span><h2>Nothing matches this view.</h2><p>{projectFilter === 'pc' ? 'No matching projects are currently available on the Windows host.' : projectFilter === 'cloud' ? 'No matching cloud-only projects.' : 'Clear the search or refresh your workspace.'}</p><button type="button" onClick={() => { setQuery(''); setProjectFilter('all'); void refresh() }}>Show all + refresh</button></div>}</section>
       </>}
 
       {tab === 'actions' && <section className="companion-list-page">
         <div className="companion-page-heading"><div><small>REMOTE QUEUE</small><h1>Actions</h1></div><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? '…' : '↻'}</button></div>
         <p className="companion-page-copy">Commands sent from this companion to your Windows project.X host.</p>
-        <div className="companion-action-summary"><div><b>{pendingActions.length}</b><span>ACTIVE</span></div><div><b>{failedCount}</b><span>FAILED</span></div><div><b>{actions.length}</b><span>RECENT</span></div></div>
-        <div className="companion-action-list">{actions.length ? actions.slice(0, 50).map((action) => <article key={action.id || `${action.action_type}-${action.created_at}`}>
+        <div className="companion-action-summary"><button type="button" className={actionFilter === 'active' ? 'active' : ''} onClick={() => setActionFilter('active')}><b>{pendingActions.length}</b><span>ACTIVE</span></button><button type="button" className={actionFilter === 'failed' ? 'active' : ''} onClick={() => setActionFilter('failed')}><b>{failedCount}</b><span>FAILED</span></button><button type="button" className={actionFilter === 'all' ? 'active' : ''} onClick={() => setActionFilter('all')}><b>{actions.length}</b><span>ALL</span></button></div>
+        {packageAction && <section className={`companion-transfer-status ${packageAction.status || 'pending'}`}>
+          <div><small>LAST ZIP HANDOFF</small><strong>{actionLabel(packageAction)}</strong><span>{packageAction.status === 'succeeded' ? 'Windows import complete.' : packageAction.status === 'failed' ? String(packageAction.result?.error || 'Windows import failed.') : packageAction.status === 'running' ? String(packageAction.result?.stage || 'Windows is processing the package.') : 'Upload complete. Waiting for the Windows host.'}</span></div>
+          <b>{(packageAction.status || 'pending').toUpperCase()}</b>
+        </section>}
+        <div className="companion-action-list">{visibleActions.length ? visibleActions.slice(0, 50).map((action) => <article key={action.id || `${action.action_type}-${action.created_at}`}>
           <div><span className={`companion-action-state ${action.status || 'pending'}`}>{action.status || 'pending'}</span><small>{relativeTime(action.updated_at || action.created_at)}</small></div>
           <strong>{actionLabel(action)}</strong>
           <p>{action.project_client_id ? projects.find((project) => project.client_id === action.project_client_id)?.name || action.project_client_id : 'Workspace action'}</p>
-          {action.status === 'running' && Boolean(action.result?.stage) && <code>{String(action.result?.stage)}</code>}
+          {['pending','approved','running'].includes(action.status || '') && <code>{String(action.result?.stage || (action.status === 'running' ? 'Windows host is processing this action.' : 'Waiting for Windows host.'))}</code>}
           {action.status === 'failed' && <code>{String((action.result as { error?: unknown } | null)?.error || 'Action failed on the Windows host.')}</code>}
-          {action.status === 'succeeded' && usableMobileUrl(action.result?.mobileUrl) && <button className="companion-open-result" type="button" onClick={() => setMobilePreview({ name: projects.find((project) => project.client_id === action.project_client_id)?.name || 'Project preview', url: usableMobileUrl(action.result?.mobileUrl)!, revision: Date.now() })}>Open mobile preview</button>}
-        </article>) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>No remote actions yet.</h2></div>}</div>
+          {action.status === 'succeeded' && Boolean(action.result?.output) && <code className="success">{String(action.result?.output).slice(0, 500)}</code>}
+          <div className="companion-action-controls">
+            {['pending','approved'].includes(action.status || '') && <button type="button" disabled={busy} onClick={() => void cancelAction(action)}>Cancel</button>}
+            {action.status === 'failed' && <button type="button" disabled={busy || !hostOnline} onClick={() => void retryAction(action)}>Retry</button>}
+            {action.status === 'succeeded' && usableMobileUrl(action.result?.mobileUrl) && <button className="companion-open-result" type="button" onClick={() => setMobilePreview({ name: projects.find((project) => project.client_id === action.project_client_id)?.name || 'Project preview', url: usableMobileUrl(action.result?.mobileUrl)!, revision: Date.now() })}>Open mobile preview</button>}
+          </div>
+        </article>) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>{actionFilter === 'failed' ? 'No failed actions.' : actionFilter === 'active' ? 'No active actions.' : 'No remote actions yet.'}</h2></div>}</div>
       </section>}
 
       {tab === 'activity' && <section className="companion-list-page">
@@ -401,12 +492,19 @@ export default function CompanionApp() {
           <small>WINDOWS HOST</small><div><span>{windowsDevice?.name || 'No host registered'}</span><b className={hostOnline ? 'online' : 'offline'}>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></div>
           <p>{windowsDevice?.last_seen_at ? `Last seen ${relativeTime(windowsDevice.last_seen_at)} · v${windowsDevice.app_version || '?'}` : 'Open project.X on Windows while signed into the same account.'}</p>
         </section>
+        <section className="companion-setting-card companion-model-card">
+          <small>HOW CONNECTIONS WORK</small>
+          <div className="companion-model-row"><span>Cloud account</span><b className="online">SIGNED IN</b></div>
+          <div className="companion-model-row"><span>Windows host</span><b className={hostOnline ? 'online' : 'offline'}>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></div>
+          <div className="companion-model-row"><span>This Companion</span><b className="online">{companionPlatform().toUpperCase()}</b></div>
+          <p>Cloud keeps project records in sync. Windows performs local filesystem, Git, build and ZIP-import work. This Companion requests and monitors those actions.</p>
+        </section>
         <section className="companion-setting-card">
           <small>PACKAGE HANDOFF</small><label className="companion-settings-toggle"><span><b>Install dependencies on PC</b><small>Default for project ZIP handoff</small></span><input type="checkbox" checked={installDeps} onChange={(event) => setInstallDeps(event.target.checked)}/></label>
         </section>
         <section className="companion-setting-card">
           <small>ACCOUNT</small><div><span>{session.user.email || 'Signed in'}</span><b>CONNECTED</b></div>
-          <div className="companion-settings-actions"><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh cloud + devices'}</button><button className="danger" type="button" onClick={() => void logout()}>Sign out</button></div>
+          <div className="companion-settings-actions"><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh cloud + devices'}</button><button type="button" onClick={() => setOnboardingOpen(true)}>Companion guide</button><button className="danger" type="button" onClick={() => void logout()}>Sign out</button></div>
         </section>
         <p className="companion-settings-foot">Device ID: {deviceId()}</p>
       </section>}
@@ -415,7 +513,7 @@ export default function CompanionApp() {
     <nav className="companion-bottom-nav" aria-label="Companion navigation">
       <button type="button" className={tab === 'projects' ? 'active' : ''} onClick={() => setTab('projects')}><span>▦</span><small>Projects</small></button>
       <button type="button" className={tab === 'actions' ? 'active' : ''} onClick={() => setTab('actions')}><span>↯</span><small>Actions</small>{pendingActions.length > 0 && <i>{pendingActions.length}</i>}</button>
-      <button type="button" className="send" onClick={() => setPackageOpen(true)}><span>＋</span><small>Send ZIP</small></button>
+      <button type="button" className="send" onClick={openPackage}><span>＋</span><small>Send ZIP</small></button>
       <button type="button" className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')}><span>◴</span><small>Activity</small></button>
       <button type="button" className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><span>⚙</span><small>Settings</small></button>
     </nav>
@@ -423,12 +521,26 @@ export default function CompanionApp() {
     {packageOpen && <div className="companion-package-backdrop" onMouseDown={() => !busy && setPackageOpen(false)}>
       <section className="companion-package-sheet" role="dialog" aria-modal="true" aria-label="Send project ZIP" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><small>CLOUD HANDOFF</small><strong>Send project ZIP</strong></div><button type="button" disabled={busy} onClick={() => setPackageOpen(false)} aria-label="Close">×</button></header>
-        <div className="companion-mode-switch"><button className={packageMode === 'create' ? 'active' : ''} type="button" onClick={() => setPackageMode('create')}>Create new</button><button className={packageMode === 'update' ? 'active' : ''} type="button" onClick={() => setPackageMode('update')}>Update existing</button></div>
-        {packageMode === 'update' && <label>Target project<select value={packageTarget} onChange={(event) => setPackageTarget(event.target.value)}><option value="">Choose project…</option>{projects.filter((project) => !project.archived).map((project) => <option key={project.client_id} value={project.client_id}>{project.name}</option>)}</select></label>}
-        <label className="companion-file-picker"><span>{packageFile ? packageFile.name : 'Choose ZIP from phone'}</span><input type="file" accept=".zip,application/zip" onChange={(event) => setPackageFile(event.target.files?.[0] || null)}/></label>
-        <label className="companion-install-toggle"><input type="checkbox" checked={installDeps} onChange={(event) => setInstallDeps(event.target.checked)}/><span>Install detected dependencies on PC</span></label>
-        <p>{windowsDevice ? `${hostOnline ? 'Online' : 'Offline queue'} → ${windowsDevice.name}` : 'Open project.X Windows once to register a target PC.'}</p>
-        <button className="companion-package-send" type="button" disabled={busy || !packageFile || !windowsDevice || (packageMode === 'update' && !packageTarget)} onClick={() => void sendPackage()}>{busy ? 'Uploading…' : packageMode === 'create' ? 'Upload + create on PC' : 'Upload + update on PC'}</button>
+        {packageStep === 'setup' ? <>
+          <div className="companion-package-step"><span>1</span><div><strong>Choose handoff</strong><small>ZIP upload limit: 100 MB</small></div></div>
+          <div className="companion-mode-switch"><button className={packageMode === 'create' ? 'active' : ''} type="button" onClick={() => setPackageMode('create')}>Create new</button><button className={packageMode === 'update' ? 'active' : ''} type="button" onClick={() => setPackageMode('update')}>Update existing</button></div>
+          {packageMode === 'update' && <label>Target project<select value={packageTarget} onChange={(event) => setPackageTarget(event.target.value)}><option value="">Choose project…</option>{projects.filter((project) => !project.archived).map((project) => <option key={project.client_id} value={project.client_id}>{project.name}</option>)}</select></label>}
+          <label className="companion-file-picker"><span>{packageFile ? `${packageFile.name} · ${(packageFile.size / 1024 / 1024).toFixed(1)} MB` : 'Choose ZIP from phone'}</span><input type="file" accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream" onClick={(event) => { event.currentTarget.value = '' }} onChange={(event) => setPackageFile(event.target.files?.[0] || null)}/></label>
+          {packageFileError && <p className="companion-package-error">{packageFileError}</p>}
+          <label className="companion-install-toggle"><input type="checkbox" checked={installDeps} onChange={(event) => setInstallDeps(event.target.checked)}/><span>Install detected dependencies on PC</span></label>
+          <p>{windowsDevice ? `${hostOnline ? 'Online target' : 'Offline queue'} → ${windowsDevice.name}` : 'Open project.X Windows once to register a target PC.'}</p>
+          <button className="companion-package-send" type="button" disabled={!packageReady} onClick={() => setPackageStep('review')}>Review handoff</button>
+        </> : <>
+          <div className="companion-package-step"><span>2</span><div><strong>Review before upload</strong><small>Upload and Windows import are separate stages.</small></div></div>
+          <dl className="companion-package-review">
+            <div><dt>Mode</dt><dd>{packageMode === 'create' ? 'Create new project' : 'Update existing project'}</dd></div>
+            <div><dt>ZIP</dt><dd>{packageFile?.name} · {packageFile ? (packageFile.size / 1024 / 1024).toFixed(1) : '0'} MB</dd></div>
+            {packageMode === 'update' && <div><dt>Project</dt><dd>{projects.find((project) => project.client_id === packageTarget)?.name || 'Not selected'}</dd></div>}
+            <div><dt>Windows host</dt><dd>{windowsDevice?.name || 'Not registered'} · {hostOnline ? 'online' : 'will queue offline'}</dd></div>
+            <div><dt>Dependencies</dt><dd>{installDeps ? 'Install after import' : 'Do not install'}</dd></div>
+          </dl>
+          <div className="companion-package-review-actions"><button type="button" disabled={busy} onClick={() => setPackageStep('setup')}>Back</button><button className="companion-package-send" type="button" disabled={busy || !packageReady} onClick={() => void sendPackage()}>{busy ? 'Uploading securely…' : 'Upload + send to Windows'}</button></div>
+        </>}
       </section>
     </div>}
     {launchProject && <div className="companion-package-backdrop" onMouseDown={() => !busy && setLaunchProject(null)}>
@@ -439,6 +551,7 @@ export default function CompanionApp() {
         <p>For off-network access, use the project’s Published link or configure an authenticated HTTPS tunnel outside project.X.</p>
       </section>
     </div>}
+    {onboardingOpen && <CompanionOnboarding onClose={closeOnboarding}/>} 
     {mobilePreview && <div className="companion-mobile-preview">
       <header><div><small>LIVE FROM PC</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Reload preview" onClick={() => setMobilePreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
       <iframe key={mobilePreview.revision} src={mobilePreview.url} title={`${mobilePreview.name} mobile preview`} allow="clipboard-read; clipboard-write; fullscreen"/>

@@ -1,6 +1,9 @@
-import { getSupabasePublishableKey, getSupabaseUrl, loadSession } from './supabase'
+import { getFreshSession, getSupabasePublishableKey, getSupabaseUrl, loadSession } from './supabase'
+import type { SupabaseSession } from './supabase'
 
 const BUCKET = 'projectx-companion-packages'
+const MAX_ZIP_BYTES = 100 * 1024 * 1024
+const UPLOAD_TIMEOUT_MS = 180_000
 
 function requireSession() {
   const session = loadSession()
@@ -8,12 +11,22 @@ function requireSession() {
   return session
 }
 
-function baseHeaders() {
-  const session = requireSession()
+async function freshSession(): Promise<SupabaseSession> {
+  const current = requireSession()
+  const session = await getFreshSession(current)
+  if (!session) throw new Error('Your project.X cloud session expired. Sign in again before sending a ZIP.')
+  return session
+}
+
+function baseHeaders(session: SupabaseSession) {
   return {
     apikey: getSupabasePublishableKey(),
     Authorization: `Bearer ${session.access_token}`,
   }
+}
+
+function encodedObjectPath(storagePath: string) {
+  return storagePath.split('/').map((part) => encodeURIComponent(part)).join('/')
 }
 
 async function storageError(response: Response, fallback: string): Promise<Error> {
@@ -22,44 +35,66 @@ async function storageError(response: Response, fallback: string): Promise<Error
   if (normalized.includes('bucket') || normalized.includes('not found')) {
     return new Error('Companion package storage is not installed in this Supabase project. Apply the project.X companion-package migration, then retry.')
   }
+  if (response.status === 401) return new Error('Your project.X cloud session expired while sending the ZIP. Sign in again and retry.')
+  if (response.status === 403 || normalized.includes('row-level security') || normalized.includes('policy')) {
+    return new Error('Supabase rejected this ZIP upload. Verify the companion package storage policy is installed for this account.')
+  }
+  if (response.status === 413 || normalized.includes('too large')) return new Error('The ZIP is too large for Companion upload. Keep project packages under 100 MB.')
   return new Error(detail || `${fallback} (${response.status}).`)
 }
 
-export async function uploadCompanionZip(file: File): Promise<{ storagePath: string; fileName: string; bytes: number }> {
-  if (!file.name.toLowerCase().endsWith('.zip')) throw new Error('Choose a .zip project archive.')
-  if (file.size > 100 * 1024 * 1024) throw new Error('Companion ZIP uploads are limited to 100 MB.')
-  const session = requireSession()
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project.zip'
-  const storagePath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`
+async function uploadOnce(file: File, session: SupabaseSession, storagePath: string): Promise<Response> {
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 180_000)
-  let response: Response
+  const timeout = window.setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
   try {
-    response = await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}/${storagePath}`, {
+    return await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}/${encodedObjectPath(storagePath)}`, {
       method: 'POST',
       headers: {
-        ...baseHeaders(),
-        'Content-Type': file.type || 'application/zip',
+        ...baseHeaders(session),
+        'Content-Type': 'application/zip',
         'x-upsert': 'false',
+        'cache-control': 'no-store',
       },
       body: file,
+      cache: 'no-store',
       signal: controller.signal,
     })
   } catch (error) {
     if (controller.signal.aborted) throw new Error('Project upload timed out after 3 minutes. Check the phone connection and try again.')
+    if (error instanceof TypeError) throw new Error('The phone could not reach project.X package storage. Check your connection and retry.')
     throw error
-  } finally { window.clearTimeout(timeout) }
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
+export async function uploadCompanionZip(file: File): Promise<{ storagePath: string; fileName: string; bytes: number }> {
+  if (!file.name.toLowerCase().endsWith('.zip')) throw new Error('Choose a .zip project archive.')
+  if (file.size <= 0) throw new Error('The selected ZIP is empty or Android could not read it. Choose the file again from Files.')
+  if (file.size > MAX_ZIP_BYTES) throw new Error('Companion ZIP uploads are limited to 100 MB.')
+
+  let session = await freshSession()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project.zip'
+  const storagePath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`
+
+  let response = await uploadOnce(file, session, storagePath)
+  if (response.status === 401) {
+    session = await freshSession()
+    response = await uploadOnce(file, session, storagePath)
+  }
   if (!response.ok) throw await storageError(response, 'Project upload failed')
+
   return { storagePath, fileName: file.name, bytes: file.size }
 }
 
 export async function createCompanionZipSignedUrl(storagePath: string, expiresIn = 600): Promise<string> {
-  const session = requireSession()
+  const session = await freshSession()
   if (!storagePath.startsWith(`${session.user.id}/`) || storagePath.includes('..')) throw new Error('Companion package path was rejected.')
-  const response = await fetch(`${getSupabaseUrl()}/storage/v1/object/sign/${BUCKET}/${storagePath}`, {
+  const response = await fetch(`${getSupabaseUrl()}/storage/v1/object/sign/${BUCKET}/${encodedObjectPath(storagePath)}`, {
     method: 'POST',
-    headers: { ...baseHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...baseHeaders(session), 'Content-Type': 'application/json' },
     body: JSON.stringify({ expiresIn }),
+    cache: 'no-store',
   })
   if (!response.ok) throw await storageError(response, 'Unable to prepare project package')
   const body = await response.json() as { signedURL?: string; signedUrl?: string }
@@ -69,12 +104,13 @@ export async function createCompanionZipSignedUrl(storagePath: string, expiresIn
 }
 
 export async function deleteCompanionZip(storagePath: string): Promise<void> {
-  const session = requireSession()
+  const session = await freshSession()
   if (!storagePath.startsWith(`${session.user.id}/`) || storagePath.includes('..')) throw new Error('Companion package path was rejected.')
   const response = await fetch(`${getSupabaseUrl()}/storage/v1/object/${BUCKET}`, {
     method: 'DELETE',
-    headers: { ...baseHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...baseHeaders(session), 'Content-Type': 'application/json' },
     body: JSON.stringify({ prefixes: [storagePath] }),
+    cache: 'no-store',
   })
   if (!response.ok) throw await storageError(response, 'Unable to remove project package')
 }

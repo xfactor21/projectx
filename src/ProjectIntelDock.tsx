@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { healthFor, readProjectHealth, type ProjectHealth } from './services/projectHealth'
 
 const PROJECTS_KEY = 'projectx.projects.v1'
+const LOCAL_KEY = 'projectx.local.sources.v1'
 
 type Project = {
   id: string
@@ -15,6 +16,7 @@ type Project = {
 }
 
 type Finding = { projectId: string; project: string; level: 'high' | 'medium' | 'low'; message: string }
+type LocalSource = { projectId: string; path?: string; hasGit?: boolean }
 
 function loadProjects(): Project[] {
   try {
@@ -29,10 +31,25 @@ function daysSince(value?: string) {
   return Number.isFinite(timestamp) ? Math.floor((Date.now() - timestamp) / 86400000) : null
 }
 
-function analyze(projects: Project[], healthMap: Record<string, ProjectHealth>): Finding[] {
+function loadLocalSources(): LocalSource[] { try { const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } }
+
+function analyze(projects: Project[], healthMap: Record<string, ProjectHealth>, sources: LocalSource[]): Finding[] {
   const findings: Finding[] = []
+  const sourceById = new Map(sources.map((source) => [source.projectId, source]))
+  const repoOwners = new Map<string, Project[]>()
+  for (const project of projects.filter((item) => !item.archived && item.repoUrl)) {
+    const key = project.repoUrl!.replace(/\.git$/i, '').toLowerCase()
+    repoOwners.set(key, [...(repoOwners.get(key) || []), project])
+  }
+  for (const duplicates of repoOwners.values()) {
+    if (duplicates.length < 2) continue
+    for (const project of duplicates) findings.push({ projectId: project.id, project: project.name, level: 'medium', message: `Repository is linked to ${duplicates.length} project records. Review possible duplicates before syncing or deleting.` })
+  }
   projects.filter((project) => !project.archived).forEach((project) => {
     const health = healthFor(project.id, healthMap)
+    const source = sourceById.get(project.id)
+    if (!source?.path && !project.repoUrl) findings.push({ projectId: project.id, project: project.name, level: 'medium', message: 'Cloud-only record has no local source or repository provenance.' })
+    if (source?.path && project.repoUrl && !source.hasGit) findings.push({ projectId: project.id, project: project.name, level: 'low', message: 'A repository URL is known, but Git is not detected in the linked local folder.' })
     if (health.build.state === 'error') findings.push({ projectId: project.id, project: project.name, level: 'high', message: `Run readiness failed: ${health.build.detail}` })
     if (health.deployment.state === 'error') findings.push({ projectId: project.id, project: project.name, level: 'high', message: `Deployment failed: ${health.deployment.detail}` })
     if (health.deployment.state === 'offline') findings.push({ projectId: project.id, project: project.name, level: 'medium', message: `Linked deployment is offline: ${health.deployment.detail}` })
@@ -49,7 +66,7 @@ function analyze(projects: Project[], healthMap: Record<string, ProjectHealth>):
 export default function ProjectIntelDock() {
   const [open, setOpen] = useState(false)
   const projects = loadProjects()
-  const findings = useMemo(() => analyze(projects, readProjectHealth()), [projects])
+  const findings = useMemo(() => analyze(projects, readProjectHealth(), loadLocalSources()), [projects])
 
   return <aside className={`intel-dock ${open ? 'open' : ''}`} aria-label="Project intelligence">
     <button className="intel-toggle" type="button" onClick={() => setOpen((value) => !value)}><span>✦</span><strong>ATTENTION</strong><b>{findings.length}</b></button>

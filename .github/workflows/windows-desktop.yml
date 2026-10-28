@@ -3,9 +3,9 @@ name: project.X Windows Desktop
 on:
   workflow_dispatch:
   push:
-    branches: [develop]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'src-tauri/**'
       - 'src/**'
@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX-08.30-v2.9-theme-connections
+  PROJECTX_BUILD_NAME: projectX_v3.02_companion-product-pass_Oct-27
 
 jobs:
   windows-installer:
@@ -26,19 +26,29 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Regression tests
+        run: npm test
+
+      - name: Build frontend for Tauri test context
+        run: npm run build
+
+      - name: Native tests
+        working-directory: src-tauri
+        run: cargo test
 
       - name: Validate managed cloud configuration
         if: github.event_name != 'pull_request'
@@ -68,7 +78,7 @@ jobs:
           Write-Host "Installer: $target"
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.PROJECTX_BUILD_NAME }}
           path: src-tauri/target/release/bundle/nsis/${{ env.PROJECTX_BUILD_NAME }}.exe

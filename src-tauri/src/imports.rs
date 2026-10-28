@@ -201,15 +201,75 @@ fn open_external_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn expand_zip(zip_path: &Path, destination: &Path) -> Result<(), String> {
-    fs::create_dir_all(destination)
-        .map_err(|error| format!("Unable to create import folder: {error}"))?;
-    let script = "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force";
+const MAX_ZIP_COMPRESSED_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_ZIP_EXTRACTED_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_ZIP_ENTRY_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_ZIP_ENTRIES: u64 = 25_000;
+
+fn validate_zip_archive(zip_path: &Path) -> Result<(), String> {
+    let compressed = fs::metadata(zip_path)
+        .map_err(|error| format!("Unable to inspect ZIP: {error}"))?
+        .len();
+    if compressed == 0 || compressed > MAX_ZIP_COMPRESSED_BYTES {
+        return Err("ZIP archives must be between 1 byte and 100 MB compressed.".into());
+    }
+    let script = r#"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+try {
+  $zipPath = $env:PROJECTX_ZIP_PATH
+  if ([string]::IsNullOrWhiteSpace($zipPath)) { throw 'project.X did not provide a ZIP path to the validator.' }
+  $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
+  try {
+    if ($archive.Entries.Count -gt 25000) { throw 'ZIP contains too many entries (25,000 maximum).' }
+    [int64]$total = 0
+    foreach ($entry in $archive.Entries) {
+      $name = $entry.FullName.Replace('\\','/')
+      if ([string]::IsNullOrWhiteSpace($name)) { continue }
+      if ($name.StartsWith('/') -or $name -match '^[A-Za-z]:' ) { throw "Unsafe absolute ZIP path: $name" }
+      $parts = $name.Split('/', [StringSplitOptions]::RemoveEmptyEntries)
+      if ($parts -contains '..') { throw "Unsafe parent traversal in ZIP path: $name" }
+      if ($parts.Count -gt 40) { throw "ZIP path nesting is too deep: $name" }
+      if ($name.Length -gt 512) { throw 'ZIP entry path exceeds 512 characters.' }
+      if (-not $name.EndsWith('/')) {
+        if ($entry.Length -gt 134217728) { throw "ZIP entry exceeds 128 MB: $name" }
+        $total += $entry.Length
+        if ($total -gt 536870912) { throw 'ZIP expands beyond the 512 MB safety limit.' }
+        if ($entry.CompressedLength -gt 0 -and $entry.Length -gt 1048576) {
+          $ratio = $entry.Length / [double]$entry.CompressedLength
+          if ($ratio -gt 1000) { throw "Suspicious ZIP compression ratio: $name" }
+        }
+      }
+    }
+  } finally { if ($archive) { $archive.Dispose() } }
+} catch {
+  [Console]::Error.Write($_.Exception.Message)
+  exit 1
+}
+"#;
     let mut command = Command::new("powershell.exe");
     command
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .arg(zip_path)
-        .arg(destination);
+        .env("PROJECTX_ZIP_PATH", zip_path)
+        .args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    let result = command_output_with_timeout(&mut command, Duration::from_secs(30))?;
+    if result.ok { Ok(()) } else { Err(format!("ZIP safety validation failed: {}", result.output)) }
+}
+
+fn expand_zip(zip_path: &Path, destination: &Path) -> Result<(), String> {
+    validate_zip_archive(zip_path)?;
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("Unable to create import folder: {error}"))?;
+    let script = r#"
+$zipPath = $env:PROJECTX_ZIP_PATH
+$destinationPath = $env:PROJECTX_ZIP_DESTINATION
+if ([string]::IsNullOrWhiteSpace($zipPath)) { throw 'project.X did not provide a ZIP path to the extractor.' }
+if ([string]::IsNullOrWhiteSpace($destinationPath)) { throw 'project.X did not provide an extraction destination.' }
+Expand-Archive -LiteralPath $zipPath -DestinationPath $destinationPath -Force
+"#;
+    let mut command = Command::new("powershell.exe");
+    command
+        .env("PROJECTX_ZIP_PATH", zip_path)
+        .env("PROJECTX_ZIP_DESTINATION", destination)
+        .args(["-NoProfile", "-NonInteractive", "-Command", script]);
     let result = command_output(&mut command)?;
     if result.ok {
         Ok(())
@@ -519,6 +579,22 @@ pub(crate) fn create_vite_project(
     }
     authorize_root(&app, &state, &destination)?;
     let install_result = install_dependencies(&destination, "npm")?;
+    // A project created by project.X should be repository-ready without requiring
+    // the user to remember a separate initialization step. Git remains optional:
+    // project creation succeeds when Git is not installed.
+    let mut git_version = Command::new("git");
+    git_version.arg("--version");
+    if matches!(command_output_with_timeout(&mut git_version, Duration::from_secs(10)), Ok(result) if result.ok) {
+        let mut init = Command::new("git");
+        init.current_dir(&destination).args(["init"]);
+        let initialized = command_output_with_timeout(&mut init, Duration::from_secs(20))?;
+        if !initialized.ok {
+            return Err(format!("Project files were created, but Git initialization failed: {}", initialized.output));
+        }
+        let mut add = Command::new("git");
+        add.current_dir(&destination).args(["add", "-A"]);
+        let _ = command_output_with_timeout(&mut add, Duration::from_secs(30));
+    }
     Ok(ProjectInitializationResult {
         summary: inspect_inner(&destination)?,
         package_manager: Some("npm".into()),

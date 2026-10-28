@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { getDesktopHost } from './services/desktop'
-import { claimPendingActions, registerCompanionDevice, updateRemoteAction } from './services/companion'
+import { claimPendingActions, listCompanionDevices, registerCompanionDevice, updateRemoteAction } from './services/companion'
 import { createCompanionZipSignedUrl, deleteCompanionZip } from './services/companionPackages'
 import { getFreshSession, loadSession, upsertCloudProjects } from './services/supabase'
-import { projectInventorySignature, syncLocalProjects } from './services/projectCloudSync'
+import { projectInventorySignature, reconcileCloudProjectInventory, syncLocalProjects } from './services/projectCloudSync'
 import type { RemoteAction } from './services/companion'
 import type { DesktopProjectSummary } from './services/desktop'
 import { recordRunTask } from './services/runTasks'
@@ -12,6 +12,8 @@ const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
 const PROJECTS_KEY = 'projectx.projects.v1'
 const HOST_STATUS_KEY = 'projectx.companion.host-status.v1'
+const COMPANION_FRESH_MS = 30_000
+const CLOUD_RECONCILE_MS = 15_000
 
 type LocalSource = {
   projectId: string
@@ -58,8 +60,13 @@ function localSources(): LocalSource[] { return readArray<LocalSource>(LOCAL_KEY
 function localSource(projectId?: string | null): LocalSource | null { return projectId ? localSources().find((item) => item.projectId === projectId) || null : null }
 function newProjectId(name: string) { return `remote-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString().slice(-6)}` }
 
-function publishHostStatus(status: 'connecting' | 'online' | 'error', detail: string, projectCount = 0) {
-  const value = { status, detail, projectCount, updatedAt: new Date().toISOString() }
+function publishHostStatus(
+  status: 'connecting' | 'online' | 'error',
+  detail: string,
+  projectCount = 0,
+  extra: { hostOnline?: boolean; cloudOnline?: boolean; companionConnected?: boolean; companionLastSeenAt?: string | null; cloudProjectCount?: number; localProjectCount?: number } = {},
+) {
+  const value = { status, detail, projectCount, updatedAt: new Date().toISOString(), ...extra }
   localStorage.setItem(HOST_STATUS_KEY, JSON.stringify(value))
   window.dispatchEvent(new CustomEvent('projectx:companion-status', { detail: value }))
 }
@@ -189,20 +196,32 @@ export default function CompanionDesktopWorker() {
     let stopped = false
     let running = false
     let syncedInventory = ''
+    let lastReconciledAt = 0
+    let lastCloudProjectCount = 0
 
     async function tick() {
       if (stopped || running || !loadSession()) return
       running = true
       try {
-        publishHostStatus('connecting', 'Refreshing cloud connection.')
+        publishHostStatus('connecting', 'Refreshing project.X Cloud and Companion presence.', 0, { hostOnline: true, cloudOnline: false, companionConnected: false })
         const session = await getFreshSession(loadSession())
         if (!session) return
         const sources = localSources()
+        let cloudProjectCount = lastCloudProjectCount
+        if (Date.now() - lastReconciledAt >= CLOUD_RECONCILE_MS) {
+          const reconciled = await reconcileCloudProjectInventory(session)
+          cloudProjectCount = reconciled.cloudCount
+          lastCloudProjectCount = reconciled.cloudCount
+          lastReconciledAt = Date.now()
+          if (reconciled.changed) syncedInventory = ''
+        }
         const inventory = projectInventorySignature()
         if (inventory !== syncedInventory) {
           const synced = await syncLocalProjects(session)
-          syncedInventory = inventory
-          publishHostStatus('connecting', `Synced ${synced.count} project records.`, synced.count)
+          syncedInventory = projectInventorySignature()
+          cloudProjectCount = Math.max(cloudProjectCount, synced.count)
+          lastCloudProjectCount = cloudProjectCount
+          publishHostStatus('connecting', `Cloud online. Synced ${synced.count} project records. Checking Companion presence…`, synced.count, { hostOnline: true, cloudOnline: true, companionConnected: false, cloudProjectCount, localProjectCount: synced.count })
         }
         await registerCompanionDevice({
           device_id: id,
@@ -214,14 +233,31 @@ export default function CompanionDesktopWorker() {
             ...sources.slice(0, 200).map((source) => `project:${source.projectId}`),
           ],
         })
+
+        const devices = await listCompanionDevices()
+        const companions = devices
+          .filter((device) => device.platform !== 'windows')
+          .sort((a, b) => new Date(b.last_seen_at || 0).getTime() - new Date(a.last_seen_at || 0).getTime())
+        const companion = companions[0] || null
+        const companionLastSeenAt = companion?.last_seen_at || null
+        const companionConnected = Boolean(companionLastSeenAt && Date.now() - new Date(companionLastSeenAt).getTime() < COMPANION_FRESH_MS)
+
         const actions = await claimPendingActions(id)
         for (const action of actions) {
           if (action.status === 'approved') await execute(action)
         }
-        publishHostStatus('online', `Companion connected. ${sources.length} local project${sources.length === 1 ? '' : 's'} available.`, sources.length)
+
+        publishHostStatus(
+          companionConnected ? 'online' : 'connecting',
+          companionConnected
+            ? `Android Companion connected. Windows host online with ${sources.length} local project${sources.length === 1 ? '' : 's'}.`
+            : `Windows host online and project.X Cloud is reachable. Companion is not currently connected.`,
+          sources.length,
+          { hostOnline: true, cloudOnline: true, companionConnected, companionLastSeenAt, cloudProjectCount, localProjectCount: readArray<StoredProject>(PROJECTS_KEY).filter((project)=>!(project as { archived?: boolean }).archived).length },
+        )
       } catch (error) {
         const detail = errorMessage(error)
-        publishHostStatus('error', detail)
+        publishHostStatus('error', detail, 0, { hostOnline: true, cloudOnline: false, companionConnected: false })
       } finally { running = false }
     }
 
