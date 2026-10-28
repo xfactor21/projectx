@@ -114,6 +114,8 @@ export type DesktopHostBridge = {
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
   gitCommit(path: string, message: string): Promise<{ ok: boolean; output: string }>
   gitPush(path: string): Promise<{ ok: boolean; output: string }>
+  gitFetch(path: string): Promise<{ ok: boolean; output: string }>
+  gitPull(path: string): Promise<{ ok: boolean; output: string }>
   runScript(path: string, script: string): Promise<{ ok: boolean; output: string }>
   saveWorkspaceBackup(content: string, suggestedName: string): Promise<string | null>
   selectWorkspaceBackup(): Promise<WorkspaceBackupFile | null>
