@@ -55,6 +55,8 @@ export type ArtworkCandidate = {
   dataUrl?: string
 }
 
+export type GitHistoryEntry = { hash: string; date: string; subject: string }
+
 export type ProjectFileEntry = { name: string; relativePath: string; isDirectory: boolean; bytes?: number }
 
 export type ToolStatus = {
@@ -116,6 +118,7 @@ export type DesktopHostBridge = {
   gitPush(path: string): Promise<{ ok: boolean; output: string }>
   gitFetch(path: string): Promise<{ ok: boolean; output: string }>
   gitPull(path: string): Promise<{ ok: boolean; output: string }>
+  gitHistory(path: string): Promise<GitHistoryEntry[]>
   runScript(path: string, script: string): Promise<{ ok: boolean; output: string }>
   saveWorkspaceBackup(content: string, suggestedName: string): Promise<string | null>
   selectWorkspaceBackup(): Promise<WorkspaceBackupFile | null>
