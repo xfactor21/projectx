@@ -374,6 +374,48 @@ fn git_summary(root: &Path) -> Option<GitSummary> {
     })
 }
 
+fn read_small_manifest(root: &Path, name: &str) -> Option<String> {
+    let path = root.join(name);
+    let metadata = fs::metadata(&path).ok()?;
+    if !metadata.is_file() || metadata.len() > 250_000 { return None; }
+    fs::read_to_string(path).ok()
+}
+
+fn simple_toml_field(text: &str, sections: &[&str], field: &str) -> Option<String> {
+    let mut section = "";
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            section = trimmed;
+            continue;
+        }
+        if !sections.contains(&section) || trimmed.starts_with('#') { continue; }
+        let Some((key, raw)) = trimmed.split_once('=') else { continue; };
+        if key.trim() != field { continue; }
+        let value = raw.trim();
+        let unquoted = if let Some(part) = value.strip_prefix('"') {
+            part.split('"').next().unwrap_or("")
+        } else if let Some(part) = value.strip_prefix('\'') {
+            part.split('\'').next().unwrap_or("")
+        } else { value.split('#').next().unwrap_or("").trim() };
+        if !unquoted.is_empty() && unquoted.len() <= 400 {
+            return Some(unquoted.to_string());
+        }
+    }
+    None
+}
+
+fn simple_yaml_field(text: &str, field: &str) -> Option<String> {
+    for line in text.lines() {
+        if line.starts_with(' ') || line.starts_with('\t') { continue; }
+        let Some((key, raw)) = line.split_once(':') else { continue; };
+        if key.trim() != field { continue; }
+        let value = raw.trim().trim_matches('"').trim_matches('\'');
+        if !value.is_empty() && value.len() <= 400 { return Some(value.into()); }
+    }
+    None
+}
+
 pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
     let name = root
         .file_name()
@@ -436,6 +478,28 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
                         }
                     }
                 }
+            }
+        }
+    }
+    // Other ecosystems expose version and description through local manifests.
+    // Read only small files at the already-authorized root; never traverse secrets.
+    if version.is_none() || description.is_none() {
+        for name in ["Cargo.toml", "pyproject.toml"] {
+            let Some(text) = read_small_manifest(root, name) else { continue; };
+            let sections = if name == "Cargo.toml" { &["[package]"][..] } else { &["[project]", "[tool.poetry]"][..] };
+            if version.is_none() { version = simple_toml_field(&text, sections, "version"); }
+            if description.is_none() { description = simple_toml_field(&text, sections, "description"); }
+            if version.is_some() && description.is_some() { break; }
+        }
+        if let Some(text) = read_small_manifest(root, "pubspec.yaml") {
+            if version.is_none() { version = simple_yaml_field(&text, "version"); }
+            if description.is_none() { description = simple_yaml_field(&text, "description"); }
+        }
+        for name in ["composer.json", "deno.json"] {
+            let Some(text) = read_small_manifest(root, name) else { continue; };
+            if let Ok(json) = serde_json::from_str::<Value>(&text) {
+                if version.is_none() { version = json.get("version").and_then(Value::as_str).filter(|v| v.len() <= 64).map(ToOwned::to_owned); }
+                if description.is_none() { description = json.get("description").and_then(Value::as_str).filter(|v| v.len() <= 400).map(ToOwned::to_owned); }
             }
         }
     }
