@@ -6,11 +6,13 @@ import { APP_VERSION } from './version'
 import type { CloudProject, SupabaseSession } from './services/supabase'
 import type { CompanionDevice, RemoteAction } from './services/companion'
 import appIcon from './assets/brand/app-icon.png'
+import CompanionOnboarding from './CompanionOnboarding'
 
 const DEVICE_KEY = 'projectx.companion.device.v1'
 const HOST_FRESH_MS = 30_000
 const REFRESH_MS = 15_000
 const PENDING_MOBILE_LAUNCH_KEY = 'projectx.companion.pending-mobile-launch.v1'
+const ONBOARDING_KEY = 'projectx.companion.onboarding.v302'
 
 type PackageMode = 'create' | 'update'
 type CompanionTab = 'projects' | 'actions' | 'activity' | 'settings'
@@ -104,6 +106,8 @@ export default function CompanionApp() {
   const [configured, setConfigured] = useState(isSupabaseConfigured)
   const [launchProject, setLaunchProject] = useState<CloudProject | null>(null)
   const [mobilePreview, setMobilePreview] = useState<{ name: string; url: string; revision: number } | null>(null)
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+  const [onboardingOpen, setOnboardingOpen] = useState(() => localStorage.getItem(ONBOARDING_KEY) !== 'done')
   const refreshLock = useRef(false)
 
   async function refresh(current = session, quiet = false) {
@@ -117,6 +121,7 @@ export default function CompanionApp() {
       if (activeSession.access_token !== current.access_token) setSession(activeSession)
       const cloud = await fetchCloudProjects(activeSession)
       setProjects(cloud)
+      setLastSyncedAt(Date.now())
       try {
         await registerCompanionDevice({
           device_id: deviceId(),
@@ -297,6 +302,12 @@ export default function CompanionApp() {
   const pendingActions = actions.filter((action) => ['pending', 'approved', 'running'].includes(action.status || ''))
   const activity = actions.filter((action) => ['succeeded', 'failed', 'canceled'].includes(action.status || '')).slice(0, 40)
   const failedCount = actions.filter((action) => action.status === 'failed').length
+  const hostStale = Boolean(windowsDevice && !hostOnline)
+
+  function closeOnboarding() {
+    localStorage.setItem(ONBOARDING_KEY, 'done')
+    setOnboardingOpen(false)
+  }
 
   if (!session) return <main className="companion-shell companion-auth">
     <div className="companion-auth-card">
@@ -311,7 +322,7 @@ export default function CompanionApp() {
     </div>
   </main>
 
-  return <main className="companion-shell companion-v17">
+  return <main className="companion-shell companion-v17 companion-v302">
     <header className="companion-header">
       <button className="companion-brand companion-brand-button" type="button" onClick={() => setTab('projects')} aria-label="Open projects">
         <img src={appIcon} alt=""/><div><strong>project.X</strong><small>COMPANION · v{APP_VERSION}</small></div>
@@ -322,11 +333,17 @@ export default function CompanionApp() {
     </header>
 
     <section className="companion-page">
+      <section className={`companion-connection-banner ${hostOnline ? 'online' : hostStale ? 'stale' : 'offline'}`}>
+        <i aria-hidden="true"/>
+        <div><strong>{hostOnline ? `${windowsDevice?.name || 'Windows host'} online` : hostStale ? `${windowsDevice?.name || 'Windows host'} last seen ${relativeTime(windowsDevice?.last_seen_at)}` : 'Windows host not connected'}</strong><small>Cloud {session ? 'connected' : 'offline'} · {lastSyncedAt ? `synced ${relativeTime(new Date(lastSyncedAt).toISOString())}` : 'not synced yet'}</small></div>
+        <button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? '…' : 'Refresh'}</button>
+      </section>
       {tab === 'projects' && <>
         <section className="companion-hero">
           <small>REMOTE PROJECT COMMAND</small>
           <h1>Everything you’re building.<br/><em>In your pocket.</em></h1>
           <p>{message}</p>
+          <div className="companion-sync-note">Cloud account and Windows host are independent connections.</div>
           <div className="companion-stats">
             <div><b>{visible.length}</b><span>CLOUD</span></div>
             <div><b>{availableCount}</b><span>ON PC</span></div>
@@ -406,7 +423,7 @@ export default function CompanionApp() {
         </section>
         <section className="companion-setting-card">
           <small>ACCOUNT</small><div><span>{session.user.email || 'Signed in'}</span><b>CONNECTED</b></div>
-          <div className="companion-settings-actions"><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh cloud + devices'}</button><button className="danger" type="button" onClick={() => void logout()}>Sign out</button></div>
+          <div className="companion-settings-actions"><button type="button" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh cloud + devices'}</button><button type="button" onClick={() => setOnboardingOpen(true)}>Companion guide</button><button className="danger" type="button" onClick={() => void logout()}>Sign out</button></div>
         </section>
         <p className="companion-settings-foot">Device ID: {deviceId()}</p>
       </section>}
@@ -439,6 +456,7 @@ export default function CompanionApp() {
         <p>For off-network access, use the project’s Published link or configure an authenticated HTTPS tunnel outside project.X.</p>
       </section>
     </div>}
+    {onboardingOpen && <CompanionOnboarding onClose={closeOnboarding}/>} 
     {mobilePreview && <div className="companion-mobile-preview">
       <header><div><small>LIVE FROM PC</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Reload preview" onClick={() => setMobilePreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
       <iframe key={mobilePreview.revision} src={mobilePreview.url} title={`${mobilePreview.name} mobile preview`} allow="clipboard-read; clipboard-write; fullscreen"/>
