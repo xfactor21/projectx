@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod artwork;
+mod file_browser;
 mod dev_preview;
 mod imports;
 mod local_dev_url;
@@ -681,6 +682,8 @@ fn main() {
             git_push,
             run_script,
             artwork::discover_project_artwork,
+            file_browser::list_project_files,
+            file_browser::read_project_text,
             system_tools::toolchain_preflight,
             remote_packages::download_remote_package,
             remote_packages::remove_remote_package,
