@@ -1,6 +1,6 @@
 [package]
 name = "projectx-desktop"
-version = "3.0.1"
+version = "3.0.2"
 description = "project.X Windows desktop host"
 authors = ["planet.X"]
 edition = "2021"
