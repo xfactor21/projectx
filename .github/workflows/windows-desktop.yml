@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_v3.01_six-phase-stabilization_Oct-27
+  PROJECTX_BUILD_NAME: projectX_v3.02_companion-product-pass_Oct-27
 
 jobs:
   windows-installer:
