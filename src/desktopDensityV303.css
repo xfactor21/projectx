@@ -343,3 +343,45 @@
 .workspace-v3 .command-project-v304.aspect-landscape .command-cover-image{object-fit:cover;object-position:center}
 @media(max-width:620px){.workspace-v3 .command-project-v304.aspect-portrait{grid-template-columns:95px minmax(0,1fr)!important}.workspace-v3 .command-project-v304.aspect-landscape{grid-template-columns:125px minmax(0,1fr)!important}}
 @media(prefers-reduced-motion:reduce){.workspace-v3 .command-project-v304 .command-cover-image{transition:none}.workspace-v3 .command-project-v304:hover .command-cover-image{transform:none}}
+
+/* v3.04 Control Center fix: fixed tool panels must not be clipped by a filtered/scrolled ancestor. */
+.utility-hub{z-index:320!important}
+.utility-hub .utility-menu{overflow:visible!important;backdrop-filter:none!important;max-height:calc(100dvh - 24px)!important;border-radius:22px!important;background:linear-gradient(150deg,rgba(19,22,36,.98),rgba(7,11,19,.98))!important}
+.utility-hub .utility-menu-body{max-height:min(540px,calc(100dvh - 140px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.utility-hub .utility-menu>header strong{font-size:22px!important}
+.utility-hub .utility-menu>header small{font-size:10px!important}
+.utility-hub .utility-menu>header span{font-size:12px!important}
+.utility-hub .utility-menu>header>button{min-height:42px!important;border-radius:11px!important;font-size:12px!important}
+.utility-hub .utility-menu nav button{min-height:60px!important;border-radius:11px!important;padding:12px!important}
+.utility-hub .utility-menu nav button strong{font-size:14px!important}
+.utility-hub .utility-menu nav button span{font-size:11px!important;line-height:1.45!important}
+.utility-hub .utility-actions>aside>button:first-child,.utility-hub .utility-actions>.theme-sound-toggle,.utility-hub .utility-actions>.project-launcher-fab{height:52px!important;border-radius:11px!important;font-size:11px!important}
+.utility-hub .utility-actions .cloud-dock-panel,
+.utility-hub .utility-actions .local-dock-panel,
+.utility-hub .utility-actions .artwork-panel,
+.utility-hub .utility-actions .task-console-panel,
+.utility-hub .utility-actions .data-backup-panel,
+.utility-hub .utility-actions .runtime-panel,
+.utility-hub .utility-actions .desktop-actions-panel,
+.utility-hub .utility-actions .intel-panel,
+.utility-hub .utility-actions .analytics-panel,
+.utility-hub .utility-actions .deploy-panel,
+.utility-hub .utility-actions .beta-panel{
+  position:fixed!important;inset:auto clamp(12px,3vw,38px) auto auto!important;top:50dvh!important;
+  transform:translateY(-50%)!important;z-index:360!important;
+  width:min(680px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
+  max-height:calc(100dvh - 32px)!important;overflow-x:hidden!important;overflow-y:auto!important;
+  overscroll-behavior:contain;box-sizing:border-box;border-radius:20px!important;
+  box-shadow:0 30px 85px #000c!important;
+}
+.settings-backdrop{overflow:auto!important;padding:18px!important}
+.settings-workspace{width:min(920px,calc(100vw - 36px))!important;max-height:calc(100dvh - 36px)!important;border-radius:22px!important;overflow:auto!important}
+.settings-workspace>header{padding:20px 24px!important}
+.settings-workspace>header strong{font-size:28px!important}
+.settings-workspace>nav button{min-height:46px!important;font-size:12px!important}
+.settings-content{padding:24px!important}
+.settings-heading p{font-size:13px!important}
+.settings-toggle{border-radius:13px!important}
+.settings-toggle strong{font-size:15px!important}
+.settings-toggle small{font-size:12px!important}
+@media(max-width:680px){.utility-hub .utility-menu{width:calc(100vw - 20px)!important;left:10px!important;top:10px!important}.utility-hub .utility-menu-body{grid-template-columns:1fr!important;max-height:calc(100dvh - 150px)}.utility-hub .utility-menu nav{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.utility-hub .utility-menu nav button{min-height:48px!important;padding:8px!important}.utility-hub .utility-menu nav button span{display:none}.utility-hub .utility-actions .cloud-dock-panel,.utility-hub .utility-actions .local-dock-panel,.utility-hub .utility-actions .artwork-panel,.utility-hub .utility-actions .task-console-panel,.utility-hub .utility-actions .data-backup-panel,.utility-hub .utility-actions .runtime-panel,.utility-hub .utility-actions .desktop-actions-panel,.utility-hub .utility-actions .intel-panel,.utility-hub .utility-actions .analytics-panel,.utility-hub .utility-actions .deploy-panel,.utility-hub .utility-actions .beta-panel{right:12px!important}}
