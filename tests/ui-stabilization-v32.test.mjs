@@ -5,6 +5,8 @@ import fs from 'node:fs'
 const worker = fs.readFileSync(new URL('../src/CompanionDesktopWorker.tsx', import.meta.url), 'utf8')
 const center = fs.readFileSync(new URL('../src/ConnectionCenter.tsx', import.meta.url), 'utf8')
 const css = fs.readFileSync(new URL('../src/uxStabilizationV32.css', import.meta.url), 'utf8')
+const density = fs.readFileSync(new URL('../src/desktopDensityV303.css', import.meta.url), 'utf8')
+const switcher = fs.readFileSync(new URL('../src/ThemeSwitcher.tsx', import.meta.url), 'utf8')
 const main = fs.readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8')
 const providerClient = fs.readFileSync(new URL('../src/services/providerConnections.ts', import.meta.url), 'utf8')
 const providerFiles = [
@@ -31,18 +33,17 @@ test('connection center exposes separate Cloud Windows and Companion states', ()
   assert.match(center, /companionLastSeenAt/)
 })
 
-test('all seven environment selectors reserve real visible layout space', () => {
-  assert.match(css, /grid-template-columns:repeat\(7,minmax\(112px,1fr\)\)!important/)
-  assert.match(css, /min-height:106px!important/)
-  assert.match(css, /grid-auto-rows:minmax\(82px,auto\)!important/)
-  assert.match(css, /\.workspace-v3 \.v2-theme-deck button\{[\s\S]*min-height:82px!important/)
-  assert.match(css, /visibility:visible!important/)
+test('environments are removed from permanent layout and exposed as a Beta popup', () => {
+  assert.match(switcher, /ENVIRONMENTS <b>BETA<\/b>/)
+  assert.match(switcher, /These visual environments are experimental/)
+  assert.match(density, /\.theme-picker-backdrop/)
+  assert.match(density, /\.environment-trigger/)
 })
 
-test('stabilization stylesheet is loaded last', () => {
+test('v3.03 density stylesheet is loaded after stabilization layers', () => {
+  const densityIndex = main.indexOf("import './desktopDensityV303.css'")
   const stabilization = main.indexOf("import './uxStabilizationV32.css'")
-  const previous = main.indexOf("import './environmentIsolationV31.css'")
-  assert.ok(stabilization > previous)
+  assert.ok(densityIndex > stabilization)
 })
 
 test('connection auth fields are constrained and responsive', () => {
