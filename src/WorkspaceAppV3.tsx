@@ -10,7 +10,7 @@ import { readSettings } from './services/settings'
 import appIcon from './assets/brand/app-icon.png'
 import planetCrest from './assets/brand/planetx-crest-transparent.png'
 import planetWordmark from './assets/brand/planetx-wordmark-transparent.png'
-import { recordRunTask } from './services/runTasks'
+import { readRunTasks, recordRunTask } from './services/runTasks'
 import { appendCloudActivity, fetchCloudActivity, isSupabaseConfigured, loadSession, type CloudActivity } from './services/supabase'
 import { buildHealthFromInspection, deploymentState, healthFor, PROJECT_HEALTH_EVENT, readProjectHealth, writeProjectHealth, type ProjectHealth } from './services/projectHealth'
 import { fetchVercelDeployments } from './services/vercel'
@@ -174,7 +174,7 @@ export default function WorkspaceAppV3(){
     if(nav!=='Archive'&&project.archived)return false
     if(filterMode==='local'&&!sourceMap.get(project.id)?.path)return false
     if(filterMode==='repo'&&!project.repoUrl&&!project.github)return false
-    if(filterMode==='running'&&healthFor(project.id,healthMap).runtime.state!=='running')return false
+    if(filterMode==='running'&&!readRunTasks().some(task=>task.projectId===project.id))return false
     const text=`${project.name} ${project.kicker||''} ${project.description||''} ${(project.stack||[]).join(' ')}`.toLowerCase()
     return text.includes(query.trim().toLowerCase())
   }).sort((a,b)=>sortMode==='name'?a.name.localeCompare(b.name):(b.updated||'').localeCompare(a.updated||'')),[projects,nav,query,sortMode])
