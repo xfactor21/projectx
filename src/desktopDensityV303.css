@@ -326,3 +326,10 @@
 .project-file-list button span{overflow-wrap:anywhere}
 .project-file-list button small{color:#94a9bb;white-space:nowrap;font-size:11px}
 .file-browser-preview{max-height:260px;max-width:100%;overflow:auto;padding:16px;border:1px solid #ffffff1d;border-radius:12px;background:#070a11;color:#cbeaf5;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,monospace}
+
+.git-commit-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;padding-top:12px;border-top:1px solid #ffffff18}
+.git-commit-form label{display:grid;gap:8px;color:#d9e4f4;font-weight:700;font-size:13px}
+.git-commit-form input{min-width:0;width:100%;height:44px;padding:0 12px;border:1px solid #ffffff2a;border-radius:10px;background:#090e18;color:#fff;font:14px system-ui}
+.git-commit-form button{min-height:44px;padding:0 16px;border:1px solid #31dcf46b;border-radius:11px;background:#29d8ee1d;color:#e5faff;font-weight:700;cursor:pointer}
+.git-commit-form button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:550px){.git-commit-form{grid-template-columns:1fr}}
