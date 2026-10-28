@@ -651,8 +651,8 @@ fn git_history(path: String, state: State<'_, DesktopState>) -> Result<Vec<GitHi
     command.current_dir(root).args(["log", "-n", "50", "--date=short", "--pretty=format:%h%x1f%ad%x1f%s%x1e"]);
     let result = command_output(&mut command)?;
     if !result.ok { return Err(result.output); }
-    Ok(result.output.split('\\u{1e}').filter_map(|line| {
-        let mut pieces = line.trim().splitn(3, '\\u{1f}');
+    Ok(result.output.split('\u{1e}').filter_map(|line| {
+        let mut pieces = line.trim().splitn(3, '\u{1f}');
         Some(GitHistoryEntry {
             hash: pieces.next()?.to_string(),
             date: pieces.next()?.to_string(),
