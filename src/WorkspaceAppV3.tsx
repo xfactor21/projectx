@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ThemeProjectRenderer from './ThemeProjectRenderer'
 import ThemeSwitcher from './ThemeSwitcher'
-import { getDesktopHost } from './services/desktop'
+import { getDesktopHost, type ProjectFileEntry } from './services/desktop'
 import { APP_VERSION } from './version'
 import { errorMessage } from './services/errors'
 import { deleteProjectAndLocalSource, readLocalSources, readProjects } from './services/projectStorage'
@@ -63,6 +63,10 @@ export default function WorkspaceAppV3(){
   const [themePickerOpen,setThemePickerOpen]=useState(false)
   const [cardDialog,setCardDialog]=useState<{kind:'git'|'files'|'workbook';projectId:string}|null>(null)
   const [gitInfo,setGitInfo]=useState('')
+  const [fileDir,setFileDir]=useState('')
+  const [fileEntries,setFileEntries]=useState<ProjectFileEntry[]>([])
+  const [filePreview,setFilePreview]=useState('')
+  const [fileMessage,setFileMessage]=useState('')
   const [workbookNote,setWorkbookNote]=useState('')
   const [workbookTasks,setWorkbookTasks]=useState<string[]>([])
   const [newTask,setNewTask]=useState('')
@@ -80,6 +84,7 @@ export default function WorkspaceAppV3(){
     if(!cardDialog)return
     const project=projects.find(item=>item.id===cardDialog.projectId)
     if(!project)return
+    if(cardDialog.kind==='files'){setFileDir('');void browseProject(project.id)}
     if(cardDialog.kind==='workbook'){
       try{const data=JSON.parse(localStorage.getItem('projectx.workbook.'+project.id)||'{}');setWorkbookNote(typeof data.note==='string'?data.note:'');setWorkbookTasks(Array.isArray(data.tasks)?data.tasks.filter((task:unknown)=>typeof task==='string'):[])}catch{setWorkbookNote('');setWorkbookTasks([])}
     }
@@ -91,6 +96,24 @@ export default function WorkspaceAppV3(){
     }
   },[cardDialog,projects,sources,desktop])
   function saveWorkbook(projectId:string,note:string,tasks:string[]){localStorage.setItem('projectx.workbook.'+projectId,JSON.stringify({note,tasks,updatedAt:new Date().toISOString()}))}
+  async function browseProject(projectId:string,relativePath=''){
+    const path=sources.find(item=>item.projectId===projectId)?.path
+    setFilePreview('')
+    setFileMessage('Loading project files…')
+    if(!desktop||!path){setFileEntries([]);setFileMessage('Link a local folder to browse this project.');return}
+    try{
+      const items=await desktop.listProjectFiles(path,relativePath)
+      setFileDir(relativePath);setFileEntries(items);setFileMessage(items.length?'':'This folder is empty.')
+    }catch(error){setFileEntries([]);setFileMessage(errorMessage(error,'Cannot read project folder.'))}
+  }
+  async function previewProjectFile(projectId:string,relativePath:string){
+    const path=sources.find(item=>item.projectId===projectId)?.path
+    if(!desktop||!path)return
+    setFileMessage('Opening '+relativePath+'…')
+    try{setFilePreview(await desktop.readProjectText(path,relativePath));setFileMessage(relativePath)}
+    catch(error){setFilePreview('');setFileMessage(errorMessage(error,'Preview unavailable.'))}
+  }
+
 
   useEffect(()=>{const refresh=()=>setCloudState({configured:isSupabaseConfigured(),session:loadSession()});window.addEventListener('projectx:supabase-config-changed',refresh);window.addEventListener('projectx:supabase-session-changed',refresh);return()=>{window.removeEventListener('projectx:supabase-config-changed',refresh);window.removeEventListener('projectx:supabase-session-changed',refresh)}},[])
   useEffect(()=>{const refresh=()=>setCompanionState(readHostStatus());window.addEventListener('projectx:companion-status',refresh);return()=>window.removeEventListener('projectx:companion-status',refresh)},[])
@@ -205,7 +228,7 @@ export default function WorkspaceAppV3(){
     <ThemeSwitcher items={themes} value={theme} open={themePickerOpen} onClose={()=>setThemePickerOpen(false)} onChange={(next)=>changeTheme(next as ThemeMode)} />
     {cardDialog&&(()=>{const project=projects.find(item=>item.id===cardDialog.projectId);if(!project)return null;const path=sourceMap.get(project.id)?.path;return <div className="project-card-dialog-backdrop" onMouseDown={()=>setCardDialog(null)}><section className="project-card-dialog" role="dialog" aria-modal="true" aria-label={project.name+' '+cardDialog.kind} onMouseDown={event=>event.stopPropagation()}><header><div><small>PROJECT.X / {cardDialog.kind.toUpperCase()}</small><h2>{project.name}</h2></div><button type="button" onClick={()=>setCardDialog(null)} aria-label="Close">×</button></header>
     {cardDialog.kind==='git'&&<div className="project-card-dialog-body"><p>{gitInfo}</p><div className="card-dialog-actions"><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.gitStatus(path).then(info=>setGitInfo('Branch: '+(info?.branch||'unknown')+' · '+(info?.dirty?'Changes present':'Clean'))).catch(e=>setGitInfo(errorMessage(e,'Git status failed.')))}}>Refresh status</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInTerminal(path)}}>Open terminal</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path||!window.confirm('Push local commits for '+project.name+' to its configured remote?'))return;setGitInfo('Pushing…');void desktop.gitPush(path).then(result=>setGitInfo(result.output)).catch(e=>setGitInfo(errorMessage(e,'Push failed.')))}}>Push (confirm)</button></div><p className="dialog-hint">Pull, sync and branch operations require further native safety checks. Use the repository terminal for now; no automatic push occurs.</p></div>}
-    {cardDialog.kind==='files'&&<div className="project-card-dialog-body"><p>Project root</p><code>{path||'No local folder linked'}</code><div className="card-dialog-actions"><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInExplorer(path)}}>Open in Windows Explorer</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInTerminal(path)}}>Open terminal</button></div><p className="dialog-hint">The secure in-app file browser remains a planned native capability. This opens the authorized folder without accessing unrelated files.</p></div>}
+    {cardDialog.kind==='files'&&<div className="project-card-dialog-body"><div className="file-browser-toolbar"><strong>Project files</strong><button type="button" disabled={!path||!desktop} onClick={()=>void browseProject(project.id,'')}>⌂ Root</button><button type="button" disabled={!fileDir||!desktop} onClick={()=>void browseProject(project.id,fileDir.split('/').slice(0,-1).join('/'))}>↑ Up</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInExplorer(path)}}>Windows Explorer</button></div><code>{fileDir ? '/'+fileDir : '/'} · {path||'No local folder linked'}</code><div className="project-file-list" role="list">{fileEntries.map(entry=><button type="button" role="listitem" key={entry.relativePath} onClick={()=>entry.isDirectory?void browseProject(project.id,entry.relativePath):void previewProjectFile(project.id,entry.relativePath)}><span>{entry.isDirectory?'▣':'▤'} {entry.name}</span><small>{entry.isDirectory?'Folder':entry.bytes?Math.ceil(entry.bytes/1024)+' KB':'File'}</small></button>)}</div>{fileMessage&&<p className="dialog-hint" role="status">{fileMessage}</p>}{filePreview&&<pre className="file-browser-preview">{filePreview}</pre>}<p className="dialog-hint">Read-only. Only files inside the authorized project root can be listed or previewed. Sensitive credentials and large files are excluded.</p></div>
     {cardDialog.kind==='workbook'&&<div className="project-card-dialog-body"><label className="workbook-label">Project notes<textarea rows={5} value={workbookNote} onChange={event=>{setWorkbookNote(event.target.value);saveWorkbook(project.id,event.target.value,workbookTasks)}} placeholder="Ideas, decisions, progress…" /></label><h3>Tasks</h3><div className="workbook-tasks">{workbookTasks.map((task,index)=><div key={index}><span>{task}</span><button type="button" onClick={()=>{const next=workbookTasks.filter((_,i)=>i!==index);setWorkbookTasks(next);saveWorkbook(project.id,workbookNote,next)}} aria-label={'Remove '+task}>×</button></div>)}</div><form onSubmit={event=>{event.preventDefault();const value=newTask.trim();if(!value)return;const next=[...workbookTasks,value];setWorkbookTasks(next);saveWorkbook(project.id,workbookNote,next);setNewTask('')}}><input value={newTask} onChange={event=>setNewTask(event.target.value)} placeholder="Add a task…" /><button type="submit">Add task</button></form><p className="dialog-hint">Notes and tasks are stored on this device for now; cloud history and backup integration are future work.</p></div>}
     </section></div>})()}
 
