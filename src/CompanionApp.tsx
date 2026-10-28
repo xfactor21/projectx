@@ -375,7 +375,7 @@ export default function CompanionApp() {
         <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void login()} /></label>
         <button type="button" disabled={busy || !configured} onClick={() => void login()}>{busy ? 'Connecting…' : configured ? 'Connect companion' : 'Cloud service unavailable'}</button>
-        <small className="companion-auth-message">{message}</small>
+        <small className="companion-auth-message" aria-live="polite">{message}</small>
       </section>
     </div>
   </main>
@@ -400,7 +400,7 @@ export default function CompanionApp() {
         <section className="companion-hero">
           <small>REMOTE PROJECT COMMAND</small>
           <h1>Everything you’re building.<br/><em>In your pocket.</em></h1>
-          <p>{message}</p>
+          <p aria-live="polite">{message}</p>
           <div className="companion-sync-note">Cloud account and Windows host are independent connections.</div>
           <div className="companion-stats">
             <div><b>{visible.length}</b><span>CLOUD</span></div>
@@ -491,6 +491,13 @@ export default function CompanionApp() {
         <section className="companion-setting-card">
           <small>WINDOWS HOST</small><div><span>{windowsDevice?.name || 'No host registered'}</span><b className={hostOnline ? 'online' : 'offline'}>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></div>
           <p>{windowsDevice?.last_seen_at ? `Last seen ${relativeTime(windowsDevice.last_seen_at)} · v${windowsDevice.app_version || '?'}` : 'Open project.X on Windows while signed into the same account.'}</p>
+        </section>
+        <section className="companion-setting-card companion-model-card">
+          <small>HOW CONNECTIONS WORK</small>
+          <div className="companion-model-row"><span>Cloud account</span><b className="online">SIGNED IN</b></div>
+          <div className="companion-model-row"><span>Windows host</span><b className={hostOnline ? 'online' : 'offline'}>{hostOnline ? 'ONLINE' : 'OFFLINE'}</b></div>
+          <div className="companion-model-row"><span>This Companion</span><b className="online">{companionPlatform().toUpperCase()}</b></div>
+          <p>Cloud keeps project records in sync. Windows performs local filesystem, Git, build and ZIP-import work. This Companion requests and monitors those actions.</p>
         </section>
         <section className="companion-setting-card">
           <small>PACKAGE HANDOFF</small><label className="companion-settings-toggle"><span><b>Install dependencies on PC</b><small>Default for project ZIP handoff</small></span><input type="checkbox" checked={installDeps} onChange={(event) => setInstallDeps(event.target.checked)}/></label>
