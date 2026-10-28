@@ -5,8 +5,8 @@ import { execFileSync } from 'node:child_process'
 
 const read = (path) => fs.readFileSync(path, 'utf8')
 
-test('release version is v3.05 after immersive reliability pass', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '3.0.5')
+test('release version is v3.06 after theme reconstruction pass', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '3.0.6')
 })
 
 test('desktop Supabase sessions use protected persistence, not localStorage', () => {
@@ -137,18 +137,18 @@ test('project cards expose build runtime git and deployment as separate health f
 })
 
 
-test('v3.05 build identity matches app native and artifact metadata', () => {
+test('v3.06 build identity matches app native and artifact metadata', () => {
   const version = read('src/version.ts')
   const tauri = read('src-tauri/tauri.conf.json')
   const cargo = read('src-tauri/Cargo.toml')
   const windows = read('.github/workflows/windows-desktop.yml')
   const android = read('.github/workflows/android-companion.yml')
-  assert.match(version, /APP_VERSION = '3\.05'/)
-  assert.match(version, /APP_SEMVER = '3\.0\.5'/)
-  assert.match(tauri, /"version": "3\.0\.5"/)
-  assert.match(cargo, /version = "3\.0\.5"/)
-  assert.match(windows, /projectX-10\.28-v3\.05-immersive-reliability/)
-  assert.match(android, /PROJECTX_ANDROID_VERSION: 3\.0\.5/)
+  assert.match(version, /APP_VERSION = '3\.06'/)
+  assert.match(version, /APP_SEMVER = '3\.0\.6'/)
+  assert.match(tauri, /"version": "3\.0\.6"/)
+  assert.match(cargo, /version = "3\.0\.6"/)
+  assert.match(windows, /projectX-10\.28-v3\.06-theme-reconstruction/)
+  assert.match(android, /PROJECTX_ANDROID_VERSION: 3\.0\.6/)
 })
 
 
