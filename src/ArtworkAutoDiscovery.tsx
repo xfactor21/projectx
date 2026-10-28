@@ -48,7 +48,6 @@ function mayReplaceCover(project: Project) {
 export default function ArtworkAutoDiscovery() {
   useEffect(() => {
     const desktop = getDesktopHost()
-    if (!desktop) return
     let cancelled = false
     let running = false
     let retry = false
@@ -65,7 +64,7 @@ export default function ArtworkAutoDiscovery() {
           let candidate: {dataUrl?: string; relativePath: string} | undefined
           let version: string | undefined
           let description: string | undefined
-          if (source?.path) {
+          if (desktop && source?.path) {
             try {
               const summary = await desktop.inspectProject(source.path)
               version = summary.version
