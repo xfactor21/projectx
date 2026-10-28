@@ -72,6 +72,8 @@ This pass treats the environments as product interfaces, not decorative card ski
 
 ## Post-implementation audit
 
+The deployed-preview pass caught and corrected two issues that were not visible in source review: the floating Controls orb could render above the environment chooser, and Vending package labels/health signals compressed over procedural artwork. The chooser now fully owns modal focus and visual stacking; Vending packages now use a dedicated glass label plate and a readable two-by-two instrument grid.
+
 | Area | Result | Remaining gate |
 |---|---|---|
 | Shared hierarchy | Consistent across every renderer | Visual acceptance on installed Windows build |
