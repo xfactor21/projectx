@@ -1,5 +1,5 @@
-// project.X v3.02: Companion UI/UX and remote-control product pass.
-export const APP_VERSION = '3.02'
-export const APP_SEMVER = '3.0.2'
-export const BUILD_DATE_TAG = 'Oct-27'
-export const BUILD_BASENAME = `projectX_v${APP_VERSION}_companion-product-pass_${BUILD_DATE_TAG}`
+// project.X v3.03: desktop density, environments Beta popup, compact Command grid, and Preview recovery.
+export const APP_VERSION = '3.03'
+export const APP_SEMVER = '3.0.3'
+export const BUILD_DATE_TAG = 'Oct-28'
+export const BUILD_BASENAME = `projectX_v${APP_VERSION}_desktop-density-video-fix_${BUILD_DATE_TAG}`
