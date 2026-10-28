@@ -9,6 +9,7 @@ type Project = {
   id: string
   name: string
   kicker?: string
+  detectedVersion?: string
   description?: string
   status?: string
   stack?: string[]
@@ -201,6 +202,6 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
 
   return <section className="command-project-grid" aria-label="Project command grid">{projects.map((project) => {
     const source = sourceMap.get(project.id)
-    return <article className={`command-project command-project-v304 ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)} onClick={()=>onOpen(project)}><button type="button" className="command-visual project-art-surface" aria-label={`View ${project.name} details`} onClick={(event)=>{event.stopPropagation();onOpen(project)}}>{!project.coverUrl && <b>{monogram(project.name)}</b>}</button><div className="command-console"><header><span>{project.kicker || 'BUILD NOT DETECTED'}</span></header><h3>{project.name}</h3><p>{project.description || 'Add a description in project details.'}</p><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={(event)=>{event.stopPropagation();onRun(project)}}>▶ Run</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-git',{detail:{projectId:project.id}}))}}>⑂ Git</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-files',{detail:{projectId:project.id}}))}}>▤ Open</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-workbook',{detail:{projectId:project.id}}))}}>▣ Workbook</button></footer></div></article>
+    return <article className={`command-project command-project-v304 ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)} onClick={()=>onOpen(project)}><button type="button" className="command-visual project-art-surface" aria-label={`View ${project.name} details`} onClick={(event)=>{event.stopPropagation();onOpen(project)}}>{!project.coverUrl && <b>{monogram(project.name)}</b>}</button><div className="command-console"><header><span>{project.detectedVersion ? 'BUILD v' + project.detectedVersion : 'BUILD NOT DETECTED'}</span></header><h3>{project.name}</h3><p>{project.description || 'Add a description in project details.'}</p><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={(event)=>{event.stopPropagation();onRun(project)}}>▶ Run</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-git',{detail:{projectId:project.id}}))}}>⑂ Git</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-files',{detail:{projectId:project.id}}))}}>▤ Open</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-workbook',{detail:{projectId:project.id}}))}}>▣ Workbook</button></footer></div></article>
   })}</section>
 }
