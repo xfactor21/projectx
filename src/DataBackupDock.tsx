@@ -84,7 +84,7 @@ export default function DataBackupDock() {
     {open && <div className="data-backup-panel">
       <header><div><small>LOCAL WORKSPACE</small><strong>Backup and restore</strong></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
       <p>{message}</p>
-      <div className="data-backup-summary"><span>INCLUDED</span><strong>Projects, local links, artwork and preferences</strong><small>Passwords, access tokens and cloud sessions are never exported.</small></div>
+      <div className="data-backup-summary"><span>INCLUDED</span><strong>Projects, Workbooks, local links, artwork and preferences</strong><small>Passwords, access tokens and cloud sessions are never exported. Workbook notes are included; review before sharing.</small></div>
       <div className="data-backup-actions"><button type="button" disabled={busy} onClick={() => void exportBackup()}>Save backup</button><button type="button" disabled={busy} onClick={() => void selectRestore()}>Restore backup</button></div>
       <button className="data-backup-clear" type="button" disabled={busy} onClick={clearPersonalData}>Clear personal data</button>
       <small className="data-backup-note">Clearing removes app data only. It never deletes project folders or repositories from disk.</small>
