@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ThemeProjectRenderer from './ThemeProjectRenderer'
 import ThemeSwitcher from './ThemeSwitcher'
+import ProjectWorkbook from './ProjectWorkbook'
 import { getDesktopHost, type ProjectFileEntry } from './services/desktop'
 import { APP_VERSION } from './version'
 import { errorMessage } from './services/errors'
@@ -68,9 +69,6 @@ export default function WorkspaceAppV3(){
   const [fileEntries,setFileEntries]=useState<ProjectFileEntry[]>([])
   const [filePreview,setFilePreview]=useState('')
   const [fileMessage,setFileMessage]=useState('')
-  const [workbookNote,setWorkbookNote]=useState('')
-  const [workbookTasks,setWorkbookTasks]=useState<string[]>([])
-  const [newTask,setNewTask]=useState('')
   const [sortMode,setSortMode]=useState<'name'|'recent'>('name')
   const [sortMenuOpen,setSortMenuOpen]=useState(false)
 
@@ -86,9 +84,6 @@ export default function WorkspaceAppV3(){
     const project=projects.find(item=>item.id===cardDialog.projectId)
     if(!project)return
     if(cardDialog.kind==='files'){setFileDir('');void browseProject(project.id)}
-    if(cardDialog.kind==='workbook'){
-      try{const data=JSON.parse(localStorage.getItem('projectx.workbook.'+project.id)||'{}');setWorkbookNote(typeof data.note==='string'?data.note:'');setWorkbookTasks(Array.isArray(data.tasks)?data.tasks.filter((task:unknown)=>typeof task==='string'):[])}catch{setWorkbookNote('');setWorkbookTasks([])}
-    }
     if(cardDialog.kind==='git'){
       const path=sources.find(item=>item.projectId===project.id)?.path
       if(!desktop||!path){setGitInfo('A local project is required for Git operations.');return}
@@ -96,7 +91,6 @@ export default function WorkspaceAppV3(){
       void desktop.gitStatus(path).then(info=>setGitInfo(info?'Branch: '+(info.branch||'unknown')+' · '+(info.dirty?'Local changes present':'Working tree clean'):'No Git repository detected')).catch(error=>setGitInfo(errorMessage(error,'Unable to read Git status.')))
     }
   },[cardDialog,projects,sources,desktop])
-  function saveWorkbook(projectId:string,note:string,tasks:string[]){localStorage.setItem('projectx.workbook.'+projectId,JSON.stringify({note,tasks,updatedAt:new Date().toISOString()}))}
   async function browseProject(projectId:string,relativePath=''){
     const path=sources.find(item=>item.projectId===projectId)?.path
     setFilePreview('')
@@ -230,7 +224,7 @@ export default function WorkspaceAppV3(){
     {cardDialog&&(()=>{const project=projects.find(item=>item.id===cardDialog.projectId);if(!project)return null;const path=sourceMap.get(project.id)?.path;return <div className="project-card-dialog-backdrop" onMouseDown={()=>setCardDialog(null)}><section className="project-card-dialog" role="dialog" aria-modal="true" aria-label={project.name+' '+cardDialog.kind} onMouseDown={event=>event.stopPropagation()}><header><div><small>PROJECT.X / {cardDialog.kind.toUpperCase()}</small><h2>{project.name}</h2></div><button type="button" onClick={()=>setCardDialog(null)} aria-label="Close">×</button></header>
     {cardDialog.kind==='git'&&<div className="project-card-dialog-body"><p role="status">{gitInfo}</p><div className="card-dialog-actions"><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.gitStatus(path).then(info=>setGitInfo('Branch: '+(info?.branch||'unknown')+' · '+(info?.dirty?'Changes present':'Clean'))).catch(e=>setGitInfo(errorMessage(e,'Git status failed.')))}}>⟳ Status</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path)return;setGitInfo('Fetching remote refs…');void desktop.gitFetch(path).then(result=>setGitInfo(result.output||'Fetch complete.')).catch(e=>setGitInfo(errorMessage(e,'Fetch failed.')))}}>↓ Fetch</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path||!window.confirm('Fast-forward pull for '+project.name+'? Local changes must be committed or stashed first.'))return;setGitInfo('Pulling…');void desktop.gitPull(path).then(result=>setGitInfo(result.output||'Pull complete.')).catch(e=>setGitInfo(errorMessage(e,'Pull failed.')))}}>⇣ Pull</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path||!window.confirm('Push local commits for '+project.name+' to its configured remote?'))return;setGitInfo('Pushing…');void desktop.gitPush(path).then(result=>setGitInfo(result.output||'Push complete.')).catch(e=>setGitInfo(errorMessage(e,'Push failed.')))}}>⇡ Push</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInTerminal(path)}}>Terminal</button></div><form className="git-commit-form" onSubmit={event=>{event.preventDefault();if(!desktop||!path||!commitMessage.trim()||!window.confirm('Stage all local changes and commit to '+project.name+'?'))return;setGitInfo('Creating local commit…');void desktop.gitCommit(path,commitMessage.trim()).then(result=>{setGitInfo(result.output||'Commit completed.');if(result.ok)setCommitMessage('')}).catch(e=>setGitInfo(errorMessage(e,'Commit failed.')))}}><label>Commit message<input value={commitMessage} onChange={event=>setCommitMessage(event.target.value)} placeholder="Describe this change" /></label><button type="submit" disabled={!desktop||!path||!commitMessage.trim()}>Commit changes</button></form><p className="dialog-hint">Fetch updates remote references; Pull uses fast-forward only and rejects dirty worktrees. Push and Commit require confirmation. No automatic synchronization or force-push is performed.</p></div>}
     {cardDialog.kind==='files'&&<div className="project-card-dialog-body"><div className="file-browser-toolbar"><strong>Project files</strong><button type="button" disabled={!path||!desktop} onClick={()=>void browseProject(project.id,'')}>⌂ Root</button><button type="button" disabled={!fileDir||!desktop} onClick={()=>void browseProject(project.id,fileDir.split('/').slice(0,-1).join('/'))}>↑ Up</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInExplorer(path)}}>Windows Explorer</button></div><code>{fileDir ? '/'+fileDir : '/'} · {path||'No local folder linked'}</code><div className="project-file-list" role="list">{fileEntries.map(entry=><button type="button" role="listitem" key={entry.relativePath} onClick={()=>entry.isDirectory?void browseProject(project.id,entry.relativePath):void previewProjectFile(project.id,entry.relativePath)}><span>{entry.isDirectory?'▣':'▤'} {entry.name}</span><small>{entry.isDirectory?'Folder':entry.bytes?Math.ceil(entry.bytes/1024)+' KB':'File'}</small></button>)}</div>{fileMessage&&<p className="dialog-hint" role="status">{fileMessage}</p>}{filePreview&&<pre className="file-browser-preview">{filePreview}</pre>}<p className="dialog-hint">Read-only. Only files inside the authorized project root can be listed or previewed. Sensitive credentials and large files are excluded.</p></div>}
-    {cardDialog.kind==='workbook'&&<div className="project-card-dialog-body"><label className="workbook-label">Project notes<textarea rows={5} value={workbookNote} onChange={event=>{setWorkbookNote(event.target.value);saveWorkbook(project.id,event.target.value,workbookTasks)}} placeholder="Ideas, decisions, progress…" /></label><h3>Tasks</h3><div className="workbook-tasks">{workbookTasks.map((task,index)=><div key={index}><span>{task}</span><button type="button" onClick={()=>{const next=workbookTasks.filter((_,i)=>i!==index);setWorkbookTasks(next);saveWorkbook(project.id,workbookNote,next)}} aria-label={'Remove '+task}>×</button></div>)}</div><form onSubmit={event=>{event.preventDefault();const value=newTask.trim();if(!value)return;const next=[...workbookTasks,value];setWorkbookTasks(next);saveWorkbook(project.id,workbookNote,next);setNewTask('')}}><input value={newTask} onChange={event=>setNewTask(event.target.value)} placeholder="Add a task…" /><button type="submit">Add task</button></form><p className="dialog-hint">Notes and tasks are stored on this device for now; cloud history and backup integration are future work.</p></div>}
+    {cardDialog.kind==='workbook'&&<ProjectWorkbook projectId={project.id} projectName={project.name} path={path} desktop={desktop}/>} 
     </section></div>})()}
 
 
