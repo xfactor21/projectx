@@ -11,7 +11,7 @@ const version = read('src/version.ts')
 
 test('v3.03 workspace uses the compact invisible utility header', () => {
   assert.match(workspace, /desktop-utility-header/)
-  assert.match(workspace, /Your project universe\./)
+  assert.doesNotMatch(workspace, /Your project universe/)
   assert.match(workspace, />\+ Project</)
   assert.match(workspace, /https:\/\/planet-x\.co\/store/)
   assert.doesNotMatch(workspace, /workspace-brand-banner/)
