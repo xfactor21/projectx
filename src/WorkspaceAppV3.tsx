@@ -61,11 +61,37 @@ export default function WorkspaceAppV3(){
   const [cloudActivity,setCloudActivity]=useState<CloudActivity[]>([])
   const [activityState,setActivityState]=useState<'idle'|'loading'|'ready'|'error'>('idle')
   const [themePickerOpen,setThemePickerOpen]=useState(false)
+  const [cardDialog,setCardDialog]=useState<{kind:'git'|'files'|'workbook';projectId:string}|null>(null)
+  const [gitInfo,setGitInfo]=useState('')
+  const [workbookNote,setWorkbookNote]=useState('')
+  const [workbookTasks,setWorkbookTasks]=useState<string[]>([])
+  const [newTask,setNewTask]=useState('')
   const [sortMode,setSortMode]=useState<'name'|'recent'>('name')
   const [sortMenuOpen,setSortMenuOpen]=useState(false)
 
   useEffect(()=>{const refresh=()=>{setProjects(readArray(PROJECTS_KEY));setSources(readArray(LOCAL_KEY))};window.addEventListener('storage',refresh);window.addEventListener('projectx:projects-changed',refresh);return()=>{window.removeEventListener('storage',refresh);window.removeEventListener('projectx:projects-changed',refresh)}},[])
   useEffect(()=>localStorage.setItem(VIEW_KEY,theme),[theme])
+  useEffect(()=>{
+    const open=(event:Event)=>{const detail=(event as CustomEvent<{projectId:string}>).detail;const kind=event.type==='projectx:card-git'?'git':event.type==='projectx:card-files'?'files':'workbook';if(detail?.projectId)setCardDialog({kind,projectId:detail.projectId})}
+    for(const name of ['projectx:card-git','projectx:card-files','projectx:card-workbook'])window.addEventListener(name,open)
+    return()=>{for(const name of ['projectx:card-git','projectx:card-files','projectx:card-workbook'])window.removeEventListener(name,open)}
+  },[])
+  useEffect(()=>{
+    if(!cardDialog)return
+    const project=projects.find(item=>item.id===cardDialog.projectId)
+    if(!project)return
+    if(cardDialog.kind==='workbook'){
+      try{const data=JSON.parse(localStorage.getItem('projectx.workbook.'+project.id)||'{}');setWorkbookNote(typeof data.note==='string'?data.note:'');setWorkbookTasks(Array.isArray(data.tasks)?data.tasks.filter((task:unknown)=>typeof task==='string'):[])}catch{setWorkbookNote('');setWorkbookTasks([])}
+    }
+    if(cardDialog.kind==='git'){
+      const path=sources.find(item=>item.projectId===project.id)?.path
+      if(!desktop||!path){setGitInfo('A local project is required for Git operations.');return}
+      setGitInfo('Checking repository…')
+      void desktop.gitStatus(path).then(info=>setGitInfo(info?'Branch: '+(info.branch||'unknown')+' · '+(info.dirty?'Local changes present':'Working tree clean'):'No Git repository detected')).catch(error=>setGitInfo(errorMessage(error,'Unable to read Git status.')))
+    }
+  },[cardDialog,projects,sources,desktop])
+  function saveWorkbook(projectId:string,note:string,tasks:string[]){localStorage.setItem('projectx.workbook.'+projectId,JSON.stringify({note,tasks,updatedAt:new Date().toISOString()}))}
+
   useEffect(()=>{const refresh=()=>setCloudState({configured:isSupabaseConfigured(),session:loadSession()});window.addEventListener('projectx:supabase-config-changed',refresh);window.addEventListener('projectx:supabase-session-changed',refresh);return()=>{window.removeEventListener('projectx:supabase-config-changed',refresh);window.removeEventListener('projectx:supabase-session-changed',refresh)}},[])
   useEffect(()=>{const refresh=()=>setCompanionState(readHostStatus());window.addEventListener('projectx:companion-status',refresh);return()=>window.removeEventListener('projectx:companion-status',refresh)},[])
   useEffect(()=>{const timer=window.setInterval(()=>setConnectionClock(Date.now()),15_000);return()=>window.clearInterval(timer)},[])
@@ -177,6 +203,12 @@ export default function WorkspaceAppV3(){
     </main>
 
     <ThemeSwitcher items={themes} value={theme} open={themePickerOpen} onClose={()=>setThemePickerOpen(false)} onChange={(next)=>changeTheme(next as ThemeMode)} />
+    {cardDialog&&(()=>{const project=projects.find(item=>item.id===cardDialog.projectId);if(!project)return null;const path=sourceMap.get(project.id)?.path;return <div className="project-card-dialog-backdrop" onMouseDown={()=>setCardDialog(null)}><section className="project-card-dialog" role="dialog" aria-modal="true" aria-label={project.name+' '+cardDialog.kind} onMouseDown={event=>event.stopPropagation()}><header><div><small>PROJECT.X / {cardDialog.kind.toUpperCase()}</small><h2>{project.name}</h2></div><button type="button" onClick={()=>setCardDialog(null)} aria-label="Close">×</button></header>
+    {cardDialog.kind==='git'&&<div className="project-card-dialog-body"><p>{gitInfo}</p><div className="card-dialog-actions"><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.gitStatus(path).then(info=>setGitInfo('Branch: '+(info?.branch||'unknown')+' · '+(info?.dirty?'Changes present':'Clean'))).catch(e=>setGitInfo(errorMessage(e,'Git status failed.')))}}>Refresh status</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInTerminal(path)}}>Open terminal</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(!desktop||!path||!window.confirm('Push local commits for '+project.name+' to its configured remote?'))return;setGitInfo('Pushing…');void desktop.gitPush(path).then(result=>setGitInfo(result.output)).catch(e=>setGitInfo(errorMessage(e,'Push failed.')))}}>Push (confirm)</button></div><p className="dialog-hint">Pull, sync and branch operations require further native safety checks. Use the repository terminal for now; no automatic push occurs.</p></div>}
+    {cardDialog.kind==='files'&&<div className="project-card-dialog-body"><p>Project root</p><code>{path||'No local folder linked'}</code><div className="card-dialog-actions"><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInExplorer(path)}}>Open in Windows Explorer</button><button type="button" disabled={!desktop||!path} onClick={()=>{if(desktop&&path)void desktop.openInTerminal(path)}}>Open terminal</button></div><p className="dialog-hint">The secure in-app file browser remains a planned native capability. This opens the authorized folder without accessing unrelated files.</p></div>}
+    {cardDialog.kind==='workbook'&&<div className="project-card-dialog-body"><label className="workbook-label">Project notes<textarea rows={5} value={workbookNote} onChange={event=>{setWorkbookNote(event.target.value);saveWorkbook(project.id,event.target.value,workbookTasks)}} placeholder="Ideas, decisions, progress…" /></label><h3>Tasks</h3><div className="workbook-tasks">{workbookTasks.map((task,index)=><div key={index}><span>{task}</span><button type="button" onClick={()=>{const next=workbookTasks.filter((_,i)=>i!==index);setWorkbookTasks(next);saveWorkbook(project.id,workbookNote,next)}} aria-label={'Remove '+task}>×</button></div>)}</div><form onSubmit={event=>{event.preventDefault();const value=newTask.trim();if(!value)return;const next=[...workbookTasks,value];setWorkbookTasks(next);saveWorkbook(project.id,workbookNote,next);setNewTask('')}}><input value={newTask} onChange={event=>setNewTask(event.target.value)} placeholder="Add a task…" /><button type="submit">Add task</button></form><p className="dialog-hint">Notes and tasks are stored on this device for now; cloud history and backup integration are future work.</p></div>}
+    </section></div>})()}
+
 
     {selected&&<div className="v2-detail-backdrop" onMouseDown={()=>setSelected(null)}><aside className="v2-detail" onMouseDown={(event)=>event.stopPropagation()}><button className="v2-detail-close" type="button" onClick={()=>setSelected(null)}>×</button><small>{sourceLabel(selected,sourceMap.get(selected.id))}</small><h2>{selected.name}</h2><p>{selected.description||'No description yet.'}</p><div className="v2-detail-facts"><span>Build <b>{healthFor(selected.id,healthMap).build.state}</b></span><span>Vercel <b>{healthFor(selected.id,healthMap).deployment.state}</b></span><span>Git <b>{sourceMap.get(selected.id)?.hasGit?'Detected':selected.repoUrl?'Remote':'None'}</b></span></div><p className="v2-health-detail">{healthFor(selected.id,healthMap).build.detail}</p>{sourceMap.get(selected.id)?.path?<code>{sourceMap.get(selected.id)?.path}</code>:selected.repoUrl&&<p className="v2-remote-note">This project currently exists only as a remote record. Import/download a local copy before project.X can run its development server.</p>}<div className="v2-detail-actions"><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>sourceMap.get(selected.id)?.path&&desktop?.openInExplorer(sourceMap.get(selected.id)!.path!)}>Explorer</button><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>sourceMap.get(selected.id)?.path&&desktop?.openInTerminal(sourceMap.get(selected.id)!.path!)}>Terminal</button><button type="button" disabled={!desktop||!sourceMap.get(selected.id)?.path} onClick={()=>void runProject(selected)}>Run project</button><button type="button" onClick={()=>openDeployment(selected)}>Vercel</button><button className="danger" type="button" onClick={()=>deleteProject(selected)}>Delete record</button></div></aside></div>}
   </div>
