@@ -124,6 +124,12 @@ function VendingRenderer({ projects, sourceMap, desktopOnline, sourceLabel, onOp
 }
 
 export default function ThemeProjectRenderer({ theme, projects, sourceMap, desktopOnline, sourceLabel, onOpen, onRun, onDeployment, onAdd, healthMap }: Props) {
+  const [coverAspects,setCoverAspects] = useState<Record<string,'portrait'|'square'|'landscape'>>({})
+  const rememberAspect = (id:string,width:number,height:number) => {
+    if(!width||!height)return
+    const aspect=width/height<.85?'portrait':width/height>1.25?'landscape':'square'
+    setCoverAspects(previous=>previous[id]===aspect?previous:{...previous,[id]:aspect})
+  }
   if (!projects.length) return empty(onAdd)
 
   if (theme === 'Storefront') return <section className="storefront-street" aria-label="Project storefront">
@@ -202,6 +208,6 @@ export default function ThemeProjectRenderer({ theme, projects, sourceMap, deskt
 
   return <section className="command-project-grid" aria-label="Project command grid">{projects.map((project) => {
     const source = sourceMap.get(project.id)
-    return <article className={`command-project command-project-v304 ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)} onClick={()=>onOpen(project)}><button type="button" className="command-visual project-art-surface" aria-label={`View ${project.name} details`} onClick={(event)=>{event.stopPropagation();onOpen(project)}}>{!project.coverUrl && <b>{monogram(project.name)}</b>}</button><div className="command-console"><header><span>{project.detectedVersion ? 'BUILD v' + project.detectedVersion : 'BUILD NOT DETECTED'}</span></header><h3>{project.name}</h3><p>{project.description || 'Add a description in project details.'}</p><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={(event)=>{event.stopPropagation();onRun(project)}}>▶ Run</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-git',{detail:{projectId:project.id}}))}}>⑂ Git</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-files',{detail:{projectId:project.id}}))}}>▤ Open</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-workbook',{detail:{projectId:project.id}}))}}>▣ Workbook</button></footer></div></article>
+    return <article className={`command-project command-project-v304 aspect-${coverAspects[project.id]||'square'} ${project.coverUrl ? 'has-project-art' : ''}`} key={project.id} style={artStyle(project)} onClick={()=>onOpen(project)}><button type="button" className="command-visual project-art-surface" aria-label={`View ${project.name} details`} onClick={(event)=>{event.stopPropagation();onOpen(project)}}>{project.coverUrl?<img className="command-cover-image" src={project.coverUrl} alt="" onLoad={event=>rememberAspect(project.id,event.currentTarget.naturalWidth,event.currentTarget.naturalHeight)}/>:<b>{monogram(project.name)}</b>}</button><div className="command-console"><header><span>{project.detectedVersion ? 'BUILD v' + project.detectedVersion : 'BUILD NOT DETECTED'}</span></header><h3>{project.name}</h3><p>{project.description || 'Add a description in project details.'}</p><footer><button type="button" disabled={!source?.path || !desktopOnline} onClick={(event)=>{event.stopPropagation();onRun(project)}}>▶ Run</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-git',{detail:{projectId:project.id}}))}}>⑂ Git</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-files',{detail:{projectId:project.id}}))}}>▤ Open</button><button type="button" onClick={(event)=>{event.stopPropagation();window.dispatchEvent(new CustomEvent('projectx:card-workbook',{detail:{projectId:project.id}}))}}>▣ Workbook</button></footer></div></article>
   })}</section>
 }
