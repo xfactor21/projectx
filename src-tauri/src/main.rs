@@ -43,6 +43,8 @@ pub(crate) struct ProjectSummary {
     pub(crate) name: String,
     pub(crate) path: String,
     pub(crate) package_name: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) description: Option<String>,
     pub(crate) scripts: Vec<String>,
     pub(crate) framework_hints: Vec<String>,
     pub(crate) git: Option<GitSummary>,
@@ -378,6 +380,8 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
         .unwrap_or("Local project")
         .to_string();
     let mut package_name = None;
+    let mut version = None;
+    let mut description = None;
     let mut scripts = Vec::new();
     let mut framework_hints = BTreeSet::new();
     let package_path = root.join("package.json");
@@ -389,6 +393,12 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
                 .get("name")
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
+            version = package.get("version").and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty() && value.len() <= 64)
+                .map(ToOwned::to_owned);
+            description = package.get("description").and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| value.chars().take(400).collect());
             if let Some(object) = package.get("scripts").and_then(Value::as_object) {
                 scripts.extend(object.keys().cloned());
                 scripts.sort();
@@ -463,6 +473,8 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
         name,
         path: root.to_string_lossy().into_owned(),
         package_name,
+        version,
+        description,
         scripts,
         framework_hints: framework_hints.into_iter().collect(),
         git: git_summary(root),
