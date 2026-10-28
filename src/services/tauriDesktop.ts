@@ -58,6 +58,8 @@ export function installTauriDesktopBridge(): boolean {
     gitStatus: (path) => invoke<DesktopProjectSummary['git']>('git_status', { path }),
     gitCommit: (path, message) => invoke<{ ok: boolean; output: string }>('git_commit', { path, message }),
     gitPush: (path) => invoke<{ ok: boolean; output: string }>('git_push', { path }),
+    gitFetch: (path) => invoke<{ ok: boolean; output: string }>('git_fetch', { path }),
+    gitPull: (path) => invoke<{ ok: boolean; output: string }>('git_pull', { path }),
     runScript: (path, script) => invoke<{ ok: boolean; output: string }>('run_script', { path, script }),
     saveWorkspaceBackup: (content, suggestedName) => invoke<string | null>('save_workspace_backup', { content, suggestedName }),
     selectWorkspaceBackup: () => invoke<WorkspaceBackupFile | null>('select_workspace_backup'),
