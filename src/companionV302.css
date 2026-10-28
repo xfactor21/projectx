@@ -32,3 +32,12 @@
 .companion-v302 .companion-projects article>p{line-height:1.45}
 .companion-v302 .companion-empty button{min-height:40px;margin-top:12px;padding:0 14px;border:1px solid var(--cp-line);border-radius:10px;background:rgba(255,255,255,.04);color:#dbe2ec;font-weight:800}
 @media(max-width:360px){.companion-project-filters{grid-template-columns:1fr}.companion-project-filters button{min-height:36px}}
+
+.companion-action-summary>button{appearance:none;padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.02);color:inherit;text-align:left}
+.companion-action-summary>button.active{border-color:rgba(53,231,255,.28);background:rgba(53,231,255,.05)}
+.companion-action-summary>button b,.companion-action-summary>button span{display:block}.companion-action-summary>button b{font-size:22px}.companion-action-summary>button span{margin-top:3px;color:#6f7887;font:800 8px monospace;letter-spacing:.1em}
+.companion-action-list code.success{background:rgba(120,244,183,.055);color:#9cf8c7}
+.companion-action-controls{display:flex!important;justify-content:flex-start!important;gap:7px!important;margin-top:9px}
+.companion-action-controls button{min-height:34px;padding:0 11px;border:1px solid var(--cp-line);border-radius:8px;background:rgba(255,255,255,.035);color:#dce3ec;font:800 9px system-ui}
+.companion-action-controls button:disabled{opacity:.3}
+.companion-action-controls .companion-open-result{width:auto;margin:0}
