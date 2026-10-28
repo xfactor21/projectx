@@ -636,6 +636,31 @@ fn git_commit(
     command_output(&mut commit)
 }
 #[tauri::command]
+fn git_fetch(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
+    let root = ensure_authorized(&state, &path)?;
+    if git_summary(&root).is_none() {
+        return Err("This folder is not a Git repository.".into());
+    }
+    let mut command = Command::new("git");
+    command.current_dir(&root).args(["fetch", "--prune"]);
+    command_output(&mut command)
+}
+
+#[tauri::command]
+fn git_pull(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
+    let root = ensure_authorized(&state, &path)?;
+    let Some(summary) = git_summary(&root) else {
+        return Err("This folder is not a Git repository.".into());
+    };
+    if summary.dirty.unwrap_or(false) {
+        return Err("Commit or stash local changes before pulling. project.X will not overwrite your edits.".into());
+    }
+    let mut command = Command::new("git");
+    command.current_dir(&root).args(["pull", "--ff-only"]);
+    command_output(&mut command)
+}
+
+#[tauri::command]
 fn git_push(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
     let root = ensure_authorized(&state, &path)?;
     if git_summary(&root).is_none() {
@@ -680,6 +705,8 @@ fn main() {
             git_status,
             git_commit,
             git_push,
+            git_fetch,
+            git_pull,
             run_script,
             artwork::discover_project_artwork,
             file_browser::list_project_files,
