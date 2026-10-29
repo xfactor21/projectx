@@ -53,12 +53,12 @@ function comicize(source: string): Promise<string> {
   })
 }
 
-export default function ComicProjectArt({ source, name }: { source: string; name: string }) {
+export default function ComicProjectArt({ source }: { source: string; name: string }) {
   const [result, setResult] = useState(() => cache.get(source) || source)
   useEffect(() => {
     let active = true
     void comicize(source).then((value) => { if (active) setResult(value) }).catch(() => { if (active) setResult(source) })
     return () => { active = false }
   }, [source])
-  return <img src={result} alt={`${name} comic-style artwork`} />
+  return <img src={result} alt="" aria-hidden="true" />
 }
