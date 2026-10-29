@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import ThemeProjectRenderer from './ThemeProjectRenderer'
+import ThemeProjectRenderer from './ThemeProjectRendererV307'
 import ThemeSwitcher from './ThemeSwitcher'
 import ProjectWorkbook from './ProjectWorkbook'
 import { getDesktopHost, type ProjectFileEntry } from './services/desktop'

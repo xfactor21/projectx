@@ -42,7 +42,8 @@ export default function ConnectionCenter() {
 
   useEffect(() => {
     const open = (event: Event) => {
-      const next = (event as CustomEvent<{ target?: ConnectionTarget }>).detail?.target
+      const detail = (event as CustomEvent<{ target?: ConnectionTarget; provider?: ConnectionTarget }>).detail
+      const next = detail?.target || detail?.provider
       if (!next || !['companion', 'github', 'vercel'].includes(next)) return
       setSession(loadSession())
       setTarget(next)

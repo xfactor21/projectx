@@ -47,8 +47,13 @@ function companionPlatform() {
   return navigator.userAgent.includes('Mobile') ? 'mobile-web' : 'web'
 }
 
-function safeOpen(url?: string | null) {
+async function safeOpen(url?: string | null) {
   if (!url || !/^https?:\/\//i.test(url)) return
+  const capacitor = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: { Browser?: { open(options: { url: string }): Promise<void> } } } }).Capacitor
+  if (capacitor?.isNativePlatform?.() && capacitor.Plugins?.Browser) {
+    await capacitor.Plugins.Browser.open({ url })
+    return
+  }
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
@@ -559,8 +564,8 @@ export default function CompanionApp() {
     </div>}
     {onboardingOpen && <CompanionOnboarding onClose={closeOnboarding}/>} 
     {mobilePreview && <div className="companion-mobile-preview">
-      <header><div><small>LIVE FROM PC</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Reload preview" onClick={() => setMobilePreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
-      <iframe key={mobilePreview.revision} src={mobilePreview.url} title={`${mobilePreview.name} mobile preview`} allow="clipboard-read; clipboard-write; fullscreen"/>
+      <header><div><small>VERIFIED LAN PREVIEW</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
+      <section className="companion-preview-launch"><div className="preview-orbit" aria-hidden="true"><i/><b>↗</b></div><small>RUNNING FROM YOUR PC</small><h2>Open the live project on this phone.</h2><p>project.X verified that the development server is listening on your PC's local network. The device browser is used so Android does not block the HTTP development stream inside an embedded secure frame.</p><button type="button" onClick={() => void safeOpen(mobilePreview.url)}>Open live preview</button><code>{mobilePreview.url}</code><span>Keep both devices on the same Wi-Fi. If Windows asks, allow Node on Private networks.</span></section>
     </div>}
   </main>
 }

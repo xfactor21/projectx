@@ -35,6 +35,14 @@ fn valid_loopback_url(value: &str) -> Option<url::Url> {
     Some(parsed)
 }
 
+fn valid_http_url(value: &str) -> Option<url::Url> {
+    let parsed = url::Url::parse(value).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() || parsed.port().is_none() {
+        return None;
+    }
+    Some(parsed)
+}
+
 pub(crate) fn extract(text: &str) -> Option<String> {
     let clean = strip_ansi(text);
     let mut starts = [
@@ -60,9 +68,14 @@ pub(crate) fn extract(text: &str) -> Option<String> {
 }
 
 pub(crate) fn is_listening(value: &str) -> bool {
-    let Some(parsed) = valid_loopback_url(value) else {
+    if valid_loopback_url(value).is_none() {
         return false;
-    };
+    }
+    is_reachable(value)
+}
+
+pub(crate) fn is_reachable(value: &str) -> bool {
+    let Some(parsed) = valid_http_url(value) else { return false; };
     let Some(host) = parsed.host_str() else {
         return false;
     };
@@ -107,5 +120,12 @@ mod tests {
             extract("Local: http://localhost:\u{1b}[1m5176\u{1b}[0m/"),
             Some("http://localhost:5176/".into())
         );
+    }
+
+    #[test]
+    fn accepts_private_lan_urls_for_reachability_checks() {
+        assert!(valid_http_url("http://192.168.1.20:5173/").is_some());
+        assert!(valid_http_url("https://10.0.0.4:3000/app").is_some());
+        assert!(valid_http_url("file:///tmp/index.html").is_none());
     }
 }

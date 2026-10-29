@@ -21,4 +21,4 @@ test('cover fallback has 24 stable variants',()=>{assert.match(artwork,/hash % 2
 test('workspace backups include Workbook records',()=>{assert.match(backup,/validWorkbook/);assert.match(backup,/data.workbooks/)})
 test('Control Center avoids filtered clipping ancestor',()=>{assert.match(css,/backdrop-filter:none!important/);assert.match(css,/overflow:visible!important/)})
 test('Windows icon is embedded in executable resource',()=>{assert.match(read('src-tauri/build.rs'),/window_icon_path/)})
-test('version identity is consistent across web and native',()=>{assert.match(read('src/version.ts'),/APP_VERSION = '3.06'/);assert.match(read('package.json'),/"version": "3.0.6"/);assert.match(read('src-tauri/tauri.conf.json'),/"version": "3.0.6"/)})
+test('version identity is consistent across web and native',()=>{assert.match(read('src/version.ts'),/APP_VERSION = '3.07'/);assert.match(read('package.json'),/"version": "3.0.7"/);assert.match(read('src-tauri/tauri.conf.json'),/"version": "3.0.7"/)})

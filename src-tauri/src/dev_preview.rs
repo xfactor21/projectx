@@ -347,15 +347,26 @@ pub(crate) fn run_preview_project(
         ));
     }
 
+    let network_url = if network_access.unwrap_or(false) {
+        let candidate = url.as_deref().and_then(lan_url);
+        if !candidate.as_deref().is_some_and(crate::local_dev_url::is_reachable) {
+            terminate_process_tree(&mut child);
+            processes().lock().map_err(|_| "Preview process registry is unavailable.".to_string())?.remove(&pid);
+            return Err("The server started on this PC but did not accept connections on its LAN address. project.X stopped it instead of reporting a false mobile-preview success. Confirm the project supports a 0.0.0.0 host flag, allow Node through Windows Firewall on Private networks, and keep the phone and PC on the same Wi-Fi.".into());
+        }
+        candidate
+    } else { None };
     let mut output = format!(
         "Started {manager} run {script} at {}.",
         url.as_deref().unwrap_or_default()
     );
+    if let Some(lan) = network_url.as_deref() {
+        output.push_str(&format!(" Verified LAN preview: {lan}"));
+    }
     if let Some(note) = install_note {
         output = format!("{note}\n{output}");
     }
 
-    let network_url = if network_access.unwrap_or(false) { url.as_deref().and_then(lan_url) } else { None };
     Ok(PreviewRunResult {
         ok: true,
         output,

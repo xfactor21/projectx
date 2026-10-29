@@ -12,7 +12,7 @@ import ThemeEnvironmentLayer from './ThemeEnvironmentLayer.tsx'
 import ArtworkAutoDiscovery from './ArtworkAutoDiscovery.tsx'
 import SurfaceCoordinator from './SurfaceCoordinator.tsx'
 import UtilityHub from './UtilityHub.tsx'
-import SettingsPanel from './SettingsPanel.tsx'
+import SettingsPanel from './SettingsPanelV307.tsx'
 import AppSplash from './AppSplash.tsx'
 import EmbeddedPreview from './EmbeddedPreview.tsx'
 import ConnectionCenter from './ConnectionCenter.tsx'
@@ -69,6 +69,7 @@ import './projectHealthV301.css'
 import './desktopDensityV303.css'
 import './experienceV305.css'
 import './experienceV306.css'
+import './experienceV307.css'
 
 async function start() {
   installTauriDesktopBridge()

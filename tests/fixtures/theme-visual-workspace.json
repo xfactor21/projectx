@@ -2,7 +2,7 @@
   "format": "projectx-workspace-backup",
   "schemaVersion": 1,
   "createdAt": "2026-10-28T06:00:00.000Z",
-  "appVersion": "3.0.6",
+  "appVersion": "3.0.7",
   "data": {
     "projects": [
       {"id":"visual-01","name":"Neon Atlas","kicker":"FLAGSHIP","description":"Spatial command workspace for distributed creative systems.","detectedVersion":"2.8.0","status":"Active","accent":"#29e0ff","updated":"Today","stack":["React","TypeScript","Three.js"],"progress":84,"repoUrl":"https://github.com/xfactor21/neon-atlas","liveUrl":"https://example.com"},
