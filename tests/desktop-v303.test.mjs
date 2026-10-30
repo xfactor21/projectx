@@ -5,13 +5,13 @@ import fs from 'node:fs'
 const read = (path) => fs.readFileSync(path, 'utf8')
 const workspace = read('src/WorkspaceAppV3.tsx')
 const switcher = read('src/ThemeSwitcher.tsx')
-const density = read('src/desktopDensityV303.css')
+const density = read('src/experienceV308.css')
 const preview = read('src/EmbeddedPreview.tsx')
 const version = read('src/version.ts')
 
-test('v3.04 workspace uses the compact invisible utility header', () => {
-  assert.match(workspace, /desktop-utility-header/)
-  assert.doesNotMatch(workspace, /Your project universe/)
+test('v3.08 workspace uses the compact invisible utility header', () => {
+  assert.match(workspace, /invisible-utility-header/)
+  assert.match(workspace, /Your project universe\./)
   assert.match(workspace, />\+ Project</)
   assert.match(workspace, /https:\/\/planet-x\.co\/store/)
   assert.doesNotMatch(workspace, /workspace-brand-banner/)
@@ -28,8 +28,8 @@ test('theme controls are a Beta popup instead of permanent workspace deck', () =
 
 test('Command environment is a compact two-column desktop grid', () => {
   assert.match(density, /\.workspace-v3 \.command-project-grid\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/)
-  assert.match(density, /grid-template-columns:150px minmax\(0,1fr\)!important/)
-  assert.match(density, /min-height:224px!important/)
+  assert.match(density, /grid-template-columns:clamp\(104px,28%,136px\) minmax\(0,1fr\)!important/)
+  assert.match(density, /min-height:176px!important/)
 })
 
 test('project overlays keep workspace context visible', () => {
@@ -38,13 +38,13 @@ test('project overlays keep workspace context visible', () => {
 })
 
 test('Preview exposes an explicit native fallback for sites that block framing', () => {
-  assert.match(preview, /Some dev servers block iframe embedding/)
+  assert.match(preview, /refusing iframe embedding/)
   assert.match(preview, /Open native preview/)
   assert.match(preview, /openExternalPreview\(preview\.url\)/)
 })
 
 test('current identity is present', () => {
-  assert.match(version, /APP_VERSION = '3\.07'/)
-  assert.match(version, /APP_SEMVER = '3\.0\.7'/)
-  assert.match(version, /BUILD_DATE_TAG = '10\.28'/)
+  assert.match(version, /APP_VERSION = '3\.08'/)
+  assert.match(version, /APP_SEMVER = '3\.0\.8'/)
+  assert.match(version, /BUILD_DATE_TAG = 'Oct-30'/)
 })
