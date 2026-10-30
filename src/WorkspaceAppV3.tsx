@@ -93,6 +93,9 @@ export default function WorkspaceAppV3(){
       const detail=(event as CustomEvent<{projectId:string}>).detail
       const kind=event.type==='projectx:card-git'?'git':event.type==='projectx:card-files'?'files':'workbook'
       if(!detail?.projectId)return
+      window.dispatchEvent(new CustomEvent('projectx:close-utility'))
+      setThemePickerOpen(false)
+      setSortMenuOpen(false)
       setCardDialog({kind,projectId:detail.projectId})
       if(kind==='files'){setFileDir('');setFileQuery('');void browseProject(detail.projectId)}
       if(kind==='git'){
@@ -219,7 +222,7 @@ export default function WorkspaceAppV3(){
     window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'cloud'}}))
     window.setTimeout(()=>window.dispatchEvent(new CustomEvent('projectx:open-deployment',{detail:{projectId:project.id}})),0)
   }
-  function openConnection(target:'companion'|ProviderId){window.dispatchEvent(new CustomEvent('projectx:open-connection',{detail:{target}}))}
+  function openConnection(target:'companion'|ProviderId){window.dispatchEvent(new CustomEvent('projectx:close-utility'));window.dispatchEvent(new CustomEvent('projectx:open-connection',{detail:{target}}))}
 
   return <div className={`px-shell workspace-v2 workspace-v3 theme-${theme.toLowerCase()}`}>
     <aside className="sidebar v2-sidebar"><button className="brand-lockup" type="button" onClick={()=>setNav('Projects')}><img className="brand-mark" src={appIcon} alt=""/><div><div className="brand-name">project<span>.X</span> <small className="brand-version">v{APP_VERSION}</small></div><div className="brand-subtitle">PROJECT LIFECYCLE</div></div></button><nav className="primary-nav">{(['Projects','Favorites','Activity','Archive'] as NavMode[]).map((item)=><button key={item} type="button" className={nav===item?'nav-item active':'nav-item'} onClick={()=>setNav(item)}><span className="nav-dot"/><span>{item}</span></button>)}</nav><div className="v2-source-status"><small>WORKSPACE SOURCE</small><strong>{desktop?'Local + Cloud':'Cloud / Web'}</strong><span>{localCount} local · {repoCount} repos</span></div><div className="connection-strip" aria-label="Connections"><button className={companionOnline?'online':companionState?.status==='error'?'error':'idle'} type="button" onClick={()=>openConnection('companion')} title={companionState?.detail||'Open Companion connection'}><i/><strong>Companion</strong><small>{connectionAge(companionState?.updatedAt,connectionClock)}</small></button><button className={visibleProviderStates.github?.connected?'online':'idle'} type="button" onClick={()=>openConnection('github')} title={visibleProviderStates.github?.message||'Open GitHub connection'}><i/><strong>GitHub</strong><small>{connectionAge(visibleProviderStates.github?.checkedAt,connectionClock)}</small></button><button className={visibleProviderStates.vercel?.connected?'online':'idle'} type="button" onClick={()=>openConnection('vercel')} title={visibleProviderStates.vercel?.message||'Open Vercel connection'}><i/><strong>Vercel</strong><small>{connectionAge(visibleProviderStates.vercel?.checkedAt,connectionClock)}</small></button></div><div className="sidebar-spacer"/><div className="planet-signature"><img src={planetWordmark} alt="planet.X"/><span>Created at planet.X</span></div><div className="v2-sidebar-controls"><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-utility',{detail:{category:'projects'}}))}>Control center</button><button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('projectx:open-settings'))}>Settings</button></div><div className="v2-host-state"><i className={desktop?'online':''}/><span>{desktop?'LOCAL DEV HOST ONLINE':'LOCAL DEV HOST OFFLINE'}</span></div></aside>
