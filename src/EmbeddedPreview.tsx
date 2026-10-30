@@ -62,7 +62,7 @@ export default function EmbeddedPreview() {
           <button type="button" title="Close preview" aria-label="Close preview" onClick={() => setPreview(null)}>×</button>
         </nav>
       </header>
-      <div className="preview-frame-help"><span><strong>Preview not rendering?</strong> Some dev servers block iframe embedding even while they are running normally.</span><button type="button" onClick={() => void desktop?.openExternalPreview(preview.url)}>Open native preview</button></div>
+      <div className="preview-frame-help"><span><strong>Blank or blocked preview?</strong> The dev server may be healthy but refusing iframe embedding. Open the native preview to verify it directly.</span><button type="button" onClick={() => void desktop?.openExternalPreview(preview.url)}>Open native preview</button></div>
       <div className={`embedded-preview-stage viewport-${viewport}`}>
         {message && <p>{message}</p>}
         <iframe key={preview.revision} src={preview.url} title={`${preview.projectName} running preview`} allow="clipboard-read; clipboard-write; fullscreen" />
