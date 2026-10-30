@@ -32,9 +32,11 @@ test('Command environment is a compact two-column desktop grid', () => {
   assert.match(density, /min-height:176px!important/)
 })
 
-test('project overlays keep workspace context visible', () => {
-  assert.match(density, /\.v2-detail-backdrop,.settings-backdrop,.connection-backdrop\{background:rgba\(2,3,7,.48\)!important;backdrop-filter:blur\(4px\)!important\}/)
-  assert.match(density, /\.v2-detail\{width:min\(390px,88vw\)!important/)
+test('project overlays are contained without taking over the workspace', () => {
+  assert.match(density, /utility-hub \.utility-menu[\s\S]*width:min\(650px/)
+  assert.match(density, /settings-workspace\{width:min\(780px/)
+  assert.match(density, /connection-center\{width:min\(680px/)
+  assert.match(density, /theme-picker-v303[\s\S]*width:min\(680px/)
 })
 
 test('Preview exposes an explicit native fallback for sites that block framing', () => {
