@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX-10.28-v3.07-command-worlds
+  PROJECTX_BUILD_NAME: projectX_v3.08_compact-command_Oct-30
 
 jobs:
   windows-installer:
