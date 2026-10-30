@@ -67,8 +67,13 @@ export default function UtilityHub() {
       if (requested === 'cloud' && detail?.openCloud) setCloudOpenRequest((value) => value + 1)
       setOpen(true)
     }
+    const close = () => setOpen(false)
     window.addEventListener('projectx:open-utility', show)
-    return () => window.removeEventListener('projectx:open-utility', show)
+    window.addEventListener('projectx:close-utility', close)
+    return () => {
+      window.removeEventListener('projectx:open-utility', show)
+      window.removeEventListener('projectx:close-utility', close)
+    }
   }, [])
   useEffect(() => {
     if (!open) return
@@ -143,7 +148,7 @@ export default function UtilityHub() {
   return <div ref={root} className={`utility-hub ${open ? 'open' : ''}`} style={{ left: position.x, top: position.y, right: 'auto', bottom: 'auto' }}>
     <button className="utility-fab" type="button" aria-expanded={open} aria-label="Open project.X controls. Drag to reposition." title="Controls - drag to reposition" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag} onClick={toggle}><img src={fabX} alt="" draggable={false}/><strong>Controls</strong></button>
     {open && <section className="utility-menu" style={menuStyle} aria-label="Project utilities">
-      <header><div><small>CONTROL CENTER</small><strong>{categoryCopy[category].label}</strong><span>{categoryCopy[category].description}</span></div><button type="button" onClick={() => window.dispatchEvent(new CustomEvent('projectx:open-settings'))}>Settings</button></header>
+      <header><div><small>CONTROL CENTER</small><strong>{categoryCopy[category].label}</strong><span>{categoryCopy[category].description}</span></div><button type="button" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('projectx:open-settings')) }}>Settings</button></header>
       <div className="utility-menu-body">
         <nav>{(Object.keys(categoryCopy) as UtilityCategory[]).map((item) => <button key={item} className={category === item ? 'active' : ''} type="button" onClick={() => select(item)}><strong>{categoryCopy[item].label}</strong><span>{categoryCopy[item].description}</span></button>)}</nav>
         <div className="utility-actions">
