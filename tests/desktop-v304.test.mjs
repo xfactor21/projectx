@@ -19,6 +19,6 @@ test('Git pull is fast-forward only and rejects dirty working trees',()=>{assert
 test('Workbook persists tasks and local Git history',()=>{assert.match(workbook,/projectx.workbook/);assert.match(workbook,/toggleTask/);assert.match(workbook,/gitHistory/)})
 test('cover fallback has 24 stable variants',()=>{assert.match(artwork,/hash % 24/);assert.match(artwork,/mayReplaceCover/);assert.match(artwork,/discoverProjectArtwork/)})
 test('workspace backups include Workbook records',()=>{assert.match(backup,/validWorkbook/);assert.match(backup,/data.workbooks/)})
-test('Control Center avoids filtered clipping ancestor',()=>{assert.match(css,/backdrop-filter:none!important/);assert.match(css,/overflow:visible!important/)})
+test('Control Center stays viewport-contained',()=>{assert.match(css,/utility-hub \.utility-menu/);assert.match(css,/width:min\(650px/);assert.match(css,/max-height:calc\(100dvh - 28px\)!important/)})
 test('Windows icon is embedded in executable resource',()=>{assert.match(read('src-tauri/build.rs'),/window_icon_path/)})
-test('version identity is consistent across web and native',()=>{assert.match(read('src/version.ts'),/APP_VERSION = '3.08'/);assert.match(read('package.json'),/"version": "3.0.8"/);assert.match(read('src-tauri/tauri.conf.json'),/"version": "3.0.7"/)})
+test('version identity is consistent across web and native',()=>{assert.match(read('src/version.ts'),/APP_VERSION = '3.08'/);assert.match(read('package.json'),/"version": "3.0.8"/);assert.match(read('src-tauri/tauri.conf.json'),/"version": "3.0.8"/)})
