@@ -24,9 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PROJECTX_BUILD_NAME: projectX_v3.02_companion-product-pass_Oct-27
-  PROJECTX_ANDROID_VERSION: 3.0.2
-  PROJECTX_ANDROID_VERSION_CODE_BASE: 302000
+  PROJECTX_BUILD_NAME: projectX_v3.08_compact-command_Oct-30
+  PROJECTX_ANDROID_VERSION: 3.0.8
+  PROJECTX_ANDROID_VERSION_CODE_BASE: 308000
   CAPACITOR_VERSION: 8.5.1
   CAPACITOR_ASSETS_VERSION: 3.0.5
 
@@ -77,7 +77,7 @@ jobs:
         run: npm ci
 
       - name: Install pinned Capacitor build tools
-        run: npm install --no-save "@capacitor/core@${CAPACITOR_VERSION}" "@capacitor/cli@${CAPACITOR_VERSION}" "@capacitor/android@${CAPACITOR_VERSION}" "@capacitor/assets@${CAPACITOR_ASSETS_VERSION}"
+        run: npm install --no-save "@capacitor/core@${CAPACITOR_VERSION}" "@capacitor/cli@${CAPACITOR_VERSION}" "@capacitor/android@${CAPACITOR_VERSION}" "@capacitor/browser@8.0.0" "@capacitor/assets@${CAPACITOR_ASSETS_VERSION}"
 
       - name: Regression tests
         run: npm test

@@ -41,8 +41,35 @@ fn valid_zip_signature(signature: [u8; 4]) -> bool {
     signature == *b"PK\x03\x04" || signature == *b"PK\x05\x06" || signature == *b"PK\x07\x08"
 }
 
+fn verify_sha256(path: &PathBuf, expected: &str) -> Result<(), String> {
+    let normalized = expected.trim().to_ascii_lowercase();
+    if normalized.len() != 64 || !normalized.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err("Companion package checksum was rejected.".into());
+    }
+    let script = format!(
+        "(Get-FileHash -LiteralPath '{}' -Algorithm SHA256).Hash.ToLowerInvariant()",
+        path.to_string_lossy().replace('\'', "''")
+    );
+    let output = Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+        .map_err(|error| format!("Unable to verify companion package checksum: {error}"))?;
+    if !output.status.success() {
+        return Err("Unable to verify companion package checksum.".into());
+    }
+    let actual = String::from_utf8_lossy(&output.stdout).trim().to_ascii_lowercase();
+    if actual != normalized {
+        return Err("The downloaded package did not match the checksum produced by the phone. Send the ZIP again.".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub(crate) fn download_remote_package(url: String, file_name: String) -> Result<String, String> {
+pub(crate) fn download_remote_package(
+    url: String,
+    file_name: String,
+    expected_sha256: Option<String>,
+) -> Result<String, String> {
     let parsed = url::Url::parse(&url).map_err(|_| "Remote package URL was rejected.")?;
     let local_http =
         parsed.scheme() == "http" && matches!(parsed.host_str(), Some("127.0.0.1" | "localhost"));
@@ -92,6 +119,12 @@ pub(crate) fn download_remote_package(url: String, file_name: String) -> Result<
     if !valid_zip_signature(signature) {
         let _ = fs::remove_file(&destination);
         return Err("The downloaded companion package is not a valid ZIP archive. Recreate the ZIP and send it again.".into());
+    }
+    if let Some(expected) = expected_sha256.filter(|value| !value.trim().is_empty()) {
+        if let Err(error) = verify_sha256(&destination, &expected) {
+            let _ = fs::remove_file(&destination);
+            return Err(error);
+        }
     }
     Ok(destination.to_string_lossy().into_owned())
 }

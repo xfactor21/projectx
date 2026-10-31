@@ -2,6 +2,8 @@ export type DesktopProjectSummary = {
   name: string
   path: string
   packageName?: string
+  version?: string
+  description?: string
   scripts?: string[]
   frameworkHints?: string[]
   git?: { branch?: string; remote?: string; dirty?: boolean }
@@ -53,6 +55,10 @@ export type ArtworkCandidate = {
   dataUrl?: string
 }
 
+export type GitHistoryEntry = { hash: string; date: string; subject: string }
+
+export type ProjectFileEntry = { name: string; relativePath: string; isDirectory: boolean; bytes?: number; modifiedAt?: number }
+
 export type ToolStatus = {
   name: string
   command: string
@@ -94,8 +100,11 @@ export type DesktopHostBridge = {
   runDevProject(path: string, script: string, networkAccess?: boolean): Promise<ProjectRunResult>
   stopDevProject(pid: number): Promise<{ ok: boolean; output: string }>
   discoverProjectArtwork(path: string): Promise<ArtworkCandidate[]>
+  listProjectFiles(root: string, relativePath: string): Promise<ProjectFileEntry[]>
+  readProjectText(root: string, relativePath: string): Promise<string>
+  openProjectFile(root: string, relativePath: string): Promise<void>
   toolchainPreflight(): Promise<ToolStatus[]>
-  downloadRemotePackage(url: string, fileName: string): Promise<string>
+  downloadRemotePackage(url: string, fileName: string, expectedSha256?: string): Promise<string>
   removeRemotePackage(path: string): Promise<void>
   saveSecureSession(content: string): Promise<void>
   loadSecureSession(): Promise<string | null>
@@ -108,6 +117,9 @@ export type DesktopHostBridge = {
   gitStatus(path: string): Promise<DesktopProjectSummary['git']>
   gitCommit(path: string, message: string): Promise<{ ok: boolean; output: string }>
   gitPush(path: string): Promise<{ ok: boolean; output: string }>
+  gitFetch(path: string): Promise<{ ok: boolean; output: string }>
+  gitPull(path: string): Promise<{ ok: boolean; output: string }>
+  gitHistory(path: string): Promise<GitHistoryEntry[]>
   runScript(path: string, script: string): Promise<{ ok: boolean; output: string }>
   saveWorkspaceBackup(content: string, suggestedName: string): Promise<string | null>
   selectWorkspaceBackup(): Promise<WorkspaceBackupFile | null>

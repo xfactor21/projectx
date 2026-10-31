@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 const SOUND_KEY = 'projectx.theme.sound.v1'
+const VOLUME_KEY = 'projectx.theme.volume.v1'
+let masterVolume = Math.max(0, Math.min(1, Number(localStorage.getItem(VOLUME_KEY) || '.35')))
 type ThemeMode = 'Grid' | 'Storefront' | 'Vending' | 'Comic' | '3D' | 'XFactor' | 'PlanetX'
 
 function normalizeTheme(value: string | null): ThemeMode {
@@ -11,10 +13,10 @@ function normalizeTheme(value: string | null): ThemeMode {
 
 function readEnabled() { return localStorage.getItem(SOUND_KEY) === 'on' }
 function tone(context: AudioContext, frequency: number, at: number, duration: number, gainValue: number, type: OscillatorType = 'sine') {
-  const oscillator=context.createOscillator();const gain=context.createGain();oscillator.type=type;oscillator.frequency.setValueAtTime(frequency,at);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(gainValue,at+.015);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);oscillator.connect(gain).connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.03)
+  const oscillator=context.createOscillator();const gain=context.createGain();oscillator.type=type;oscillator.frequency.setValueAtTime(frequency,at);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(Math.max(.0001,gainValue*masterVolume),at+.015);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);oscillator.connect(gain).connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.03)
 }
 function noiseBurst(context: AudioContext, at: number, duration: number, gainValue: number, frequency=1450) {
-  const length=Math.max(1,Math.floor(context.sampleRate*duration));const buffer=context.createBuffer(1,length,context.sampleRate);const data=buffer.getChannelData(0);for(let index=0;index<length;index+=1)data[index]=(Math.random()*2-1)*(1-index/length);const source=context.createBufferSource();const gain=context.createGain();const filter=context.createBiquadFilter();filter.type='bandpass';filter.frequency.value=frequency;filter.Q.value=1.9;gain.gain.value=gainValue;source.buffer=buffer;source.connect(filter).connect(gain).connect(context.destination);source.start(at)
+  const length=Math.max(1,Math.floor(context.sampleRate*duration));const buffer=context.createBuffer(1,length,context.sampleRate);const data=buffer.getChannelData(0);for(let index=0;index<length;index+=1)data[index]=(Math.random()*2-1)*(1-index/length);const source=context.createBufferSource();const gain=context.createGain();const filter=context.createBiquadFilter();filter.type='bandpass';filter.frequency.value=frequency;filter.Q.value=1.9;gain.gain.value=gainValue*masterVolume;source.buffer=buffer;source.connect(filter).connect(gain).connect(context.destination);source.start(at)
 }
 function playThemeCue(context: AudioContext, theme: ThemeMode) {
   const now=context.currentTime+.015
@@ -55,10 +57,13 @@ function playAmbientMoment(context: AudioContext, theme: ThemeMode) {
 }
 
 export default function ThemeSensoryLayer(){
-  const[enabled,setEnabled]=useState(readEnabled);const[theme,setTheme]=useState<ThemeMode>(()=>normalizeTheme(localStorage.getItem('projectx.view.v1')));const audioRef=useRef<AudioContext|null>(null)
+  const[enabled,setEnabled]=useState(readEnabled);const[volume,setVolume]=useState(masterVolume);const[theme,setTheme]=useState<ThemeMode>(()=>normalizeTheme(localStorage.getItem('projectx.view.v1')));const audioRef=useRef<AudioContext|null>(null)
   async function ensureAudio(){if(!audioRef.current)audioRef.current=new AudioContext();if(audioRef.current.state==='suspended')await audioRef.current.resume();return audioRef.current}
   useEffect(()=>{const handler=(event:Event)=>{const next=normalizeTheme((event as CustomEvent<string>).detail);setTheme(next);if(!enabled)return;void ensureAudio().then((context)=>playThemeCue(context,next));if('vibrate'in navigator&&(next==='Vending'||next==='Comic'||next==='XFactor'))navigator.vibrate?.(next==='Comic'?[18,18,28]:next==='XFactor'?[12,20,12]:20)};window.addEventListener('projectx:theme-changed',handler);return()=>window.removeEventListener('projectx:theme-changed',handler)},[enabled])
   useEffect(()=>{if(!enabled)return;let stopped=false;let timer:number|undefined;const schedule=()=>{if(stopped)return;timer=window.setTimeout(()=>{void ensureAudio().then((context)=>playAmbientMoment(context,theme)).catch(()=>undefined);schedule()},6500+Math.random()*6500)};schedule();return()=>{stopped=true;if(timer)window.clearTimeout(timer)}},[enabled,theme])
+  useEffect(()=>{const onVisibility=()=>{const context=audioRef.current;if(!context)return;if(document.hidden)void context.suspend();else if(enabled)void context.resume()};document.addEventListener('visibilitychange',onVisibility);return()=>document.removeEventListener('visibilitychange',onVisibility)},[enabled])
+  useEffect(()=>()=>{void audioRef.current?.close();audioRef.current=null},[])
   async function toggle(){const next=!enabled;setEnabled(next);localStorage.setItem(SOUND_KEY,next?'on':'off');if(next){const context=await ensureAudio();playThemeCue(context,theme)}}
-  return <button type="button" className={`theme-sound-toggle ${enabled?'on':''}`} onClick={()=>void toggle()} title="Theme sounds and ambience"><span>{enabled?'◉':'○'}</span><strong>SOUND</strong></button>
+  function changeVolume(next:number){masterVolume=next;setVolume(next);localStorage.setItem(VOLUME_KEY,String(next))}
+  return <div className={`theme-sound-control ${enabled?'on':''}`}><button type="button" className={`theme-sound-toggle ${enabled?'on':''}`} aria-pressed={enabled} onClick={()=>void toggle()} title="Theme sounds and ambience"><span>{enabled?'◉':'○'}</span><strong>SOUND</strong></button>{enabled&&<label><span>Theme volume</span><input type="range" min="0" max="1" step=".05" value={volume} onChange={event=>changeVolume(Number(event.target.value))}/></label>}</div>
 }

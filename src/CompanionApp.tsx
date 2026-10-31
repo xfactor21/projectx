@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchCloudProjects, getFreshSession, isSupabaseConfigured, loadSession, signInWithPassword, signOut } from './services/supabase'
 import { listCompanionDevices, listRemoteActions, queueRemoteAction, registerCompanionDevice, updateRemoteAction } from './services/companion'
-import { uploadCompanionZip } from './services/companionPackages'
+import { uploadCompanionZip, type CompanionUploadProgress } from './services/companionPackages'
 import { APP_VERSION } from './version'
 import type { CloudProject, SupabaseSession } from './services/supabase'
 import type { CompanionDevice, RemoteAction } from './services/companion'
@@ -47,8 +47,13 @@ function companionPlatform() {
   return navigator.userAgent.includes('Mobile') ? 'mobile-web' : 'web'
 }
 
-function safeOpen(url?: string | null) {
+async function safeOpen(url?: string | null) {
   if (!url || !/^https?:\/\//i.test(url)) return
+  const capacitor = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: { Browser?: { open(options: { url: string }): Promise<void> } } } }).Capacitor
+  if (capacitor?.isNativePlatform?.() && capacitor.Plugins?.Browser) {
+    await capacitor.Plugins.Browser.open({ url })
+    return
+  }
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
@@ -110,6 +115,7 @@ export default function CompanionApp() {
   const [packageMode, setPackageMode] = useState<PackageMode>('create')
   const [packageTarget, setPackageTarget] = useState('')
   const [packageFile, setPackageFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<CompanionUploadProgress | null>(null)
   const [installDeps, setInstallDeps] = useState(true)
   const [configured, setConfigured] = useState(isSupabaseConfigured)
   const [launchProject, setLaunchProject] = useState<CloudProject | null>(null)
@@ -288,14 +294,15 @@ export default function CompanionApp() {
     const target = packageMode === 'update' ? projects.find((project) => project.client_id === packageTarget) : null
     if (packageMode === 'update' && !target) return setMessage('Choose the existing project to update.')
     setBusy(true)
+    setUploadProgress(null)
     setMessage(`Uploading ${packageFile.name} securely…`)
     try {
-      const uploaded = await uploadCompanionZip(packageFile)
+      const uploaded = await uploadCompanionZip(packageFile, setUploadProgress)
       const rows = await queueRemoteAction({
         project_client_id: target?.client_id || null,
         target_device_id: windowsDevice.device_id,
         action_type: packageMode === 'create' ? 'package.create_project' : 'package.update_project',
-        payload: { storagePath: uploaded.storagePath, fileName: uploaded.fileName, bytes: uploaded.bytes, installDeps },
+        payload: { storagePath: uploaded.storagePath, fileName: uploaded.fileName, bytes: uploaded.bytes, sha256: uploaded.sha256, installDeps },
         requested_by_device_id: deviceId(),
       })
       const action = rows[0]
@@ -305,6 +312,7 @@ export default function CompanionApp() {
       const offline = !isFresh(windowsDevice)
       setMessage(offline ? `${packageFile.name} queued. ${windowsDevice.name} will receive it when it comes online.` : `${packageFile.name} sent to ${windowsDevice.name}.`)
       setPackageFile(null)
+      setUploadProgress(null)
       setPackageTarget('')
       setPackageOpen(false)
       setTab('actions')
@@ -349,7 +357,7 @@ export default function CompanionApp() {
     if (projectFilter === 'pc') return onPc
     if (projectFilter === 'cloud') return !onPc
     return true
-  }), [projects, query, projectFilter, windowsDevice, clock])
+  }), [projects, query, projectFilter, windowsDevice])
 
   const hostOnline = useMemo(() => { void clock; return isFresh(windowsDevice) }, [windowsDevice, clock])
   const availableCount = visible.filter((project) => projectIsOnDevice(project, windowsDevice)).length
@@ -459,7 +467,7 @@ export default function CompanionApp() {
           <div><small>LAST ZIP HANDOFF</small><strong>{actionLabel(packageAction)}</strong><span>{packageAction.status === 'succeeded' ? 'Windows import complete.' : packageAction.status === 'failed' ? String(packageAction.result?.error || 'Windows import failed.') : packageAction.status === 'running' ? String(packageAction.result?.stage || 'Windows is processing the package.') : 'Upload complete. Waiting for the Windows host.'}</span></div>
           <b>{(packageAction.status || 'pending').toUpperCase()}</b>
         </section>}
-        <div className="companion-action-list">{visibleActions.length ? visibleActions.slice(0, 50).map((action) => <article key={action.id || `${action.action_type}-${action.created_at}`}>
+        <div className="companion-action-list">{visibleActions.length ? visibleActions.slice(0, 50).map((action) => { const actionProject=projects.find((project)=>project.client_id===action.project_client_id); return <article key={action.id || `${action.action_type}-${action.created_at}`}>
           <div><span className={`companion-action-state ${action.status || 'pending'}`}>{action.status || 'pending'}</span><small>{relativeTime(action.updated_at || action.created_at)}</small></div>
           <strong>{actionLabel(action)}</strong>
           <p>{action.project_client_id ? projects.find((project) => project.client_id === action.project_client_id)?.name || action.project_client_id : 'Workspace action'}</p>
@@ -470,8 +478,10 @@ export default function CompanionApp() {
             {['pending','approved'].includes(action.status || '') && <button type="button" disabled={busy} onClick={() => void cancelAction(action)}>Cancel</button>}
             {action.status === 'failed' && <button type="button" disabled={busy || !hostOnline} onClick={() => void retryAction(action)}>Retry</button>}
             {action.status === 'succeeded' && usableMobileUrl(action.result?.mobileUrl) && <button className="companion-open-result" type="button" onClick={() => setMobilePreview({ name: projects.find((project) => project.client_id === action.project_client_id)?.name || 'Project preview', url: usableMobileUrl(action.result?.mobileUrl)!, revision: Date.now() })}>Open mobile preview</button>}
+            {action.status === 'succeeded' && actionProject && ['project.launch','project.restart'].includes(action.action_type) && <button type="button" disabled={busy || !hostOnline} onClick={() => void requestAction(actionProject, 'project.restart', { destination: action.result?.destination || 'pc' }, `Restart ${actionProject.name} on the Windows host?`)}>Restart</button>}
+            {action.status === 'succeeded' && actionProject && ['project.launch','project.restart'].includes(action.action_type) && <button className="danger" type="button" disabled={busy || !hostOnline} onClick={() => void requestAction(actionProject, 'project.stop', {}, `Stop the project.X-owned process for ${actionProject.name}?`)}>Stop</button>}
           </div>
-        </article>) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>{actionFilter === 'failed' ? 'No failed actions.' : actionFilter === 'active' ? 'No active actions.' : 'No remote actions yet.'}</h2></div>}</div>
+        </article>}) : <div className="companion-empty compact"><span>QUEUE CLEAR</span><h2>{actionFilter === 'failed' ? 'No failed actions.' : actionFilter === 'active' ? 'No active actions.' : 'No remote actions yet.'}</h2></div>}</div>
       </section>}
 
       {tab === 'activity' && <section className="companion-list-page">
@@ -539,6 +549,7 @@ export default function CompanionApp() {
             <div><dt>Windows host</dt><dd>{windowsDevice?.name || 'Not registered'} · {hostOnline ? 'online' : 'will queue offline'}</dd></div>
             <div><dt>Dependencies</dt><dd>{installDeps ? 'Install after import' : 'Do not install'}</dd></div>
           </dl>
+          {busy && uploadProgress && <div className="companion-upload-progress" role="status" aria-live="polite"><div><span>{uploadProgress.stage === 'hashing' ? 'Creating integrity checksum' : uploadProgress.stage === 'verifying' ? 'Upload complete' : `Uploading · attempt ${uploadProgress.attempt}`}</span><b>{uploadProgress.percent}%</b></div><progress max="100" value={uploadProgress.percent}/><small>{uploadProgress.stage === 'uploading' ? `${(uploadProgress.loaded/1024/1024).toFixed(1)} of ${(uploadProgress.total/1024/1024).toFixed(1)} MB` : 'The Windows host will verify this SHA-256 checksum before import.'}</small></div>}
           <div className="companion-package-review-actions"><button type="button" disabled={busy} onClick={() => setPackageStep('setup')}>Back</button><button className="companion-package-send" type="button" disabled={busy || !packageReady} onClick={() => void sendPackage()}>{busy ? 'Uploading securely…' : 'Upload + send to Windows'}</button></div>
         </>}
       </section>
@@ -553,8 +564,8 @@ export default function CompanionApp() {
     </div>}
     {onboardingOpen && <CompanionOnboarding onClose={closeOnboarding}/>} 
     {mobilePreview && <div className="companion-mobile-preview">
-      <header><div><small>LIVE FROM PC</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Reload preview" onClick={() => setMobilePreview((current) => current ? { ...current, revision: Date.now() } : current)}>↻</button><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
-      <iframe key={mobilePreview.revision} src={mobilePreview.url} title={`${mobilePreview.name} mobile preview`} allow="clipboard-read; clipboard-write; fullscreen"/>
+      <header><div><small>VERIFIED LAN PREVIEW</small><strong>{mobilePreview.name}</strong><span>{mobilePreview.url}</span></div><nav><button type="button" aria-label="Close preview" onClick={() => setMobilePreview(null)}>×</button></nav></header>
+      <section className="companion-preview-launch"><div className="preview-orbit" aria-hidden="true"><i/><b>↗</b></div><small>RUNNING FROM YOUR PC</small><h2>Open the live project on this phone.</h2><p>project.X verified that the development server is listening on your PC's local network. The device browser is used so Android does not block the HTTP development stream inside an embedded secure frame.</p><button type="button" onClick={() => void safeOpen(mobilePreview.url)}>Open live preview</button><code>{mobilePreview.url}</code><span>Keep both devices on the same Wi-Fi. If Windows asks, allow Node on Private networks.</span></section>
     </div>}
   </main>
 }

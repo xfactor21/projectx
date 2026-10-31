@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod artwork;
+mod file_browser;
 mod dev_preview;
 mod imports;
 mod local_dev_url;
@@ -43,6 +44,8 @@ pub(crate) struct ProjectSummary {
     pub(crate) name: String,
     pub(crate) path: String,
     pub(crate) package_name: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) description: Option<String>,
     pub(crate) scripts: Vec<String>,
     pub(crate) framework_hints: Vec<String>,
     pub(crate) git: Option<GitSummary>,
@@ -371,6 +374,48 @@ fn git_summary(root: &Path) -> Option<GitSummary> {
     })
 }
 
+fn read_small_manifest(root: &Path, name: &str) -> Option<String> {
+    let path = root.join(name);
+    let metadata = fs::metadata(&path).ok()?;
+    if !metadata.is_file() || metadata.len() > 250_000 { return None; }
+    fs::read_to_string(path).ok()
+}
+
+fn simple_toml_field(text: &str, sections: &[&str], field: &str) -> Option<String> {
+    let mut section = "";
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            section = trimmed;
+            continue;
+        }
+        if !sections.contains(&section) || trimmed.starts_with('#') { continue; }
+        let Some((key, raw)) = trimmed.split_once('=') else { continue; };
+        if key.trim() != field { continue; }
+        let value = raw.trim();
+        let unquoted = if let Some(part) = value.strip_prefix('"') {
+            part.split('"').next().unwrap_or("")
+        } else if let Some(part) = value.strip_prefix('\'') {
+            part.split('\'').next().unwrap_or("")
+        } else { value.split('#').next().unwrap_or("").trim() };
+        if !unquoted.is_empty() && unquoted.len() <= 400 {
+            return Some(unquoted.to_string());
+        }
+    }
+    None
+}
+
+fn simple_yaml_field(text: &str, field: &str) -> Option<String> {
+    for line in text.lines() {
+        if line.starts_with(' ') || line.starts_with('\t') { continue; }
+        let Some((key, raw)) = line.split_once(':') else { continue; };
+        if key.trim() != field { continue; }
+        let value = raw.trim().trim_matches('"').trim_matches('\'');
+        if !value.is_empty() && value.len() <= 400 { return Some(value.into()); }
+    }
+    None
+}
+
 pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
     let name = root
         .file_name()
@@ -378,6 +423,8 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
         .unwrap_or("Local project")
         .to_string();
     let mut package_name = None;
+    let mut version = None;
+    let mut description = None;
     let mut scripts = Vec::new();
     let mut framework_hints = BTreeSet::new();
     let package_path = root.join("package.json");
@@ -389,6 +436,12 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
                 .get("name")
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
+            version = package.get("version").and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty() && value.len() <= 64)
+                .map(ToOwned::to_owned);
+            description = package.get("description").and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| value.chars().take(400).collect());
             if let Some(object) = package.get("scripts").and_then(Value::as_object) {
                 scripts.extend(object.keys().cloned());
                 scripts.sort();
@@ -428,6 +481,28 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
             }
         }
     }
+    // Other ecosystems expose version and description through local manifests.
+    // Read only small files at the already-authorized root; never traverse secrets.
+    if version.is_none() || description.is_none() {
+        for name in ["Cargo.toml", "pyproject.toml"] {
+            let Some(text) = read_small_manifest(root, name) else { continue; };
+            let sections = if name == "Cargo.toml" { &["[package]"][..] } else { &["[project]", "[tool.poetry]"][..] };
+            if version.is_none() { version = simple_toml_field(&text, sections, "version"); }
+            if description.is_none() { description = simple_toml_field(&text, sections, "description"); }
+            if version.is_some() && description.is_some() { break; }
+        }
+        if let Some(text) = read_small_manifest(root, "pubspec.yaml") {
+            if version.is_none() { version = simple_yaml_field(&text, "version"); }
+            if description.is_none() { description = simple_yaml_field(&text, "description"); }
+        }
+        for name in ["composer.json", "deno.json"] {
+            let Some(text) = read_small_manifest(root, name) else { continue; };
+            if let Ok(json) = serde_json::from_str::<Value>(&text) {
+                if version.is_none() { version = json.get("version").and_then(Value::as_str).filter(|v| v.len() <= 64).map(ToOwned::to_owned); }
+                if description.is_none() { description = json.get("description").and_then(Value::as_str).filter(|v| v.len() <= 400).map(ToOwned::to_owned); }
+            }
+        }
+    }
     if root.join("Cargo.toml").exists() {
         framework_hints.insert("Rust".into());
     }
@@ -463,6 +538,8 @@ pub(crate) fn inspect_inner(root: &Path) -> Result<ProjectSummary, String> {
         name,
         path: root.to_string_lossy().into_owned(),
         package_name,
+        version,
+        description,
         scripts,
         framework_hints: framework_hints.into_iter().collect(),
         git: git_summary(root),
@@ -622,6 +699,57 @@ fn git_commit(
         .arg(message);
     command_output(&mut commit)
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GitHistoryEntry {
+    hash: String,
+    date: String,
+    subject: String,
+}
+
+#[tauri::command]
+fn git_history(path: String, state: State<'_, DesktopState>) -> Result<Vec<GitHistoryEntry>, String> {
+    let root = ensure_authorized(&state, &path)?;
+    if git_summary(&root).is_none() { return Ok(Vec::new()); }
+    let mut command = Command::new("git");
+    command.current_dir(root).args(["log", "-n", "50", "--date=short", "--pretty=format:%h%x1f%ad%x1f%s%x1e"]);
+    let result = command_output(&mut command)?;
+    if !result.ok { return Err(result.output); }
+    Ok(result.output.split('\u{1e}').filter_map(|line| {
+        let mut pieces = line.trim().splitn(3, '\u{1f}');
+        Some(GitHistoryEntry {
+            hash: pieces.next()?.to_string(),
+            date: pieces.next()?.to_string(),
+            subject: pieces.next()?.chars().take(300).collect(),
+        })
+    }).collect())
+}
+
+#[tauri::command]
+fn git_fetch(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
+    let root = ensure_authorized(&state, &path)?;
+    if git_summary(&root).is_none() {
+        return Err("This folder is not a Git repository.".into());
+    }
+    let mut command = Command::new("git");
+    command.current_dir(&root).args(["fetch", "--prune"]);
+    command_output(&mut command)
+}
+
+#[tauri::command]
+fn git_pull(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
+    let root = ensure_authorized(&state, &path)?;
+    let Some(summary) = git_summary(&root) else {
+        return Err("This folder is not a Git repository.".into());
+    };
+    if summary.dirty.unwrap_or(false) {
+        return Err("Commit or stash local changes before pulling. project.X will not overwrite your edits.".into());
+    }
+    let mut command = Command::new("git");
+    command.current_dir(&root).args(["pull", "--ff-only"]);
+    command_output(&mut command)
+}
+
 #[tauri::command]
 fn git_push(path: String, state: State<'_, DesktopState>) -> Result<ExecResult, String> {
     let root = ensure_authorized(&state, &path)?;
@@ -667,8 +795,14 @@ fn main() {
             git_status,
             git_commit,
             git_push,
+            git_fetch,
+            git_pull,
+            git_history,
             run_script,
             artwork::discover_project_artwork,
+            file_browser::list_project_files,
+            file_browser::read_project_text,
+            file_browser::open_project_file,
             system_tools::toolchain_preflight,
             remote_packages::download_remote_package,
             remote_packages::remove_remote_package,

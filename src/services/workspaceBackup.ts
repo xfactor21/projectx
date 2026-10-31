@@ -27,6 +27,7 @@ export type WorkspaceBackup = {
     projects: Array<JsonRecord & { id: string; name: string }>
     localSources: Array<JsonRecord & { projectId: string }>
     preferences: BackupPreferences
+    workbooks?: Record<string, {note:string; tasks:unknown[]; events:unknown[]; updatedAt?:string}>
   }
 }
 
@@ -40,6 +41,14 @@ function parseStoredArray(key: string, validator: (value: unknown) => boolean): 
   const invalid = parsed.findIndex((value) => !validator(value))
   if (invalid >= 0) throw new Error(`Stored ${key} record ${invalid + 1} is malformed. Nothing was exported.`)
   return parsed
+}
+
+function validWorkbook(value: unknown): value is {note:string; tasks:unknown[]; events:unknown[]; updatedAt?:string} {
+  if (!isRecord(value) || typeof value.note !== 'string' || value.note.length > 2_000_000) return false
+  if (!Array.isArray(value.tasks) || !Array.isArray(value.events) || value.tasks.length > 2000 || value.events.length > 5000) return false
+  if (value.tasks.some(task=>typeof task==='string'?false:!isRecord(task)||typeof task.text!=='string'||typeof task.done!=='boolean')) return false
+  if (value.events.some(event=>!isRecord(event)||typeof event.text!=='string'||typeof event.at!=='string')) return false
+  return value.updatedAt===undefined||typeof value.updatedAt==='string'
 }
 
 function validateRelationships(
@@ -65,6 +74,15 @@ export function createWorkspaceBackup(): WorkspaceBackup {
   const projects = parseStoredArray(PROJECTS_KEY, isProjectRecord) as WorkspaceBackup['data']['projects']
   const localSources = parseStoredArray(LOCAL_SOURCES_KEY, isLocalSourceRecord) as WorkspaceBackup['data']['localSources']
   validateRelationships(projects, localSources, 'Stored workspace')
+  const workbooks: NonNullable<WorkspaceBackup['data']['workbooks']> = {}
+  for (const project of projects) {
+    const raw = localStorage.getItem('projectx.workbook.'+project.id)
+    if (!raw) continue
+    let value: unknown
+    try { value = JSON.parse(raw) } catch { throw new Error('Workbook for '+project.name+' contains malformed JSON.') }
+    if (!validWorkbook(value)) throw new Error('Workbook for '+project.name+' has invalid records.')
+    workbooks[project.id] = value
+  }
   const owner = (localStorage.getItem(GITHUB_OWNER_KEY) || '').trim()
   const sound = localStorage.getItem(SOUND_KEY)
   if (owner && !isGitHubOwner(owner)) throw new Error('The saved GitHub owner is malformed. Correct it before creating a backup.')
@@ -76,6 +94,7 @@ export function createWorkspaceBackup(): WorkspaceBackup {
     data: {
       projects,
       localSources,
+      workbooks,
       preferences: {
         ...(owner ? { githubOwner: owner } : {}),
         ...(THEMES.has(localStorage.getItem(VIEW_KEY) || '') ? { view: localStorage.getItem(VIEW_KEY)! } : {}),
@@ -104,6 +123,10 @@ export function parseWorkspaceBackup(text: string): WorkspaceBackup {
   if (!Array.isArray(localSources) || !localSources.every(isLocalSourceRecord)) throw new Error('Backup local-source records are malformed.')
   if (!isRecord(preferences)) throw new Error('Backup preferences are malformed.')
   validateRelationships(projects, localSources, 'Backup')
+  const workbooks=parsed.data.workbooks
+  if (workbooks!==undefined && (!isRecord(workbooks) || Object.keys(workbooks).some(id=>!projects.some(project=>project.id===id)||!validWorkbook(workbooks[id])))) {
+    throw new Error('Backup Workbook records are malformed or reference an unknown project.')
+  }
   if (preferences.githubOwner !== undefined && (typeof preferences.githubOwner !== 'string' || !isGitHubOwner(preferences.githubOwner))) throw new Error('Backup GitHub owner is malformed.')
   if (preferences.view !== undefined && (typeof preferences.view !== 'string' || !THEMES.has(preferences.view))) throw new Error('Backup view preference is unsupported.')
   if (preferences.sound !== undefined && typeof preferences.sound !== 'boolean') throw new Error('Backup sound preference is malformed.')
@@ -119,6 +142,17 @@ export function restoreWorkspaceBackup(backup: WorkspaceBackup): void {
     [VIEW_KEY, backup.data.preferences.view || null],
     [SOUND_KEY, backup.data.preferences.sound === undefined ? null : backup.data.preferences.sound ? 'on' : 'off'],
   ])
+  // An older schema-v1 backup may omit Workbooks. In that case preserve existing notes
+  // for matching project IDs rather than unexpectedly deleting user work.
+  if (backup.data.workbooks) {
+    const ids = new Set(backup.data.projects.map(project=>project.id))
+    for (const key of Object.keys(localStorage).filter(key=>key.startsWith('projectx.workbook.'))) {
+      if (!ids.has(key.slice('projectx.workbook.'.length))) values.set(key,null)
+    }
+    for (const [id, workbook] of Object.entries(backup.data.workbooks)) {
+      values.set('projectx.workbook.'+id, JSON.stringify(workbook))
+    }
+  }
   values.forEach((_, key) => previous.set(key, localStorage.getItem(key)))
   try {
     values.forEach((value, key) => value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value))

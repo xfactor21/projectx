@@ -6,7 +6,7 @@ import { getFreshSession, loadSession, upsertCloudProjects } from './services/su
 import { projectInventorySignature, reconcileCloudProjectInventory, syncLocalProjects } from './services/projectCloudSync'
 import type { RemoteAction } from './services/companion'
 import type { DesktopProjectSummary } from './services/desktop'
-import { recordRunTask } from './services/runTasks'
+import { persistRunTasks, readRunTasks, recordRunTask } from './services/runTasks'
 
 const DEVICE_KEY = 'projectx.desktop.device.v1'
 const LOCAL_KEY = 'projectx.local.sources.v1'
@@ -126,7 +126,8 @@ async function execute(action: RemoteAction) {
       if (action.action_type === 'package.update_project' && !source?.path) throw new Error('The target project is not linked to an authorized folder on this Windows device.')
       await updateRemoteAction(action.id, 'running', { stage: 'Preparing secure package download.' })
       const signedUrl = await createCompanionZipSignedUrl(storagePath, 600)
-      const localZip = await desktop.downloadRemotePackage(signedUrl, fileName)
+      const expectedSha256 = String(action.payload?.sha256 || '')
+      const localZip = await desktop.downloadRemotePackage(signedUrl, fileName, expectedSha256)
       try {
         if (action.action_type === 'package.create_project') {
           await updateRemoteAction(action.id, 'running', { stage: action.payload?.installDeps === false ? 'Validating and importing project files.' : 'Importing project and installing detected dependencies.' })
@@ -175,6 +176,33 @@ async function execute(action: RemoteAction) {
           if (destination === 'pc') await desktop.openPreviewWindow(action.project_client_id!, String(project?.name || 'Project'), run.url, run.pid)
           if (destination === 'mobile' && !run.lanUrl) throw new Error('The Windows host could not determine a LAN preview address. Check that the PC has an active private network connection.')
           result = { pid: run.pid, url: run.url, mobileUrl: run.lanUrl || null, destination, script }
+          break
+        }
+        case 'project.stop': {
+          const task = readRunTasks().find((item) => item.projectId === action.project_client_id)
+          if (!task) throw new Error('No project.X-owned process is running for this project on the Windows host.')
+          const stopped = await desktop.stopDevProject(task.pid)
+          requireSuccessfulResult(stopped)
+          persistRunTasks(readRunTasks().filter((item) => item.projectId !== action.project_client_id))
+          result = { output: stopped.output || 'Project stopped.', stoppedPid: task.pid }
+          break
+        }
+        case 'project.restart': {
+          const current = readRunTasks().find((item) => item.projectId === action.project_client_id)
+          if (current) {
+            const stopped = await desktop.stopDevProject(current.pid)
+            requireSuccessfulResult(stopped)
+            persistRunTasks(readRunTasks().filter((item) => item.projectId !== action.project_client_id))
+          }
+          const script = preferredRunScript(source.scripts)
+          if (!script) throw new Error('This project has no supported dev, web, start or serve script.')
+          const destination = String(action.payload?.destination || 'pc')
+          const run = await desktop.runDevProject(source.path, script, destination === 'mobile')
+          requireSuccessfulResult(run)
+          if (!run.pid || !run.url) throw new Error('The project restarted without a usable preview URL.')
+          const project = readArray<StoredProject>(PROJECTS_KEY).find((item) => item.id === action.project_client_id)
+          recordRunTask({ projectId: action.project_client_id!, projectName: String(project?.name || 'Project'), path: source.path, result: run })
+          result = { pid: run.pid, url: run.url, mobileUrl: run.lanUrl || null, destination, script, restarted: true }
           break
         }
         default: throw new Error(`Unsupported remote action: ${action.action_type}`)
@@ -229,7 +257,7 @@ export default function CompanionDesktopWorker() {
           platform: 'windows',
           app_version: hostVersion,
           capabilities: [
-            'project.open', 'project.launch', 'git.status', 'git.commit', 'git.push', 'script.run', 'package.create', 'package.update',
+            'project.open', 'project.launch', 'project.stop', 'project.restart', 'git.status', 'git.commit', 'git.push', 'script.run', 'package.create', 'package.update',
             ...sources.slice(0, 200).map((source) => `project:${source.projectId}`),
           ],
         })
@@ -242,9 +270,15 @@ export default function CompanionDesktopWorker() {
         const companionLastSeenAt = companion?.last_seen_at || null
         const companionConnected = Boolean(companionLastSeenAt && Date.now() - new Date(companionLastSeenAt).getTime() < COMPANION_FRESH_MS)
 
+        const authorizedDeviceIds = new Set(devices.map((device) => device.device_id))
         const actions = await claimPendingActions(id)
         for (const action of actions) {
-          if (action.status === 'approved') await execute(action)
+          if (action.status !== 'approved') continue
+          if (!action.requested_by_device_id || !authorizedDeviceIds.has(action.requested_by_device_id)) {
+            if (action.id) await updateRemoteAction(action.id, 'failed', { error: 'The requesting device is not registered to this project.X account.' })
+            continue
+          }
+          await execute(action)
         }
 
         publishHostStatus(
